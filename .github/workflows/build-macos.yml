@@ -1,0 +1,33 @@
+name: Build macOS app
+
+on:
+  push:
+    branches:
+      - koti-batching
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Dayflow
+        run: >-
+          xcodebuild
+          -project Dayflow/Dayflow.xcodeproj
+          -scheme Dayflow
+          -configuration Release
+          -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO
+          build
+      - name: Package app
+        run: ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dayflow-macos-${{ github.sha }}
+          path: Dayflow-macos.zip
+          if-no-files-found: error
+          retention-days: 14
