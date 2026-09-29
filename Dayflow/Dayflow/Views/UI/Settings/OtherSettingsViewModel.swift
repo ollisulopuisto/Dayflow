@@ -44,6 +44,9 @@ final class OtherSettingsViewModel: ObservableObject {
   @Published var isExportingTimelineRange = false
   @Published var exportStatusMessage: String?
   @Published var exportErrorMessage: String?
+  @Published var isExportingBatchImages = false
+  @Published var batchImageExportMessage: String?
+  @Published var batchImageExportError: String?
   @Published var reprocessDayDate: Date
   @Published var isReprocessingDay = false
   @Published var reprocessStatusMessage: String?
@@ -137,6 +140,46 @@ final class OtherSettingsViewModel: ObservableObject {
           dayCount: dayCount,
           activityCount: totalActivities
         )
+      }
+    }
+  }
+
+  func exportBatchImages() {
+    guard !isExportingBatchImages else { return }
+    let start = timelineDisplayDate(from: exportStartDate)
+    let end = timelineDisplayDate(from: exportEndDate)
+    guard start <= end else {
+      batchImageExportError = String(localized: "Start date must be on or before end date.")
+      batchImageExportMessage = nil
+      return
+    }
+
+    let panel = NSOpenPanel()
+    panel.title = String(localized: "Choose folder for batch images")
+    panel.prompt = String(localized: "Export")
+    panel.canChooseDirectories = true
+    panel.canChooseFiles = false
+    panel.canCreateDirectories = true
+    panel.allowsMultipleSelection = false
+    guard panel.runModal() == .OK, let destination = panel.url else { return }
+
+    isExportingBatchImages = true
+    batchImageExportMessage = nil
+    batchImageExportError = nil
+    Task.detached(priority: .userInitiated) { [weak self] in
+      do {
+        let result = try BatchImageExporter.export(start: start, end: end, to: destination)
+        await MainActor.run {
+          self?.batchImageExportMessage = String(
+            localized: "Exported \(result.images) images from \(result.batches) batches to \(destination.lastPathComponent)."
+          )
+          self?.isExportingBatchImages = false
+        }
+      } catch {
+        await MainActor.run {
+          self?.batchImageExportError = error.localizedDescription
+          self?.isExportingBatchImages = false
+        }
       }
     }
   }
