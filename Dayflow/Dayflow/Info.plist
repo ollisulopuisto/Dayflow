@@ -23,6 +23,13 @@
 	<string>$(DAYFLOW_BACKEND_URL)</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Dayflow uses Automation to focus or reopen your agent sessions in the terminal.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Dayflow sends screenshot batches to your Mac Studio for scheduled local analysis.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Dayflow listens while you talk to Flow about your plan. Audio is only used for that conversation.</string>
 	<key>NSScreenCaptureUsageDescription</key>
