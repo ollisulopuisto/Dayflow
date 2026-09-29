@@ -2,11 +2,17 @@ import SwiftUI
 
 struct SettingsStorageTabView: View {
   @ObservedObject var viewModel: StorageSettingsViewModel
+  @AppStorage("studioBatchQueueURL") private var studioQueueURL = ""
+  @AppStorage("studioBatchQueueToken") private var studioQueueToken = ""
+  @AppStorage("studioBatchWindowStart") private var batchWindowStart = "07:00"
+  @AppStorage("studioBatchWindowEnd") private var batchWindowEnd = "01:00"
+  @AppStorage("studioBatchDurationMinutes") private var batchDurationMinutes = 15
 
   var body: some View {
     VStack(alignment: .leading, spacing: SettingsStyle.sectionSpacing) {
       recordingStatusSection
       recordingQualitySection
+      studioBatchQueueSection
       diskUsageSection
     }
     .alert(isPresented: $viewModel.showLimitConfirmation) {
@@ -31,6 +37,55 @@ struct SettingsStorageTabView: View {
           viewModel.showLimitConfirmation = false
         }
       )
+    }
+  }
+
+  private var studioBatchQueueSection: some View {
+    SettingsSection(
+      title: String(localized: "Studio batch processing"),
+      subtitle: String(localized: "Send completed screenshot batches to your always-on Mac Studio for scheduled analysis.")
+    ) {
+      VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 6) {
+          Text(String(localized: "Studio queue URL"))
+            .font(.custom("Figtree", size: 13)).fontWeight(.semibold)
+          TextField("http://mac-studio:8765", text: $studioQueueURL)
+            .textFieldStyle(.roundedBorder)
+        }
+        VStack(alignment: .leading, spacing: 6) {
+          Text(String(localized: "Shared token"))
+            .font(.custom("Figtree", size: 13)).fontWeight(.semibold)
+          SecureField(String(localized: "Required; use the same secret configured on the Studio"), text: $studioQueueToken)
+            .textFieldStyle(.roundedBorder)
+        }
+        HStack(spacing: 16) {
+          scheduleField(String(localized: "Start"), value: $batchWindowStart)
+          scheduleField(String(localized: "Stop"), value: $batchWindowEnd)
+          SettingsMetadata(text: String(localized: "Helsinki time"))
+        }
+        HStack {
+          Text(String(localized: "Batch duration"))
+            .font(.custom("Figtree", size: 13)).fontWeight(.semibold)
+          Spacer()
+          settingsMenu(
+            selected: String(localized: "\(batchDurationMinutes) minutes"),
+            options: [5, 10, 15, 30, 45, 60].map { ($0, String(localized: "\($0) minutes")) },
+            onSelect: { batchDurationMinutes = $0 }
+          )
+        }
+        SettingsMetadata(
+          text: String(localized: "Leave the URL empty to analyze on this Mac. When set, batches upload to the Studio and completed cards import when Dayflow is awake.")
+        )
+      }
+    }
+  }
+
+  private func scheduleField(_ title: String, value: Binding<String>) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(title).font(.custom("Figtree", size: 13)).fontWeight(.semibold)
+      TextField("HH:mm", text: value)
+        .textFieldStyle(.roundedBorder)
+        .frame(width: 78)
     }
   }
 
