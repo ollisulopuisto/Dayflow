@@ -25,21 +25,37 @@ FAILED = ROOT / "failed"
 TOKEN = os.environ.get("DAYFLOW_QUEUE_TOKEN", "")
 HOST = os.environ.get("DAYFLOW_QUEUE_HOST", "0.0.0.0")
 PORT = int(os.environ.get("DAYFLOW_QUEUE_PORT", "8765"))
-GPU_URL = os.environ.get("DAYFLOW_GPU_URL", "http://127.0.0.1:8103/v1").rstrip("/")
+GPU_URL = os.environ.get("DAYFLOW_GPU_URL", "http://127.0.0.1:8104/v1").rstrip("/")
+GPU_BASE = GPU_URL[:-3] if GPU_URL.endswith("/v1") else GPU_URL
+# Default on: gpu-queue's job lane decides when a batch runs (its heavy window, priorities).
+# Set DAYFLOW_USE_JOBS=0 to roll back to the synchronous path, which waits for its own window.
+USE_JOBS = os.environ.get("DAYFLOW_USE_JOBS", "1") == "1"
+POLL_SECONDS = float(os.environ.get("DAYFLOW_POLL_SECONDS", "60"))
 MODEL = os.environ.get("DAYFLOW_MODEL", "gemma4-vision")
 TIMEZONE = os.environ.get("DAYFLOW_TIMEZONE", "Europe/Helsinki")
 WINDOW_START = os.environ.get("DAYFLOW_WINDOW_START", "07:00")
 WINDOW_END = os.environ.get("DAYFLOW_WINDOW_END", "01:00")
 MAX_TOKENS = int(os.environ.get("DAYFLOW_MAX_TOKENS", "4096"))
 WORKER_LOCK = threading.Lock()
+POLLED_AT: dict[str, float] = {}
 
 for folder in (PENDING, RUNNING, COMPLETE, FAILED):
     folder.mkdir(parents=True, exist_ok=True)
 
-# Jobs left in running after a crash are safe to retry. The GPU call may be repeated,
-# but the stable job ID prevents duplicate queue entries or duplicate imports.
-for job_file in RUNNING.glob("*.json"):
-    job_file.replace(PENDING / job_file.name)
+def requeue_unfinished() -> None:
+    # Jobs left in running after a crash go back to pending, except those already submitted
+    # to gpu-queue: those resume polling their gpu job id instead of being submitted twice.
+    for job_file in RUNNING.glob("*.json"):
+        try:
+            job = json.loads(job_file.read_text())
+        except ValueError:
+            job = {}
+        if USE_JOBS and job.get("gpu_job_id"):
+            continue
+        job_file.replace(PENDING / job_file.name)
+
+
+requeue_unfinished()
 
 
 def authorized(handler: BaseHTTPRequestHandler) -> bool:
@@ -62,7 +78,7 @@ def in_window(zone_name: str = TIMEZONE, start_text: str = WINDOW_START,
     return minute >= start or minute < end
 
 
-def analyze(job: dict) -> list[dict]:
+def build_request(job: dict) -> dict:
     local_zone = ZoneInfo(job.get("timezone") or TIMEZONE)
     screenshots = sorted(job["screenshots"], key=lambda shot: shot["captured_at"])
     content: list[dict] = [{
@@ -91,20 +107,28 @@ def analyze(job: dict) -> list[dict]:
         content.append({"type": "image_url", "image_url": {
             "url": "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("ascii")
         }})
-    payload = json.dumps({
+    return {
         "model": MODEL,
         "messages": [{"role": "user", "content": content}],
         "temperature": 0.2,
         "max_tokens": MAX_TOKENS,
         "chat_template_kwargs": {"enable_thinking": False},
         "response_format": {"type": "json_object"},
-    }).encode()
+    }
+
+
+def analyze(job: dict) -> list[dict]:
+    # Synchronous path (DAYFLOW_USE_JOBS=0): one blocking call to gpu-queue's chat endpoint.
     request = urllib.request.Request(
-        f"{GPU_URL}/chat/completions", data=payload,
+        f"{GPU_URL}/chat/completions", data=json.dumps(build_request(job)).encode(),
         headers={"Content-Type": "application/json"}, method="POST",
     )
     with urllib.request.urlopen(request, timeout=1800) as response:
         answer = json.load(response)["choices"][0]["message"]["content"]
+    return parse_cards(answer, job)
+
+
+def parse_cards(answer: str, job: dict) -> list[dict]:
     parsed = json.loads(answer)
     cards = parsed.get("cards") if isinstance(parsed, dict) else None
     if not isinstance(cards, list):
@@ -130,50 +154,161 @@ def may_process(upload_schedule: dict, now: Optional[datetime] = None) -> bool:
     return in_window(TIMEZONE, WINDOW_START, WINDOW_END, now)
 
 
+def write_json(path: Path, value: dict) -> None:
+    temp = path.with_suffix(".tmp")
+    temp.write_text(json.dumps(value, separators=(",", ":")))
+    temp.replace(path)
+
+
+def gpu_call(method: str, path: str, body: Optional[dict] = None) -> Optional[dict]:
+    # Returns None when gpu-queue says its lane is full (429); other HTTP errors are raised.
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(f"{GPU_BASE}{path}", data=data,
+                                     headers={"Content-Type": "application/json"}, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        if error.code == 429:
+            return None
+        raise
+
+
+def job_answer(status: dict) -> str:
+    # gpu-queue returns the model's raw response text: a chat completion, or the bare answer.
+    text = status["response"]
+    body = json.loads(text)
+    if isinstance(body, dict) and "choices" in body:
+        return body["choices"][0]["message"]["content"]
+    return text
+
+
+def retry_or_fail(active: Path, job: dict, error: str) -> None:
+    # A new gpu-queue job is submitted on retry, so the stale gpu job id is dropped.
+    job.pop("gpu_job_id", None)
+    job["error"] = error
+    job["attempts"] = int(job.get("attempts", 0)) + 1
+    write_json((PENDING if job["attempts"] < 5 else FAILED) / active.name, job)
+    active.unlink(missing_ok=True)
+
+
+def fail_job(path: Path, job: dict, error: str) -> None:
+    job["error"] = error
+    write_json(FAILED / path.name, job)
+    path.unlink(missing_ok=True)
+
+
+def submit_pending() -> None:
+    for source in sorted(PENDING.glob("*.json"), key=lambda path: path.stat().st_mtime):
+        try:
+            job = json.loads(source.read_text())
+        except (OSError, ValueError):
+            continue
+        if not job.get("gpu_job_id"):
+            try:
+                reply = gpu_call("POST", "/queue/jobs", {"path": "/v1/chat/completions", "request": build_request(job)})
+            except urllib.error.HTTPError as error:
+                if error.code in (400, 413):
+                    fail_job(source, job, f"gpu-queue rejected the job: HTTP {error.code}")
+                    continue
+                return
+            except OSError as error:
+                print(f"gpu-queue unreachable, will retry: {error}", flush=True)
+                return
+            if reply is None:
+                return  # lane full: try again on the next tick
+            # Store the gpu job id before moving the file, so a crash cannot submit it twice.
+            job["gpu_job_id"] = reply["id"]
+            write_json(source, job)
+        source.replace(RUNNING / source.name)
+
+
+def poll_running() -> None:
+    for active in sorted(RUNNING.glob("*.json")):
+        try:
+            job = json.loads(active.read_text())
+        except (OSError, ValueError):
+            continue
+        gpu_id = job.get("gpu_job_id")
+        if not gpu_id:
+            continue
+        if time.monotonic() - POLLED_AT.get(gpu_id, 0.0) < POLL_SECONDS:
+            continue
+        POLLED_AT[gpu_id] = time.monotonic()
+        try:
+            status = gpu_call("GET", f"/queue/jobs/{gpu_id}")
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                retry_or_fail(active, job, "gpu-queue no longer knows this job")
+            continue
+        except OSError:
+            continue  # unreachable: poll again next time
+        if status is None:
+            continue
+        state = status.get("status")
+        if state == "done":
+            try:
+                cards = parse_cards(job_answer(status), job)
+            except Exception as error:
+                retry_or_fail(active, job, str(error))
+                continue
+            result = {
+                "job_id": job["job_id"], "device_id": job["device_id"],
+                "batch_id": job["batch_id"], "cards": cards,
+                "completed_at": datetime.now().astimezone().isoformat(),
+            }
+            write_json(COMPLETE / active.name, result)
+            active.unlink(missing_ok=True)
+            print(f"Completed {job['job_id']}", flush=True)
+        elif state == "failed":
+            fail_job(active, job, status.get("error") or f"gpu-queue job failed (HTTP {status.get('http_status')})")
+            print(f"Failed {job['job_id']}: {job['error']}", flush=True)
+
+
+def sync_tick() -> None:
+    jobs = sorted(PENDING.glob("*.json"), key=lambda path: path.stat().st_mtime)
+    if not jobs:
+        return
+    source = jobs[0]
+    active = RUNNING / source.name
+    try:
+        source.replace(active)
+        job = json.loads(active.read_text())
+        result = {
+            "job_id": job["job_id"], "device_id": job["device_id"],
+            "batch_id": job["batch_id"], "cards": analyze(job),
+            "completed_at": datetime.now().astimezone().isoformat(),
+        }
+        write_json(COMPLETE / source.name, result)
+        active.unlink(missing_ok=True)
+        print(f"Completed {job['job_id']}", flush=True)
+    except Exception as error:
+        try:
+            retry_or_fail(active, json.loads(active.read_text()), str(error))
+        except Exception:
+            print(f"Could not recover job {active.name}: {error}", flush=True)
+        print(f"Processing failed: {error}", flush=True)
+
+
+def tick(now: Optional[datetime] = None) -> None:
+    if not USE_JOBS:
+        if may_process({}, now):
+            sync_tick()
+        return
+    # Job lane: gpu-queue decides when a batch runs, so this side never checks a window.
+    poll_running()
+    submit_pending()
+
+
 def worker() -> None:
     while True:
         time.sleep(20)
         if not WORKER_LOCK.acquire(blocking=False):
             continue
         try:
-            jobs = sorted(PENDING.glob("*.json"), key=lambda path: path.stat().st_mtime)
-            if not jobs:
-                continue
-            source = jobs[0]
-            try:
-                schedule = json.loads(source.read_text())
-            except ValueError:
-                schedule = {}
-            if not may_process(schedule):
-                continue
-            active = RUNNING / source.name
-            try:
-                source.replace(active)
-                job = json.loads(active.read_text())
-                result = {
-                    "job_id": job["job_id"], "device_id": job["device_id"],
-                    "batch_id": job["batch_id"], "cards": analyze(job),
-                    "completed_at": datetime.now().astimezone().isoformat(),
-                }
-                temp = COMPLETE / (source.stem + ".tmp")
-                temp.write_text(json.dumps(result, separators=(",", ":")))
-                temp.replace(COMPLETE / source.name)
-                active.unlink(missing_ok=True)
-                print(f"Completed {job['job_id']}", flush=True)
-            except Exception as error:
-                try:
-                    job = json.loads(active.read_text())
-                    job["error"] = str(error)
-                    job["attempts"] = int(job.get("attempts", 0)) + 1
-                    if job["attempts"] < 5:
-                        retry = PENDING / active.name
-                        retry.write_text(json.dumps(job, separators=(",", ":")))
-                    else:
-                        (FAILED / active.name).write_text(json.dumps(job, separators=(",", ":")))
-                    active.unlink(missing_ok=True)
-                except Exception:
-                    print(f"Could not recover job {active.name}: {error}", flush=True)
-                print(f"Processing failed: {error}", flush=True)
+            tick()
+        except Exception as error:
+            print(f"Worker error: {error}", flush=True)
         finally:
             WORKER_LOCK.release()
 
