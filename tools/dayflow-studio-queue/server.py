@@ -123,6 +123,13 @@ def analyze(job: dict) -> list[dict]:
     return cards
 
 
+def may_process(upload_schedule: dict, now: Optional[datetime] = None) -> bool:
+    # The server's own environment decides when work runs. The schedule a laptop sends with
+    # a job is ignored, so a client can never open a window that gpu-queue refuses.
+    del upload_schedule
+    return in_window(TIMEZONE, WINDOW_START, WINDOW_END, now)
+
+
 def worker() -> None:
     while True:
         time.sleep(20)
@@ -135,14 +142,10 @@ def worker() -> None:
             source = jobs[0]
             try:
                 schedule = json.loads(source.read_text())
-                if not in_window(schedule.get("schedule_timezone", TIMEZONE),
-                                 schedule.get("window_start", WINDOW_START),
-                                 schedule.get("window_end", WINDOW_END)):
-                    continue
-            except (ValueError, KeyError):
-                print(f"Invalid schedule in {source.name}; using configured defaults", flush=True)
-                if not in_window():
-                    continue
+            except ValueError:
+                schedule = {}
+            if not may_process(schedule):
+                continue
             active = RUNNING / source.name
             try:
                 source.replace(active)
