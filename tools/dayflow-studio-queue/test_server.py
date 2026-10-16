@@ -215,6 +215,24 @@ class JobLaneTests(unittest.TestCase):
         self.assertTrue((self.server.RUNNING / "job-1.json").exists())
 
 
+class AuthTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = load_server()
+        self.server.TOKEN = "s3cret-token"
+
+    def test_exact_bearer_token_is_accepted(self) -> None:
+        self.assertTrue(self.server.token_matches("Bearer s3cret-token"))
+
+    def test_trailing_newline_from_a_copied_token_is_tolerated(self) -> None:
+        self.assertTrue(self.server.token_matches("Bearer s3cret-token\n"))
+        self.assertTrue(self.server.token_matches("Bearer  s3cret-token "))
+
+    def test_wrong_or_missing_token_is_rejected(self) -> None:
+        self.assertFalse(self.server.token_matches("Bearer wrong"))
+        self.assertFalse(self.server.token_matches("s3cret-token"))
+        self.assertFalse(self.server.token_matches(None))
+
+
 class SyncFallbackTests(unittest.TestCase):
     def test_flag_off_never_touches_the_job_lane(self) -> None:
         gpu = FakeGpuQueue()

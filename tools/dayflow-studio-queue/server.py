@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import base64
+import hmac
 import json
 import os
 import re
@@ -58,10 +59,19 @@ def requeue_unfinished() -> None:
 requeue_unfinished()
 
 
+def token_matches(header: Optional[str]) -> bool:
+    # Surrounding whitespace is stripped from the presented token: a token copied with a
+    # trailing newline must not lock the app out. The comparison itself is constant-time.
+    if header is None or not header.startswith("Bearer "):
+        return False
+    presented = header[len("Bearer "):].strip()
+    return hmac.compare_digest(presented.encode(), TOKEN.encode())
+
+
 def authorized(handler: BaseHTTPRequestHandler) -> bool:
     if not TOKEN:
         return True
-    return handler.headers.get("Authorization") == f"Bearer {TOKEN}"
+    return token_matches(handler.headers.get("Authorization"))
 
 
 def in_window(zone_name: str = TIMEZONE, start_text: str = WINDOW_START,
