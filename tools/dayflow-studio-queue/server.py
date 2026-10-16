@@ -39,6 +39,7 @@ WINDOW_END = os.environ.get("DAYFLOW_WINDOW_END", "01:00")
 MAX_TOKENS = int(os.environ.get("DAYFLOW_MAX_TOKENS", "4096"))
 WORKER_LOCK = threading.Lock()
 POLLED_AT: dict[str, float] = {}
+PARSE_ATTEMPTS = 2
 
 for folder in (PENDING, RUNNING, COMPLETE, FAILED):
     folder.mkdir(parents=True, exist_ok=True)
@@ -138,6 +139,26 @@ def analyze(job: dict) -> list[dict]:
     return parse_cards(answer, job)
 
 
+def normalize_clock(value: str) -> Optional[str]:
+    # The model writes h:mm, h:mm:ss, 24-hour or dotted times. Dayflow stores h:mm AM/PM.
+    match = re.fullmatch(r"\s*(\d{1,2})[:.](\d{2})(?::\d{2})?\s*([AaPp])?\s*[Mm]?\s*", value)
+    if not match:
+        return None
+    hour, minute = int(match.group(1)), int(match.group(2))
+    suffix = match.group(3)
+    if minute > 59:
+        return None
+    if suffix:
+        if not 1 <= hour <= 12:
+            return None
+        hour24 = hour % 12 + (12 if suffix.lower() == "p" else 0)
+    else:
+        if hour > 23:
+            return None
+        hour24 = hour
+    return f"{hour24 % 12 or 12}:{minute:02d} {'AM' if hour24 < 12 else 'PM'}"
+
+
 def parse_cards(answer: str, job: dict) -> list[dict]:
     parsed = json.loads(answer)
     cards = parsed.get("cards") if isinstance(parsed, dict) else None
@@ -146,6 +167,12 @@ def parse_cards(answer: str, job: dict) -> list[dict]:
     required = ("start_time", "end_time", "category", "subcategory", "title", "summary", "detailed_summary")
     if any(not isinstance(card, dict) or any(not isinstance(card.get(k), str) for k in required) for card in cards):
         raise ValueError("Model returned a card with missing or invalid fields")
+    for card in cards:
+        for key in ("start_time", "end_time"):
+            normalised = normalize_clock(card[key])
+            if normalised is None:
+                raise ValueError("Model returned a timestamp outside h:mm AM/PM format")
+            card[key] = normalised
     allowed_categories = {category.get("name") for category in job.get("categories", [])}
     for card in cards:
         for key in ("start_time", "end_time"):
@@ -193,12 +220,12 @@ def job_answer(status: dict) -> str:
     return text
 
 
-def retry_or_fail(active: Path, job: dict, error: str) -> None:
+def retry_or_fail(active: Path, job: dict, error: str, max_attempts: int = 5) -> None:
     # A new gpu-queue job is submitted on retry, so the stale gpu job id is dropped.
     job.pop("gpu_job_id", None)
     job["error"] = error
     job["attempts"] = int(job.get("attempts", 0)) + 1
-    write_json((PENDING if job["attempts"] < 5 else FAILED) / active.name, job)
+    write_json((PENDING if job["attempts"] < max_attempts else FAILED) / active.name, job)
     active.unlink(missing_ok=True)
 
 
@@ -260,7 +287,8 @@ def poll_running() -> None:
             try:
                 cards = parse_cards(job_answer(status), job)
             except Exception as error:
-                retry_or_fail(active, job, str(error))
+                # A wrong answer format usually comes back the same way, so one retry is enough.
+                retry_or_fail(active, job, str(error), max_attempts=PARSE_ATTEMPTS)
                 continue
             result = {
                 "job_id": job["job_id"], "device_id": job["device_id"],

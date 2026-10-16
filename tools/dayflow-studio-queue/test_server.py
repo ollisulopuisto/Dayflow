@@ -183,6 +183,17 @@ class JobLaneTests(unittest.TestCase):
         self.assertEqual(retried["gpu_job_id"], "gpu-2")
         self.assertFalse((self.server.COMPLETE / "job-1.json").exists())
 
+    def test_format_error_gets_one_retry_then_fails(self) -> None:
+        write_pending(self.server, make_job())
+        self.server.tick()
+        self.gpu.finish("gpu-1", "done", response=chat_response('{"cards": []}') .replace("[]", "[{\"start_time\": \"soon\", \"end_time\": \"1:00 AM\", \"category\": \"Work\", \"subcategory\": \"x\", \"title\": \"t\", \"summary\": \"s\", \"detailed_summary\": \"d\"}]"))
+        self.server.tick()  # first bad answer: one retry as a new gpu job
+        self.assertEqual(len(self.gpu.submitted), 2)
+        self.gpu.finish("gpu-2", "done", response=chat_response('{"cards": []}') .replace("[]", "[{\"start_time\": \"soon\", \"end_time\": \"1:00 AM\", \"category\": \"Work\", \"subcategory\": \"x\", \"title\": \"t\", \"summary\": \"s\", \"detailed_summary\": \"d\"}]"))
+        self.server.tick()  # second bad answer: the batch stops here
+        self.assertTrue((self.server.FAILED / "job-1.json").exists())
+        self.assertEqual(len(self.gpu.submitted), 2)
+
     def test_full_gpu_queue_is_retried_later(self) -> None:
         write_pending(self.server, make_job())
         self.gpu.reject_with = 429
@@ -213,6 +224,29 @@ class JobLaneTests(unittest.TestCase):
         self.server.tick()
         self.assertEqual(self.gpu.submitted, [])
         self.assertTrue((self.server.RUNNING / "job-1.json").exists())
+
+
+class ClockNormalisationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = load_server()
+
+    def test_seconds_and_whitespace_are_dropped(self) -> None:
+        self.assertEqual(self.server.normalize_clock("1:23:29 AM"), "1:23 AM")
+        self.assertEqual(self.server.normalize_clock(" 2:58:01 PM "), "2:58 PM")
+        self.assertEqual(self.server.normalize_clock("1:02 pm"), "1:02 PM")
+
+    def test_24_hour_times_are_converted(self) -> None:
+        self.assertEqual(self.server.normalize_clock("23:05"), "11:05 PM")
+        self.assertEqual(self.server.normalize_clock("00:10"), "12:10 AM")
+        self.assertEqual(self.server.normalize_clock("12:00:08 AM"), "12:00 AM")
+
+    def test_dot_separator_is_accepted(self) -> None:
+        self.assertEqual(self.server.normalize_clock("11.55"), "11:55 AM")
+
+    def test_garbage_is_rejected(self) -> None:
+        self.assertIsNone(self.server.normalize_clock("soon"))
+        self.assertIsNone(self.server.normalize_clock("25:00"))
+        self.assertIsNone(self.server.normalize_clock("13:00 PM"))
 
 
 class AuthTests(unittest.TestCase):
