@@ -49,7 +49,7 @@ struct SettingsStorageTabView: View {
         VStack(alignment: .leading, spacing: 6) {
           Text(String(localized: "Studio queue URL"))
             .font(.custom("Figtree", size: 13)).fontWeight(.semibold)
-          TextField("http://mac-studio:8765", text: $studioQueueURL)
+          TextField("http://mac-studio:18765", text: $studioQueueURL)
             .textFieldStyle(.roundedBorder)
         }
         VStack(alignment: .leading, spacing: 6) {
