@@ -70,6 +70,7 @@ extension StorageManager {
 
     // Get the batch's actual start timestamp to use as the base date
     guard let batchStartTs = getBatchStartTimestamp(batchId: batchId) else {
+      print("Timeline card save: no analysis batch \(batchId)")
       return nil
     }
     let baseDate = Date(timeIntervalSince1970: TimeInterval(batchStartTs))
@@ -81,6 +82,7 @@ extension StorageManager {
     guard let startTime = timeFormatter.date(from: card.startTimestamp),
       let endTime = timeFormatter.date(from: card.endTimestamp)
     else {
+      print("Timeline card save: unparsable times '\(card.startTimestamp)' - '\(card.endTimestamp)'")
       return nil
     }
 
@@ -138,7 +140,8 @@ extension StorageManager {
 
     let endTs = Int(endDate.timeIntervalSince1970)
 
-    try? timedWrite("saveTimelineCardShell") {
+    do {
+      try timedWrite("saveTimelineCardShell") {
       db in
       // Encode metadata as an object for forward-compatibility
       let meta = TimelineMetadata(
@@ -168,6 +171,9 @@ extension StorageManager {
           card.summary, card.category, card.subcategory, card.detailedSummary, metadataString,
         ])
       lastId = db.lastInsertedRowID
+      }
+    } catch {
+      print("Timeline card save failed for batch \(batchId): \(error)")
     }
     return lastId
   }
