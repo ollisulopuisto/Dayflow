@@ -249,6 +249,23 @@ class ClockNormalisationTests(unittest.TestCase):
         self.assertIsNone(self.server.normalize_clock("13:00 PM"))
 
 
+class WatchdogTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = load_server()
+
+    def test_fresh_heartbeat_is_not_a_stall(self) -> None:
+        self.server.LAST_TICK[0] = 1000.0
+        self.assertFalse(self.server.worker_stalled(now=1000.0 + self.server.STALL_SECONDS - 1))
+
+    def test_old_heartbeat_is_a_stall(self) -> None:
+        self.server.LAST_TICK[0] = 1000.0
+        self.assertTrue(self.server.worker_stalled(now=1000.0 + self.server.STALL_SECONDS + 1))
+
+    def test_health_reports_heartbeat_age(self) -> None:
+        self.server.LAST_TICK[0] = 0.0
+        self.assertGreaterEqual(self.server.heartbeat_age(now=42.0), 42.0)
+
+
 class AuthTests(unittest.TestCase):
     def setUp(self) -> None:
         self.server = load_server()
