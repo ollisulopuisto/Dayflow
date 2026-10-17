@@ -40,6 +40,10 @@ MAX_TOKENS = int(os.environ.get("DAYFLOW_MAX_TOKENS", "4096"))
 WORKER_LOCK = threading.Lock()
 POLLED_AT: dict[str, float] = {}
 PARSE_ATTEMPTS = 2
+# The worker stamps LAST_TICK on every loop. If it stops stamping (a hung HTTP call or a lost
+# thread), the watchdog exits the process and launchd (KeepAlive) starts it again.
+STALL_SECONDS = float(os.environ.get("DAYFLOW_STALL_SECONDS", "600"))
+LAST_TICK = [time.monotonic()]
 
 for folder in (PENDING, RUNNING, COMPLETE, FAILED):
     folder.mkdir(parents=True, exist_ok=True)
@@ -191,6 +195,22 @@ def may_process(upload_schedule: dict, now: Optional[datetime] = None) -> bool:
     return in_window(TIMEZONE, WINDOW_START, WINDOW_END, now)
 
 
+def heartbeat_age(now: Optional[float] = None) -> float:
+    return (now if now is not None else time.monotonic()) - LAST_TICK[0]
+
+
+def worker_stalled(now: Optional[float] = None, limit: Optional[float] = None) -> bool:
+    return heartbeat_age(now) > (limit if limit is not None else STALL_SECONDS)
+
+
+def watchdog() -> None:
+    while True:
+        time.sleep(30)
+        if worker_stalled():
+            print(f"Worker stalled for {heartbeat_age():.0f}s; exiting so launchd restarts the service", flush=True)
+            os._exit(3)
+
+
 def write_json(path: Path, value: dict) -> None:
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps(value, separators=(",", ":")))
@@ -242,6 +262,7 @@ def submit_pending() -> None:
         except (OSError, ValueError):
             continue
         if not job.get("gpu_job_id"):
+            print(f"Submitting {job.get('job_id')} to gpu-queue", flush=True)
             try:
                 reply = gpu_call("POST", "/queue/jobs", {"path": "/v1/chat/completions", "request": build_request(job)})
             except urllib.error.HTTPError as error:
@@ -341,6 +362,7 @@ def tick(now: Optional[datetime] = None) -> None:
 def worker() -> None:
     while True:
         time.sleep(20)
+        LAST_TICK[0] = time.monotonic()
         if not WORKER_LOCK.acquire(blocking=False):
             continue
         try:
@@ -367,7 +389,8 @@ class Handler(BaseHTTPRequestHandler):
         if not authorized(self):
             return self.respond(401, {"error": "unauthorized"})
         if self.path == "/health":
-            return self.respond(200, {"ok": True, "in_window": in_window(), "pending": len(list(PENDING.glob("*.json")))})
+            return self.respond(200, {"ok": True, "in_window": in_window(), "pending": len(list(PENDING.glob("*.json"))),
+                                      "heartbeat_age_s": round(heartbeat_age(), 1)})
         if self.path.startswith("/v1/results"):
             from urllib.parse import parse_qs, urlparse
             device_id = parse_qs(urlparse(self.path).query).get("device_id", [""])[0]
@@ -440,5 +463,6 @@ if __name__ == "__main__":
     if not TOKEN:
         raise SystemExit("Set DAYFLOW_QUEUE_TOKEN to a long random secret before starting the service")
     threading.Thread(target=worker, daemon=True, name="dayflow-worker").start()
+    threading.Thread(target=watchdog, daemon=True, name="dayflow-watchdog").start()
     print(f"Dayflow queue listening on {HOST}:{PORT}; GPU endpoint {GPU_URL}; hours {WINDOW_START}-{WINDOW_END} {TIMEZONE}", flush=True)
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
