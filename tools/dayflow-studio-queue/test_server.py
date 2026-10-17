@@ -266,6 +266,15 @@ class WatchdogTests(unittest.TestCase):
         self.assertGreaterEqual(self.server.heartbeat_age(now=42.0), 42.0)
 
 
+class PromptTests(unittest.TestCase):
+    def test_prompt_asks_for_merged_blocks_not_one_card_per_screenshot(self) -> None:
+        server = load_server()
+        text = server.build_request(make_job())["messages"][0]["content"][0]["text"]
+        self.assertIn("Merge consecutive", text)
+        self.assertIn("10 minutes", text)
+        self.assertIn("Do not create one card per screenshot", text)
+
+
 class AuthTests(unittest.TestCase):
     def setUp(self) -> None:
         self.server = load_server()
