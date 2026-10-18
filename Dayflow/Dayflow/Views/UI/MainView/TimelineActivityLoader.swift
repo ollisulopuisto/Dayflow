@@ -13,6 +13,13 @@ struct TimelineDisplaySegment {
     self.end = end
   }
 
+  init(activity: TimelineActivity, activities: [TimelineActivity], start: Date, end: Date) {
+    self.activity = activity
+    self.activities = activities
+    self.start = start
+    self.end = end
+  }
+
   var failureCount: Int {
     guard activity.title == "Processing failed" else { return 0 }
     return activities.count
@@ -180,6 +187,38 @@ enum TimelineActivityLoader {
     }
 
     return results
+  }
+
+  /// Week view only: joins consecutive segments of the same category into one block, so a
+  /// day reads as a few blocks instead of a stack of minute-long slivers. The day view keeps
+  /// the unmerged segments.
+  static func resolveWeekMacroblocks(
+    from segments: [TimelineDisplaySegment], maxGap: TimeInterval = 60
+  ) -> [TimelineDisplaySegment] {
+    var groups: [[TimelineDisplaySegment]] = []
+    for segment in segments {
+      if let last = groups.last?.last,
+        last.activity.category == segment.activity.category,
+        segment.start.timeIntervalSince(last.end) <= maxGap
+      {
+        groups[groups.count - 1].append(segment)
+      } else {
+        groups.append([segment])
+      }
+    }
+    return groups.map { group in
+      let all = group.flatMap(\.activities)
+      let representative =
+        all.max { lhs, rhs in
+          lhs.endTime.timeIntervalSince(lhs.startTime) < rhs.endTime.timeIntervalSince(rhs.startTime)
+        } ?? group[0].activity
+      return TimelineDisplaySegment(
+        activity: representative,
+        activities: all,
+        start: group.map(\.start).min() ?? group[0].start,
+        end: group.map(\.end).max() ?? group[0].end
+      )
+    }
   }
 
   static func resolveDisplaySegments(from activities: [TimelineActivity])

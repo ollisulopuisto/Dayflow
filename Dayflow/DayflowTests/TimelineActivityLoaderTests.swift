@@ -52,12 +52,40 @@ final class TimelineActivityLoaderTests: XCTestCase {
     XCTAssertEqual(segments.map(\.failureCount), [1, 1])
   }
 
+  func testWeekMacroblocksMergeConsecutiveSameCategory() {
+    let segments = TimelineActivityLoader.resolveDisplaySegments(from: [
+      activity(id: "a", startMinute: 0, endMinute: 5, title: "Short task", category: "Engineering"),
+      activity(id: "b", startMinute: 5, endMinute: 14, title: "Main task", category: "Engineering"),
+      activity(id: "c", startMinute: 14, endMinute: 20, title: "Idle", category: "Idle"),
+    ])
+
+    let blocks = TimelineActivityLoader.resolveWeekMacroblocks(from: segments)
+
+    XCTAssertEqual(blocks.count, 2)
+    XCTAssertEqual(blocks[0].start, date(minute: 0))
+    XCTAssertEqual(blocks[0].end, date(minute: 14))
+    XCTAssertEqual(blocks[0].activity.title, "Main task")
+    XCTAssertEqual(blocks[1].activity.category, "Idle")
+  }
+
+  func testWeekMacroblocksKeepSeparateAcrossAGap() {
+    let segments = TimelineActivityLoader.resolveDisplaySegments(from: [
+      activity(id: "a", startMinute: 0, endMinute: 5, title: "Task", category: "Engineering"),
+      activity(id: "b", startMinute: 7, endMinute: 10, title: "Task", category: "Engineering"),
+    ])
+
+    let blocks = TimelineActivityLoader.resolveWeekMacroblocks(from: segments)
+
+    XCTAssertEqual(blocks.count, 2)
+  }
+
   private func activity(
     id: String,
     startMinute: Int,
     endMinute: Int,
     title: String,
-    batchId: Int64? = nil
+    batchId: Int64? = nil,
+    category: String? = nil
   ) -> TimelineActivity {
     TimelineActivity(
       id: id,
@@ -68,7 +96,7 @@ final class TimelineActivityLoaderTests: XCTestCase {
       title: title,
       summary: "",
       detailedSummary: "",
-      category: title == "Idle" ? "Idle" : "System",
+      category: category ?? (title == "Idle" ? "Idle" : "System"),
       subcategory: "",
       distractions: nil,
       videoSummaryURL: nil,
