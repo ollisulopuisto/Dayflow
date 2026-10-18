@@ -68,6 +68,24 @@ final class TimelineActivityLoaderTests: XCTestCase {
     XCTAssertEqual(blocks[1].activity.category, "Idle")
   }
 
+  func testWeekMacroblocksJoinAlternatingCategoriesIntoTenMinuteBlocks() {
+    let segments = TimelineActivityLoader.resolveDisplaySegments(from: [
+      activity(id: "a", startMinute: 0, endMinute: 4, title: "Coding", category: "Engineering"),
+      activity(id: "b", startMinute: 4, endMinute: 5, title: "Chat", category: "Communication"),
+      activity(id: "c", startMinute: 5, endMinute: 9, title: "Coding more", category: "Engineering"),
+      activity(id: "d", startMinute: 9, endMinute: 10, title: "Personal", category: "Personal"),
+      activity(id: "e", startMinute: 10, endMinute: 12, title: "Coding last", category: "Engineering"),
+    ])
+
+    let blocks = TimelineActivityLoader.resolveWeekMacroblocks(from: segments)
+
+    XCTAssertEqual(blocks.count, 2)
+    XCTAssertEqual(blocks[0].start, date(minute: 0))
+    XCTAssertEqual(blocks[0].end, date(minute: 10))
+    XCTAssertEqual(blocks[0].activity.category, "Engineering")
+    XCTAssertEqual(blocks[1].activity.category, "Engineering")
+  }
+
   func testWeekMacroblocksKeepSeparateAcrossAGap() {
     let segments = TimelineActivityLoader.resolveDisplaySegments(from: [
       activity(id: "a", startMinute: 0, endMinute: 5, title: "Task", category: "Engineering"),
