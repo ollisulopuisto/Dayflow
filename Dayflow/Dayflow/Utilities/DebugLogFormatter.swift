@@ -194,7 +194,7 @@ struct DebugLogFormatter {
     return trimmed
   }
 
-  private static func cleaned(_ value: String?) -> String? {
+  static func cleaned(_ value: String?) -> String? {
     guard let value, !value.isEmpty else { return nil }
     let components = value.components(separatedBy: .whitespacesAndNewlines)
     let trimmed = components.filter { !$0.isEmpty }.joined(separator: " ")
