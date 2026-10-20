@@ -176,7 +176,7 @@ struct DebugLogFormatter {
     return output
   }
 
-  private static func formatPayload(_ raw: String?) -> String? {
+  static func formatPayload(_ raw: String?) -> String? {
     guard let raw else { return nil }
     let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return nil }
@@ -207,7 +207,7 @@ enum AgentPlaybackDiagnostics {
   private static let key = "agentPlaybackFailureDiagnostics"
 
   static func record(message: String, output: String, properties: [String: Any]) {
-    let metadata = properties.keys.sorted().map { "\($0)=\(properties[$0]!)" }
+    let metadata = properties.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value)" }
       .joined(separator: "\n")
     let entry =
       "\(ISO8601DateFormatter().string(from: Date()))\n\(metadata)\n\(message)\nOutput tail:\n\(output.suffix(4000))"

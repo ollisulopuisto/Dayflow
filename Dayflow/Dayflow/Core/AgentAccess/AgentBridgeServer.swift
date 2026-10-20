@@ -72,19 +72,21 @@ final class AgentBridgeServer {
       }
     }
 
+    // Owner-only: file permissions are the access control.
+    // Set umask before bind to avoid TOCTOU vulnerability
+    let oldUmask = umask(0o177)
     let bindResult = withUnsafePointer(to: &address) { pointer in
       pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
         bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
       }
     }
+    umask(oldUmask)
+
     guard bindResult == 0, listen(fd, 4) == 0 else {
       print("⚠️ AgentBridge: could not bind \(path), errno \(errno)")
       close(fd)
       return
     }
-
-    // Owner-only: file permissions are the access control.
-    chmod(path, 0o600)
 
     listenFD = fd
     let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)

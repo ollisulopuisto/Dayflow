@@ -182,7 +182,7 @@ enum TimelineActivityLoader {
     return results
   }
 
-  static func resolveDisplaySegments(from activities: [TimelineActivity])
+  static func createDisplaySegments(from activities: [TimelineActivity])
     -> [TimelineDisplaySegment]
   {
     let sortedActivities = activities.sorted { lhs, rhs in
@@ -210,72 +210,6 @@ enum TimelineActivityLoader {
             start: activity.startTime,
             end: activity.endTime
           ))
-      }
-    }
-
-    guard segments.count > 1 else { return segments }
-
-    var changed = true
-    var passes = 0
-    let maxPasses = 8
-
-    while changed && passes < maxPasses {
-      changed = false
-      passes += 1
-
-      var i = 0
-      while i < segments.count {
-        var j = i + 1
-        while j < segments.count {
-          if segments[j].start >= segments[i].end { break }
-
-          let first = segments[i]
-          let second = segments[j]
-          let overlapStart = max(first.start, second.start)
-          let overlapEnd = min(first.end, second.end)
-
-          if overlapEnd > overlapStart {
-            let firstDuration = first.end.timeIntervalSince(first.start)
-            let secondDuration = second.end.timeIntervalSince(second.start)
-            let smallIndex = firstDuration <= secondDuration ? i : j
-            let largeIndex = firstDuration <= secondDuration ? j : i
-
-            let smaller = segments[smallIndex]
-            var larger = segments[largeIndex]
-
-            if larger.start < smaller.start && smaller.end < larger.end {
-              let leftDuration = smaller.start.timeIntervalSince(larger.start)
-              let rightDuration = larger.end.timeIntervalSince(smaller.end)
-              if rightDuration >= leftDuration {
-                larger.start = smaller.end
-              } else {
-                larger.end = smaller.start
-              }
-            } else if smaller.start <= larger.start && larger.start < smaller.end {
-              larger.start = smaller.end
-            } else if smaller.start < larger.end && larger.end <= smaller.end {
-              larger.end = smaller.start
-            }
-
-            if larger.end <= larger.start {
-              segments.remove(at: largeIndex)
-              changed = true
-              j = i + 1
-              continue
-            } else if larger.start != segments[largeIndex].start
-              || larger.end != segments[largeIndex].end
-            {
-              segments[largeIndex] = larger
-              segments.sort { $0.start < $1.start }
-              changed = true
-              j = i + 1
-              continue
-            }
-          }
-
-          j += 1
-        }
-        i += 1
       }
     }
 

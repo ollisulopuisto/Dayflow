@@ -111,7 +111,7 @@ struct TimelineClipboardFormatter {
     )
   }
 
-  private static func formattedRange(start: String, end: String) -> String {
+  static func formattedRange(start: String, end: String) -> String {
     let trimmedStart = start.trimmingCharacters(in: .whitespacesAndNewlines)
     let trimmedEnd = end.trimmingCharacters(in: .whitespacesAndNewlines)
 
