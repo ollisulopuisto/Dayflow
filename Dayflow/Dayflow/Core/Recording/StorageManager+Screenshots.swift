@@ -102,7 +102,7 @@ extension StorageManager {
 
   func fetchUnprocessedScreenshots(since oldestTimestamp: Int, limit: Int) -> [Screenshot] {
     guard limit > 0 else { return [] }
-    (try? timedRead("fetchUnprocessedScreenshots") { db in
+    return (try? timedRead("fetchUnprocessedScreenshots") { db in
       try Row.fetchAll(
         db,
         sql: """
