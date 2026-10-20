@@ -559,9 +559,25 @@ struct TimelineReviewOverlay: View {
         overlapping: dayStartTs, endTs: dayEndTs)
       let summary = Self.makeRatingSummary(
         segments: ratingSegments, dayStartTs: dayStartTs, dayEndTs: dayEndTs)
-      let reviewActivities = Self.filterUnreviewedActivities(
+      var reviewActivities = Self.filterUnreviewedActivities(
         activities: activities, ratingSegments: ratingSegments, dayStartTs: dayStartTs,
         dayEndTs: dayEndTs)
+
+      // Fetch screenshots for all activities in a single batch query to avoid N+1 query issue
+      let startTsForScreenshots = reviewActivities.map { Int($0.startTime.timeIntervalSince1970) }.min() ?? dayStartTs
+      let endTsForScreenshots = reviewActivities.map { Int($0.endTime.timeIntervalSince1970) }.max() ?? dayEndTs
+      let allScreenshots = StorageManager.shared.fetchScreenshotsInTimeRange(startTs: startTsForScreenshots, endTs: endTsForScreenshots)
+
+      for i in 0..<reviewActivities.count {
+          let activityStartTs = Int(reviewActivities[i].startTime.timeIntervalSince1970)
+          let activityEndTs = Int(reviewActivities[i].endTime.timeIntervalSince1970)
+
+          let activityScreenshots = allScreenshots.filter { screenshot in
+              screenshot.capturedAt >= activityStartTs && screenshot.capturedAt <= activityEndTs
+          }
+          reviewActivities[i].screenshots = activityScreenshots
+      }
+
       await MainActor.run {
         self.activities = reviewActivities
         self.currentIndex = 0
