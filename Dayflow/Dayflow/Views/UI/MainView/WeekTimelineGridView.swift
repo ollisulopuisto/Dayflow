@@ -549,7 +549,7 @@ struct WeekTimelineGridView: View {
         let dayActivities = activities.filter {
           $0.startTime.getDayInfoFor4AMBoundary().dayString == day.dayString
         }
-        let segments = TimelineActivityLoader.resolveDisplaySegments(from: dayActivities)
+        let segments = TimelineActivityLoader.createDisplaySegments(from: dayActivities)
 
         for segment in segments {
           let durationMinutes = max(0, segment.end.timeIntervalSince(segment.start) / 60)
@@ -587,7 +587,7 @@ struct WeekTimelineGridView: View {
       let currentDayActivities = activities.filter {
         $0.startTime.getDayInfoFor4AMBoundary().dayString == currentDayString
       }
-      let currentDaySegments = TimelineActivityLoader.resolveDisplaySegments(
+      let currentDaySegments = TimelineActivityLoader.createDisplaySegments(
         from: currentDayActivities)
       let currentDayVisualBlockers = Self.visualBlockingSegments(from: currentDaySegments)
       let projection =
