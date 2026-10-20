@@ -30,6 +30,7 @@ protocol StorageManaging: Sendable {
   func deleteTimelineCard(recordId: Int64) -> String?
   func fetchTimelineCards(forBatch batchId: Int64) -> [TimelineCard]
   func fetchTimelineCard(byId id: Int64) -> TimelineCardWithTimestamps?
+  func fetchTimelineCards(byIds ids: [Int64]) -> [TimelineCardWithTimestamps]
   func fetchLastTimelineCard(endingBefore: Date) -> TimelineCardWithTimestamps?
 
   // Timeline Queries
