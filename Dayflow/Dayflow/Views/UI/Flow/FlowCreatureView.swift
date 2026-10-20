@@ -88,19 +88,6 @@ enum FlowCreatureClip: String {
     }
   }
 
-  /// The part of the canvas the file holds. The newer fire clips are cropped
-  /// to their artwork (670×454 at (290, 0) of the 960×576 export) instead of
-  /// carrying the whole transparent canvas.
-  var canvasRect: CGRect {
-    switch self {
-    case .fireBegin, .fireLoop:
-      let s: CGFloat = 1280.0 / 960.0
-      return CGRect(x: 290 * s, y: 0, width: 670 * s, height: 454 * s)
-    default:
-      return CGRect(x: 0, y: 0, width: 1280, height: 768)
-    }
-  }
-
   /// How far to shift the rendered canvas (in canvas pixels) so this clip's
   /// anchor lands where the variant's base clip put the creature. The side
   /// and peek variants only chain clips from one family, so they never shift.
@@ -150,18 +137,11 @@ final class FlowCreaturePlayer {
 
   /// Play `clip` once, then keep looping `loop` (pass the same clip to loop
   /// it from the start).
-  /// `startAt` skips into `clip` (seconds), for callers that only want its
-  /// tail end.
-  func play(_ clip: FlowCreatureClip, thenLoop loop: FlowCreatureClip?, startAt: TimeInterval = 0) {
+  func play(_ clip: FlowCreatureClip, thenLoop loop: FlowCreatureClip?) {
     playGeneration += 1
     onceCompletion = nil
     loopClip = loop
     startQueue(with: clip)
-    if startAt > 0 {
-      player.seek(
-        to: CMTime(seconds: startAt, preferredTimescale: 600), toleranceBefore: .zero,
-        toleranceAfter: .zero)
-    }
     if let loop { enqueue(loop) }
   }
 
@@ -301,11 +281,7 @@ final class FlowCreatureLayerView: NSView {
     let offset = clip?.canvasOffset(in: variant) ?? .zero
     CATransaction.begin()
     CATransaction.setDisableActions(true)
-    let rect = clip?.canvasRect ?? CGRect(origin: .zero, size: Self.canvasSize)
-    playerLayer.frame = CGRect(
-      x: bounds.minX + (rect.minX + offset.x) * scale,
-      y: bounds.minY + (rect.minY + offset.y) * scale,
-      width: rect.width * scale, height: rect.height * scale)
+    playerLayer.frame = bounds.offsetBy(dx: offset.x * scale, dy: offset.y * scale)
     CATransaction.commit()
   }
 

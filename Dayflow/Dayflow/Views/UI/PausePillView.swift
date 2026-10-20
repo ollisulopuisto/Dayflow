@@ -45,10 +45,12 @@ struct PausePillView: View {
 
   // MARK: - Chip Data
 
-  // ∞ first, then the timed presets from longest slot to shortest.
-  private var chips: [(label: String, duration: PauseDuration, isInf: Bool)] {
-    PausePresets.durations.reversed().map { ($0.shortLabel, $0, $0 == .indefinite) }
-  }
+  private static let chips: [(label: String, duration: PauseDuration, isInf: Bool)] = [
+    ("∞", .indefinite, true),
+    (String(localized: "1 Hour"), .hour1, false),
+    (String(localized: "30 Mins"), .minutes30, false),
+    (String(localized: "15 Mins"), .minutes15, false),
+  ]
 
   private var formattedRemaining: String {
     guard let secs = pauseManager.remainingSeconds, secs > 0 else { return "∞" }
@@ -259,7 +261,7 @@ struct PausePillView: View {
   // MARK: - Chip Button
 
   private func chipButton(_ i: Int) -> some View {
-    let chip = chips[i]
+    let chip = Self.chips[i]
     let hovered = hoveredChip == i
     let combinedScale = CGFloat(chipScaleVal[i] * (hovered ? 1.05 : 1))
 

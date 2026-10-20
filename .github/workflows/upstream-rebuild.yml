@@ -1,8 +1,8 @@
 name: Rebuild on upstream release
 
 # Once a day, check upstream (JerryZLiu/Dayflow) for a new release. If there is one that this
-# fork has not built yet, merge that release in CI, build it, publish the merged source on a durable
-# ref, and publish the app as a GitHub release.
+# fork has not built yet, merge that release into this branch in CI, build it, and publish it as
+# a GitHub release on the fork. Nothing is pushed back to the branch.
 
 on:
   schedule:
@@ -65,26 +65,15 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
 
-      - name: Publish built source ref
-        id: source
-        if: steps.upstream.outputs.skip == 'false'
-        env:
-          TAG: ${{ steps.upstream.outputs.tag }}
-        run: |
-          source_ref="upstream-builds/fork-$TAG"
-          git push origin "HEAD:refs/heads/$source_ref"
-          echo "ref=$source_ref" >> "$GITHUB_OUTPUT"
-
       - name: Package and publish
         if: steps.upstream.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.upstream.outputs.tag }}
-          SOURCE_REF: ${{ steps.source.outputs.ref }}
         run: |
           ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip
           gh release create "fork-$TAG" Dayflow-macos.zip \
             --repo "$GITHUB_REPOSITORY" \
-            --target "$SOURCE_REF" \
+            --target koti-batching-2.7.1 \
             --title "Dayflow fork built from upstream $TAG" \
-            --notes "Upstream $TAG merged into koti-batching-2.7.1; durable source ref $SOURCE_REF (commit $(git rev-parse --short HEAD)). Unsigned build."
+            --notes "Upstream $TAG merged into koti-batching-2.7.1 (fork commit $(git rev-parse --short HEAD)). Unsigned build."

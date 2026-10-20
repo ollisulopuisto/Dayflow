@@ -197,8 +197,6 @@ struct OnboardingFlow: View {
           onFinish: {
             // Create sample card BEFORE switching views (sync write)
             StorageManager.shared.createOnboardingCard()
-            GettingStarted.begin()
-            LaunchAtLoginManager.shared.enableByDefaultIfNeeded(source: "onboarding")
 
             markStepCompleted(.completion)
             didOnboard = true
@@ -278,7 +276,6 @@ struct OnboardingFlow: View {
       "current_llm_provider": providerID.analyticsName,
       "current_llm_provider_id": providerID.rawValue,
     ])
-    CLIVersionTelemetry.refresh()
   }
 
   private func restoreSavedStep() {
@@ -341,10 +338,21 @@ struct OnboardingFlow: View {
       savedStepRawValue = step.rawValue
 
       // Only try to start recording if we already have permission
-      // (No SCShareableContent probe: the recorder retries if capture can't start.)
       if CGPreflightScreenCaptureAccess() {
-        Task { @MainActor in
-          AppState.shared.setRecording(true, analyticsReason: "onboarding")
+        Task {
+          do {
+            // Verify we have permission
+            _ = try await SCShareableContent.excludingDesktopWindows(
+              false, onScreenWindowsOnly: true)
+            // Start recording
+            await MainActor.run {
+              AppState.shared.setRecording(true, analyticsReason: "onboarding")
+            }
+          } catch {
+            // Permission not granted yet, that's ok
+            // It will start after restart
+            print("Will start recording after restart")
+          }
         }
       }
     case .completion:

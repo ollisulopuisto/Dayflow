@@ -48,40 +48,18 @@ final class CodexClaudeProviderTests: XCTestCase {
     XCTAssertEqual(configuration.reasoningEffort, "low")
   }
 
-  func testChatGPTActivityCardsUseGPT61SolAtLowEffort() {
+  func testChatGPTActivityCardsUseGPT56SolAtLowEffort() {
     let configuration = CodexProvider.activityCardModelConfiguration()
 
-    XCTAssertEqual(configuration.model, "gpt-6.1-sol")
+    XCTAssertEqual(configuration.model, "gpt-5.6-sol")
     XCTAssertEqual(configuration.reasoningEffort, "low")
   }
 
-  func testChatGPTTranscriptionUsesGPT6LunaAtLowEffort() {
+  func testChatGPTTranscriptionUsesGPT56LunaAtLowEffort() {
     let configuration = CodexProvider.transcriptionModelConfiguration()
 
-    XCTAssertEqual(configuration.model, "gpt-6-luna")
+    XCTAssertEqual(configuration.model, "gpt-5.6-luna")
     XCTAssertEqual(configuration.reasoningEffort, "low")
-  }
-
-  func testAvailabilityFallbackIsBoundedAndOnlyHandlesModelAccess() {
-    let unavailable = NSError(
-      domain: "ChatCLI", code: 1,
-      userInfo: [
-        NSLocalizedDescriptionKey:
-          "The model gpt-6-luna is not supported when using Codex with a ChatGPT account"
-      ])
-    XCTAssertEqual(
-      CodexProvider.availabilityFallback(for: "gpt-6-luna", error: unavailable), "gpt-5.6-luna")
-    XCTAssertEqual(
-      CodexProvider.availabilityFallback(for: "gpt-6.1-sol", error: unavailable), "gpt-5.6-sol")
-    XCTAssertNil(CodexProvider.availabilityFallback(for: "gpt-5.6-luna", error: unavailable))
-    for message in [
-      "invalid_api_key", "hit your usage limit", "model service unavailable (503)",
-      "model response is empty", "model: gpt-6-luna\nCountry, region, or territory not supported",
-    ] {
-      let error = NSError(
-        domain: "ChatCLI", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
-      XCTAssertNil(CodexProvider.availabilityFallback(for: "gpt-6-luna", error: error))
-    }
   }
 
   func testClaudeTranscriptionUsesSonnetSlugAtLowEffort() {
