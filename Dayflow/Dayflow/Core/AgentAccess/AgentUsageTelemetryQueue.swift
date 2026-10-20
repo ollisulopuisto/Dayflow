@@ -181,7 +181,7 @@ enum AgentUsageTelemetryQueue {
     body()
   }
 
-  private static func isSafeVersion(_ version: String) -> Bool {
+  static func isSafeVersion(_ version: String) -> Bool {
     guard !version.isEmpty, version.count <= 32 else { return false }
     return version.allSatisfy { character in
       character.isLetter || character.isNumber || character == "." || character == "-"

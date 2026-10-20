@@ -82,4 +82,20 @@ final class AgentWriteHandlersTests: XCTestCase {
       "2026-08-12"
     )
   }
+
+  func testGoalDayThrowsIfDateIsNotString() {
+    XCTAssertThrowsError(
+      try AgentWriteHandlers.resolvedGoalDay(["date": 12345])
+    ) { error in
+      XCTAssertEqual((error as? AgentWriteError)?.code, "invalid_argument")
+    }
+  }
+
+  func testGoalDayThrowsIfDateIsEmpty() {
+    XCTAssertThrowsError(
+      try AgentWriteHandlers.resolvedGoalDay(["date": "   \n"])
+    ) { error in
+      XCTAssertEqual((error as? AgentWriteError)?.code, "invalid_argument")
+    }
+  }
 }

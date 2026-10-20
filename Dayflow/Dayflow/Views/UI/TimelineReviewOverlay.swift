@@ -561,7 +561,7 @@ struct TimelineReviewOverlay: View {
         overlapping: dayStartTs, endTs: dayEndTs)
       let summary = Self.makeRatingSummary(
         segments: ratingSegments, dayStartTs: dayStartTs, dayEndTs: dayEndTs)
-      let reviewActivities = Self.filterUnreviewedActivities(
+      var reviewActivities = Self.filterUnreviewedActivities(
         activities: activities, ratingSegments: ratingSegments, dayStartTs: dayStartTs,
         dayEndTs: dayEndTs)
 

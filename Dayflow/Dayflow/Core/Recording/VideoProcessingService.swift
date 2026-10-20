@@ -141,7 +141,7 @@ actor VideoProcessingService {
     let scanStart = Date()
     let frameStride = max(1, options.frameStride)
     let selectedScreenshots = sampleScreenshots(screenshots, stride: frameStride)
-    guard !selectedScreenshots.isEmpty else {
+    guard let firstScreenshot = selectedScreenshots.first, let lastScreenshot = selectedScreenshots.last else {
       throw VideoProcessingError.noInputFiles
     }
 
@@ -209,7 +209,7 @@ actor VideoProcessingService {
     let encodeStart = Date()
     var frameIndex = 0
     var skippedFrames = 0
-    let baseTimestamp = selectedScreenshots.first!.capturedAt
+    let baseTimestamp = firstScreenshot.capturedAt
     let pixelBufferPool = adaptor.pixelBufferPool
 
     for screenshot in selectedScreenshots {
@@ -276,7 +276,7 @@ actor VideoProcessingService {
     let videoDuration =
       useCompressedTimeline
       ? Double(frameIndex) / Double(safeFPS)
-      : Double(selectedScreenshots.last!.capturedAt - baseTimestamp)
+      : Double(lastScreenshot.capturedAt - baseTimestamp)
     print(
       "✅ Generated \(useCompressedTimeline ? "compressed" : "realtime") video from \(frameIndex) screenshots (\(videoDuration)s): \(outputURL.lastPathComponent)"
     )

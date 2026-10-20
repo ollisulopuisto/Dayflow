@@ -61,4 +61,32 @@ final class AgentUsageTelemetryQueueTests: XCTestCase {
 
     XCTAssertNil(AgentUsageTelemetryQueue.analyticsProperties(from: data))
   }
+
+  func testIsSafeVersion() {
+    // Valid versions
+    XCTAssertTrue(AgentUsageTelemetryQueue.isSafeVersion("1.0"))
+    XCTAssertTrue(AgentUsageTelemetryQueue.isSafeVersion("1.0.0"))
+    XCTAssertTrue(AgentUsageTelemetryQueue.isSafeVersion("1.2.3-beta.1"))
+    XCTAssertTrue(AgentUsageTelemetryQueue.isSafeVersion("v1"))
+    XCTAssertTrue(AgentUsageTelemetryQueue.isSafeVersion("a"))
+    XCTAssertTrue(AgentUsageTelemetryQueue.isSafeVersion("1"))
+
+    let maxSafeVersion = String(repeating: "1", count: 32)
+    XCTAssertTrue(AgentUsageTelemetryQueue.isSafeVersion(maxSafeVersion))
+
+    // Invalid versions (empty)
+    XCTAssertFalse(AgentUsageTelemetryQueue.isSafeVersion(""))
+
+    // Invalid versions (length > 32)
+    let tooLongVersion = String(repeating: "1", count: 33)
+    XCTAssertFalse(AgentUsageTelemetryQueue.isSafeVersion(tooLongVersion))
+
+    // Invalid versions (invalid characters)
+    XCTAssertFalse(AgentUsageTelemetryQueue.isSafeVersion("1.0.0+build"))
+    XCTAssertFalse(AgentUsageTelemetryQueue.isSafeVersion("1.0 0"))
+    XCTAssertFalse(AgentUsageTelemetryQueue.isSafeVersion("1.0.0!"))
+    XCTAssertFalse(AgentUsageTelemetryQueue.isSafeVersion("1.0.0/x"))
+    XCTAssertFalse(AgentUsageTelemetryQueue.isSafeVersion("1.0.0_beta"))
+    XCTAssertFalse(AgentUsageTelemetryQueue.isSafeVersion("v1.2,3"))
+  }
 }

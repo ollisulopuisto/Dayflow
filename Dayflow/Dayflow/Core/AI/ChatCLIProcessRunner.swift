@@ -485,14 +485,14 @@ struct ChatCLIProcessRunner {
     case .codex:
       if let sessionId = sessionId {
         cmdParts.append(contentsOf: [
-          "exec", "resume", sessionId, "--skip-git-repo-check", "--json",
+          "exec", "resume", LoginShellRunner.shellEscape(sessionId), "--skip-git-repo-check", "--json",
         ])
       } else {
         cmdParts.append(contentsOf: ["exec", "--skip-git-repo-check", "--json"])
       }
-      if let model = model { cmdParts.append(contentsOf: ["-m", model]) }
+      if let model = model { cmdParts.append(contentsOf: ["-m", LoginShellRunner.shellEscape(model)]) }
       if let effort = reasoningEffort {
-        cmdParts.append(contentsOf: ["-c", "model_reasoning_effort=\(effort)"])
+        cmdParts.append(contentsOf: ["-c", "model_reasoning_effort=\(LoginShellRunner.shellEscape(effort))"])
       }
       for override in codexConfigOverrides {
         cmdParts.append(contentsOf: ["-c", LoginShellRunner.shellEscape(override)])
@@ -508,7 +508,7 @@ struct ChatCLIProcessRunner {
           executableURL: codexExecutable!.executableURL
         )
         for serverName in mcpServers {
-          cmdParts.append(contentsOf: ["--config", "mcp_servers.\(serverName).enabled=false"])
+          cmdParts.append(contentsOf: ["--config", "mcp_servers.\(LoginShellRunner.shellEscape(serverName)).enabled=false"])
         }
       }
       cmdParts.append(contentsOf: ["-c", "rmcp_client=false", "-c", "web_search=disabled"])
@@ -934,15 +934,15 @@ struct ChatCLIProcessRunner {
     case .ephemeral:
       break
     case .start(let id):
-      cmdParts.append(contentsOf: ["--session-id", id])
+      cmdParts.append(contentsOf: ["--session-id", LoginShellRunner.shellEscape(id)])
     case .resume(let id):
-      cmdParts.append(contentsOf: ["--resume", id])
+      cmdParts.append(contentsOf: ["--resume", LoginShellRunner.shellEscape(id)])
     }
     if let model = model {
-      cmdParts.append(contentsOf: ["--model", model])
+      cmdParts.append(contentsOf: ["--model", LoginShellRunner.shellEscape(model)])
     }
     if let reasoningEffort {
-      cmdParts.append(contentsOf: ["--effort", reasoningEffort])
+      cmdParts.append(contentsOf: ["--effort", LoginShellRunner.shellEscape(reasoningEffort)])
     }
     if profile == nil && !disableTools {
       cmdParts.append("--dangerously-skip-permissions")
@@ -1020,13 +1020,13 @@ struct ChatCLIProcessRunner {
       "--include-partial-messages",
     ]
     if let sessionId {
-      cmdParts.append(contentsOf: ["--resume", sessionId])
+      cmdParts.append(contentsOf: ["--resume", LoginShellRunner.shellEscape(sessionId)])
     }
     if let model {
-      cmdParts.append(contentsOf: ["--model", model])
+      cmdParts.append(contentsOf: ["--model", LoginShellRunner.shellEscape(model)])
     }
     if let reasoningEffort {
-      cmdParts.append(contentsOf: ["--effort", reasoningEffort])
+      cmdParts.append(contentsOf: ["--effort", LoginShellRunner.shellEscape(reasoningEffort)])
     }
     cmdParts.append("--dangerously-skip-permissions")
     cmdParts.append("--strict-mcp-config")
@@ -1267,9 +1267,9 @@ struct ChatCLIProcessRunner {
       } else {
         cmdParts.append(contentsOf: ["exec", "--skip-git-repo-check"])
       }
-      if let model = model { cmdParts.append(contentsOf: ["-m", model]) }
+      if let model = model { cmdParts.append(contentsOf: ["-m", LoginShellRunner.shellEscape(model)]) }
       if let effort = reasoningEffort {
-        cmdParts.append(contentsOf: ["-c", "model_reasoning_effort=\(effort)"])
+        cmdParts.append(contentsOf: ["-c", "model_reasoning_effort=\(LoginShellRunner.shellEscape(effort))"])
       }
       for override in codexConfigOverrides {
         cmdParts.append(contentsOf: ["-c", LoginShellRunner.shellEscape(override)])
@@ -1292,7 +1292,7 @@ struct ChatCLIProcessRunner {
           executableURL: codexExecutable!.executableURL
         )
         for serverName in mcpServers {
-          cmdParts.append(contentsOf: ["--config", "mcp_servers.\(serverName).enabled=false"])
+          cmdParts.append(contentsOf: ["--config", "mcp_servers.\(LoginShellRunner.shellEscape(serverName)).enabled=false"])
         }
       }
       cmdParts.append(contentsOf: ["-c", "rmcp_client=false", "-c", "web_search=disabled"])
