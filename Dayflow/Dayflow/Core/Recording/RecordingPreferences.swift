@@ -11,8 +11,9 @@ enum ScreenshotConfig {
   static let intervalOptions: [TimeInterval] = [1, 5, 10, 20, 30, 60]
   static let heightOptions: [Int] = [720, 1080]
 
-  static let defaultInterval: TimeInterval = 10
-  static let defaultHeight = 1080
+  // Favor low capture overhead on first run. Users can raise either setting in Storage.
+  static let defaultInterval: TimeInterval = 60
+  static let defaultHeight = 720
 
   /// Seconds between captures.
   static var interval: TimeInterval {

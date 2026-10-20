@@ -97,6 +97,31 @@ struct SettingsDataTabView: View {
           }
         }
 
+        SettingsSecondaryButton(
+          title: viewModel.isExportingBatchImages
+            ? String(localized: "Preparing images…") : String(localized: "Export batch images for Mac Studio"),
+          systemImage: viewModel.isExportingBatchImages ? nil : "photo.stack",
+          isDisabled: rangeInvalid || viewModel.isExportingBatchImages,
+          action: viewModel.exportBatchImages
+        )
+
+        Text("Exports the screenshots in each analysis batch as JPEGs with a manifest. Copy the folder to your Mac Studio for offline vision analysis.")
+          .font(.custom("Figtree", size: 12))
+          .foregroundColor(SettingsStyle.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+
+        if let message = viewModel.batchImageExportMessage {
+          Text(message)
+            .font(.custom("Figtree", size: 12))
+            .foregroundColor(SettingsStyle.statusGood)
+        }
+
+        if let error = viewModel.batchImageExportError {
+          Text(error)
+            .font(.custom("Figtree", size: 12))
+            .foregroundColor(SettingsStyle.destructive)
+        }
+
         if let message = viewModel.exportStatusMessage {
           Text(message)
             .font(.custom("Figtree", size: 12))
