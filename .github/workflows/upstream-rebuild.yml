@@ -18,6 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: koti-batching-2.7.1
           fetch-depth: 0
 
       - name: Find the latest upstream release
@@ -73,6 +74,6 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip
           gh release create "fork-$TAG" Dayflow-macos.zip \
             --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
+            --target "$(git rev-parse HEAD)" \
             --title "Dayflow fork built from upstream $TAG" \
-            --notes "Upstream $TAG merged into koti-batching-2.7.1 (fork commit $GITHUB_SHA). Unsigned build."
+            --notes "Upstream $TAG merged into koti-batching-2.7.1 (fork commit $(git rev-parse --short HEAD)). Unsigned build."
