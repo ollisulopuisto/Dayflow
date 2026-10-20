@@ -11,6 +11,9 @@ actor TimelineReviewScreenshotSource {
   }
 
   func screenshots(for activity: TimelineActivity) -> [Screenshot] {
+    if let preFetched = activity.screenshots {
+      return preFetched
+    }
     if let recordId = activity.recordId,
       let timelineCard = storage.fetchTimelineCard(byId: recordId)
     {
@@ -25,6 +28,9 @@ actor TimelineReviewScreenshotSource {
   }
 
   func previewScreenshot(for activity: TimelineActivity) -> Screenshot? {
+    if let preFetched = activity.screenshots, !preFetched.isEmpty {
+      return preFetched[preFetched.count / 2]
+    }
     let screenshots = screenshots(for: activity)
     guard screenshots.isEmpty == false else { return nil }
     return screenshots[screenshots.count / 2]
