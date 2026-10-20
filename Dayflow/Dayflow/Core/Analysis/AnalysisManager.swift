@@ -526,6 +526,15 @@ final class AnalysisManager: AnalysisManaging {
     let batches = createScreenshotBatches(from: screenshots)
     // 3. Persist batch rows & join table
     let batchIDs = batches.compactMap(saveScreenshotBatch)
+    if StudioBatchQueue.isEnabled {
+      // Keep batch assignment current while active, but defer network and image work.
+      guard InputIdleSnapshot.isIdle() else { return }
+      StudioBatchQueue.pollResults(store: store)
+      // Include batches whose upload was interrupted before the laptop slept.
+      let pendingIDs = store.allBatches().filter { $0.status == "pending" }.map(\.id)
+      for id in pendingIDs { queueLLMRequest(batchId: id) }
+      return
+    }
     // 4. Fire LLM for each batch
     for id in batchIDs { queueLLMRequest(batchId: id) }
   }
@@ -535,6 +544,12 @@ final class AnalysisManager: AnalysisManaging {
     progressHandler: ((LLMProcessingStep) -> Void)? = nil,
     completion: ((Result<Void, Error>) -> Void)? = nil
   ) {
+    if StudioBatchQueue.isEnabled {
+      StudioBatchQueue.submitAndImport(batchId: batchId, store: store)
+      completion?(.success(()))
+      return
+    }
+
     let screenshotsInBatch = store.screenshotsForBatch(batchId)
 
     guard !screenshotsInBatch.isEmpty else {

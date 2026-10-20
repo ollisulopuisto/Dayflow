@@ -17,7 +17,7 @@ import Sentry
 // MARK: - Configuration
 // Capture interval and resolution live in `ScreenshotConfig` (RecordingPreferences.swift).
 
-private enum InputIdleSnapshot {
+enum InputIdleSnapshot {
   // Bridge kCGAnyInputEventType into Swift without relying on a generated symbol name.
   static let anyInputEventType = CGEventType(rawValue: UInt32.max)!
 
@@ -29,6 +29,11 @@ private enum InputIdleSnapshot {
     )
     guard idleSeconds.isFinite, idleSeconds >= 0 else { return nil }
     return Int(idleSeconds.rounded(.down))
+  }
+
+  static func isIdle(forAtLeast seconds: Int = 60) -> Bool {
+    guard let idleSeconds = currentIdleSeconds() else { return false }
+    return idleSeconds >= seconds
   }
 }
 

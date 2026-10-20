@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.dayflow.studio-queue</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/ABSOLUTE/PATH/TO/dayflow/tools/dayflow-studio-queue/server.py</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONUNBUFFERED</key><string>1</string>
+    <key>DAYFLOW_QUEUE_HOST</key><string>0.0.0.0</string>
+    <key>DAYFLOW_QUEUE_PORT</key><string>8765</string>
+    <key>DAYFLOW_QUEUE_TOKEN</key><string>REPLACE_WITH_RANDOM_SECRET</string>
+    <key>DAYFLOW_GPU_URL</key><string>http://127.0.0.1:8103/v1</string>
+    <key>DAYFLOW_MODEL</key><string>gemma4-vision</string>
+    <key>DAYFLOW_TIMEZONE</key><string>Europe/Helsinki</string>
+    <key>DAYFLOW_WINDOW_START</key><string>07:00</string>
+    <key>DAYFLOW_WINDOW_END</key><string>01:00</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/REPLACE/Library/Logs/dayflow-studio-queue.log</string>
+  <key>StandardErrorPath</key><string>/Users/REPLACE/Library/Logs/dayflow-studio-queue-error.log</string>
+</dict>
+</plist>
