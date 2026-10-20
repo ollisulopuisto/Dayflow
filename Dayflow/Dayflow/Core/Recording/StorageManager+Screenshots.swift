@@ -100,7 +100,8 @@ extension StorageManager {
     )
   }
 
-  func fetchUnprocessedScreenshots(since oldestTimestamp: Int) -> [Screenshot] {
+  func fetchUnprocessedScreenshots(since oldestTimestamp: Int, limit: Int) -> [Screenshot] {
+    guard limit > 0 else { return [] }
     (try? timedRead("fetchUnprocessedScreenshots") { db in
       try Row.fetchAll(
         db,
@@ -110,7 +111,8 @@ extension StorageManager {
                 AND is_deleted = 0
                 AND id NOT IN (SELECT screenshot_id FROM batch_screenshots)
               ORDER BY captured_at ASC
-          """, arguments: [oldestTimestamp]
+              LIMIT ?
+          """, arguments: [oldestTimestamp, limit]
       )
       .map(screenshot(from:))
     }) ?? []

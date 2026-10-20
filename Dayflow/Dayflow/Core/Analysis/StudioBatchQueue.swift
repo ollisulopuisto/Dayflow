@@ -15,34 +15,59 @@ enum StudioBatchQueue {
     private let lock = NSLock()
     private var uploadingBatchID: Int64?
     private var isPolling = false
+    private var uploadFailureCount = 0
+    private var nextUploadAttempt = Date.distantPast
+    private var pollBackoffCount = 0
+    private var nextPollAttempt = Date.distantPast
 
     func beginUpload(batchID: Int64) -> Bool {
       lock.lock()
       defer { lock.unlock() }
-      guard uploadingBatchID == nil else { return false }
+      guard uploadingBatchID == nil, Date() >= nextUploadAttempt else { return false }
       uploadingBatchID = batchID
       return true
     }
 
-    func finishUpload(batchID: Int64) {
+    func finishUpload(batchID: Int64, failed: Bool = false) {
       lock.lock()
       defer { lock.unlock() }
       guard uploadingBatchID == batchID else { return }
       uploadingBatchID = nil
+      if failed {
+        uploadFailureCount += 1
+        nextUploadAttempt = Date().addingTimeInterval(
+          Self.backoffDelay(attempt: uploadFailureCount, cap: 15 * 60))
+      } else {
+        uploadFailureCount = 0
+        nextUploadAttempt = .distantPast
+      }
     }
 
     func beginPolling() -> Bool {
       lock.lock()
       defer { lock.unlock() }
-      guard !isPolling else { return false }
+      guard !isPolling, Date() >= nextPollAttempt else { return false }
       isPolling = true
       return true
     }
 
-    func finishPolling() {
+    func finishPolling(resultCount: Int? = nil, failed: Bool = false) {
       lock.lock()
       defer { lock.unlock() }
       isPolling = false
+      guard failed || resultCount != nil else { return }
+      if failed || resultCount == 0 {
+        pollBackoffCount += 1
+        nextPollAttempt = Date().addingTimeInterval(
+          Self.backoffDelay(attempt: pollBackoffCount, cap: 5 * 60))
+      } else {
+        pollBackoffCount = 0
+        nextPollAttempt = Date().addingTimeInterval(60)
+      }
+    }
+
+    private static func backoffDelay(attempt: Int, cap: TimeInterval) -> TimeInterval {
+      min(cap, 60.0 * pow(2.0, Double(max(0, attempt - 1))))
     }
   }
 
@@ -58,7 +83,7 @@ enum StudioBatchQueue {
         return
       }
       importAvailableResults(from: endpoint, store: store) {
-        inFlight.finishPolling()
+        inFlight.finishPolling(resultCount: $0, failed: $1)
       }
     }
   }
@@ -93,12 +118,12 @@ enum StudioBatchQueue {
 
       guard batch.status != "studio_queued" && batch.status != "completed" else {
         inFlight.finishUpload(batchID: batchId)
-        importAvailableResults(from: endpoint, store: store)
+        pollResults(store: store)
         return
       }
 
-      guard let payload = makePayload(batchId: batchId, start: batch.start, end: batch.end, store: store),
-        let body = try? JSONSerialization.data(withJSONObject: payload)
+      guard let bodyFile = makeUploadFile(
+        batchId: batchId, start: batch.start, end: batch.end, store: store)
       else {
         inFlight.finishUpload(batchID: batchId)
         store.markBatchFailed(batchId: batchId, reason: "Could not prepare screenshots for Studio queue")
@@ -108,6 +133,7 @@ enum StudioBatchQueue {
       // Image decoding and JSON construction can be expensive. If activity resumed while
       // preparing the payload, leave the batch pending for the next idle window.
       guard InputIdleSnapshot.isIdle() else {
+        try? FileManager.default.removeItem(at: bodyFile)
         inFlight.finishUpload(batchID: batchId)
         return
       }
@@ -120,18 +146,19 @@ enum StudioBatchQueue {
       if let token = UserDefaults.standard.string(forKey: tokenKey), !token.isEmpty {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
       }
-      request.httpBody = body
-      let task = URLSession.shared.dataTask(with: request) { _, response, error in
-        defer { inFlight.finishUpload(batchID: batchId) }
+      let task = URLSession.shared.uploadTask(with: request, fromFile: bodyFile) { _, response, error in
+        try? FileManager.default.removeItem(at: bodyFile)
         guard error == nil, let response = response as? HTTPURLResponse,
           (200..<300).contains(response.statusCode)
         else {
+          inFlight.finishUpload(batchID: batchId, failed: true)
           print("Studio queue upload failed for batch \(batchId): \(error?.localizedDescription ?? "HTTP error")")
           return
         }
+        inFlight.finishUpload(batchID: batchId)
         store.updateBatchStatus(batchId: batchId, status: "studio_queued")
         if InputIdleSnapshot.isIdle() {
-          importAvailableResults(from: endpoint, store: store)
+          pollResults(store: store)
         }
       }
       task.priority = 0.1
@@ -139,7 +166,10 @@ enum StudioBatchQueue {
     }
   }
 
-  private static func makePayload(batchId: Int64, start: Int, end: Int, store: any StorageManaging) -> [String: Any]? {
+  private static func makeUploadFile(
+    batchId: Int64, start: Int, end: Int, store: any StorageManaging
+  ) -> URL? {
+    removeStaleUploadFiles()
     let screenshots = store.screenshotsForBatch(batchId).sorted { $0.capturedAt < $1.capturedAt }
     guard !screenshots.isEmpty else { return nil }
     let sampled: [Screenshot]
@@ -150,21 +180,9 @@ enum StudioBatchQueue {
         screenshots[index * (screenshots.count - 1) / (maxImagesPerBatch - 1)]
       }
     }
-    let encoded = sampled.compactMap { screenshot -> [String: Any]? in
-      autoreleasepool {
-        guard let data = screenshot.jpegData(maxHeight: 720, quality: 0.85) else { return nil }
-        return [
-          "id": screenshot.id,
-          "captured_at": screenshot.capturedAt,
-          "idle_seconds": screenshot.idleSecondsAtCapture.map { $0 as Any } ?? NSNull(),
-          "image_base64": data.base64EncodedString(),
-        ]
-      }
-    }
-    guard !encoded.isEmpty else { return nil }
     let categories = (try? JSONEncoder().encode(CategoryStore.descriptorsForLLM()))
       .flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [[String: Any]] ?? []
-    return [
+    let metadata: [String: Any] = [
       "job_id": "\(deviceID)-\(batchId)",
       "device_id": deviceID,
       "batch_id": batchId,
@@ -175,14 +193,85 @@ enum StudioBatchQueue {
       "window_start": UserDefaults.standard.string(forKey: "studioBatchWindowStart") ?? "07:00",
       "window_end": UserDefaults.standard.string(forKey: "studioBatchWindowEnd") ?? "01:00",
       "categories": categories,
-      "screenshots": encoded,
     ]
+
+    let fileURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("dayflow-studio-upload-\(UUID().uuidString).json")
+    guard FileManager.default.createFile(atPath: fileURL.path, contents: nil),
+      let metadataData = try? JSONSerialization.data(withJSONObject: metadata),
+      metadataData.last == 125
+    else {
+      try? FileManager.default.removeItem(at: fileURL)
+      return nil
+    }
+
+    do {
+      let file = try FileHandle(forWritingTo: fileURL)
+      do {
+        try file.write(contentsOf: Data(metadataData.dropLast()))
+        try file.write(contentsOf: Data(",\"screenshots\":[".utf8))
+
+        var hasWrittenScreenshot = false
+        for screenshot in sampled {
+          let screenshotData = autoreleasepool { () -> Data? in
+            guard let imageData = screenshot.jpegData(maxHeight: 720, quality: 0.85) else {
+              return nil
+            }
+            let screenshotObject: [String: Any] = [
+              "id": screenshot.id,
+              "captured_at": screenshot.capturedAt,
+              "idle_seconds": screenshot.idleSecondsAtCapture.map { $0 as Any } ?? NSNull(),
+              "image_base64": imageData.base64EncodedString(),
+            ]
+            return try? JSONSerialization.data(withJSONObject: screenshotObject)
+          }
+          guard let screenshotData else { continue }
+
+          if hasWrittenScreenshot {
+            try file.write(contentsOf: Data(",".utf8))
+          }
+          try file.write(contentsOf: screenshotData)
+          hasWrittenScreenshot = true
+        }
+
+        guard hasWrittenScreenshot else {
+          try file.close()
+          try FileManager.default.removeItem(at: fileURL)
+          return nil
+        }
+        try file.write(contentsOf: Data("]}".utf8))
+        try file.close()
+      } catch {
+        try? file.close()
+        throw error
+      }
+      return fileURL
+    } catch {
+      try? FileManager.default.removeItem(at: fileURL)
+      return nil
+    }
+  }
+
+  private static func removeStaleUploadFiles() {
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+    guard let urls = try? FileManager.default.contentsOfDirectory(
+      at: temporaryDirectory,
+      includingPropertiesForKeys: [.contentModificationDateKey],
+      options: [.skipsHiddenFiles]
+    ) else { return }
+
+    let staleBefore = Date().addingTimeInterval(-60 * 60)
+    for url in urls where url.lastPathComponent.hasPrefix("dayflow-studio-upload-") {
+      let values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+      guard let modified = values?.contentModificationDate, modified < staleBefore else { continue }
+      try? FileManager.default.removeItem(at: url)
+    }
   }
 
   private static func importAvailableResults(
     from endpoint: URL,
     store: any StorageManaging,
-    completion: (() -> Void)? = nil
+    completion: ((Int?, Bool) -> Void)? = nil
   ) {
     var request = URLRequest(url: endpoint.appendingPathComponent("v1/results").appending(queryItems: [
       URLQueryItem(name: "device_id", value: deviceID)
@@ -192,12 +281,19 @@ enum StudioBatchQueue {
       request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     }
     let task = URLSession.shared.dataTask(with: request) { data, response, error in
-      defer { completion?() }
-      guard InputIdleSnapshot.isIdle() else { return }
+      var resultCount: Int?
+      var failed = true
+      defer { completion?(resultCount, failed) }
+      guard InputIdleSnapshot.isIdle() else {
+        failed = false
+        return
+      }
       guard error == nil, let response = response as? HTTPURLResponse,
         (200..<300).contains(response.statusCode), let data,
         let results = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
       else { return }
+      resultCount = results.count
+      failed = false
       for result in results {
         guard let jobID = result["job_id"] as? String,
           let batchIDNumber = result["batch_id"] as? NSNumber,
@@ -226,7 +322,10 @@ enum StudioBatchQueue {
           return true
         }
         guard cardResults.allSatisfy({ $0 }) else { continue }
-        if cards.isEmpty { store.updateBatchStatus(batchId: batchID, status: "completed_empty") }
+        store.updateBatchStatus(
+          batchId: batchID,
+          status: cards.isEmpty ? "completed_empty" : "completed"
+        )
         acknowledge(jobID: jobID, deviceID: deviceID, endpoint: endpoint)
       }
     }

@@ -18,6 +18,7 @@ struct CanvasActivityCard: View {
   let durationMinutes: Double
   let style: CanvasActivityCardStyle
   let isSelected: Bool
+  let isPendingAnalysis: Bool
   let isSystemCategory: Bool
   let isBackupGenerated: Bool
   let onTap: () -> Void
@@ -93,11 +94,11 @@ struct CanvasActivityCard: View {
   var body: some View {
     Button(action: {
       withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-        onTap()
+        if !isPendingAnalysis { onTap() }
       }
     }) {
       HStack(alignment: .top, spacing: isFailedCard ? 10 : iconTextSpacing) {
-        if durationMinutes >= 10 {
+        if durationMinutes >= 10 || isPendingAnalysis {
           if isFailedCard {
             VStack(alignment: .leading, spacing: 4) {
               HStack(alignment: .top, spacing: 8) {
@@ -193,7 +194,7 @@ struct CanvasActivityCard: View {
           .inset(by: 0.25)
           .stroke(
             isFailedCard ? Color(red: 1, green: 0.16, blue: 0.11) : theme.cardBorder,
-            style: isFailedCard
+            style: isFailedCard || isPendingAnalysis
               ? StrokeStyle(lineWidth: 0.5, dash: [2.5, 2.5]) : StrokeStyle(lineWidth: 0.25)
           )
       )
@@ -234,8 +235,12 @@ struct CanvasActivityCard: View {
       )
     }
     .buttonStyle(CanvasCardButtonStyle(pressedScale: pressedScale))
-    .pointingHandCursor()
+    .pointingHandCursor(enabled: !isPendingAnalysis)
     .hoverScaleEffect(scale: hoverScale)
+    .help(
+      isPendingAnalysis
+        ? TimelineActivity.pendingAnalysisExplanation : ""
+    )
     .onHover { hovering in
       isHovering = hovering
     }

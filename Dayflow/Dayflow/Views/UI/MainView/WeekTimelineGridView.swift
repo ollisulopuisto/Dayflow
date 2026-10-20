@@ -403,6 +403,7 @@ struct WeekTimelineGridView: View {
           durationMinutes: item.durationMinutes,
           palette: palette(for: item.categoryName),
           isSelected: selectedActivity?.id == item.id,
+          isPendingAnalysis: item.activity.isPendingAnalysis,
           isHovered: isHov,
           showTimelineAppIcons: showTimelineAppIcons,
           faviconPrimaryRaw: item.faviconPrimaryRaw,
@@ -416,6 +417,7 @@ struct WeekTimelineGridView: View {
             scheduleHoverChange(cardID: item.id, hovering: hovering)
           }
         ) {
+          guard !item.activity.isPendingAnalysis else { return }
           if selectedActivity?.id == item.id {
             onClearSelection()
           } else {
@@ -871,6 +873,15 @@ struct WeekTimelineGridView: View {
   private func palette(for rawCategory: String) -> WeekTimelineCardPalette {
     let normalizedCategory = rawCategory.trimmingCharacters(in: .whitespacesAndNewlines)
       .lowercased()
+    if normalizedCategory == "pending analysis" {
+      let neutral = theme.textSecondary
+      return WeekTimelineCardPalette(
+        accent: neutral.opacity(0.65),
+        fill: neutral.opacity(0.08),
+        border: neutral.opacity(0.55),
+        title: theme.textSecondary
+      )
+    }
     let matched = categoryStore.categories.first {
       $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalizedCategory
     }

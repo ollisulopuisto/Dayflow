@@ -3,6 +3,7 @@ name: Build macOS app
 on:
   push:
     branches:
+      - main
       - koti-batching
   workflow_dispatch:
 
@@ -24,10 +25,19 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
       - name: Package app
-        run: ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip
+          hdiutil create \
+            -volname Dayflow \
+            -srcfolder build/Build/Products/Release/Dayflow.app \
+            -ov \
+            -format UDZO \
+            Dayflow-macos.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: Dayflow-macos-${{ github.sha }}
-          path: Dayflow-macos.zip
+          path: |
+            Dayflow-macos.zip
+            Dayflow-macos.dmg
           if-no-files-found: error
           retention-days: 14

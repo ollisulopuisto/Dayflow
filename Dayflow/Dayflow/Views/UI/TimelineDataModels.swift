@@ -10,6 +10,12 @@ import SwiftUI
 
 /// Represents an activity in the timeline view
 struct TimelineActivity: Identifiable {
+  static let pendingAnalysisTitle = String(localized: "Waiting for analysis")
+  static let pendingAnalysisExplanation = String(
+    localized:
+      "Dayflow has captured data for this time period but hasn't analyzed it yet. Screenshots will upload when this Mac is idle."
+  )
+
   let id: String
   let recordId: Int64?
   let batchId: Int64?  // Tracks source batch for retry functionality
@@ -26,6 +32,7 @@ struct TimelineActivity: Identifiable {
   let appSites: AppSites?
   let isBackupGenerated: Bool?
   var screenshots: [Screenshot]?
+  var isPendingAnalysis: Bool = false
 
   static func stableId(
     recordId: Int64?, batchId: Int64?, startTime: Date, endTime: Date, title: String,
@@ -66,7 +73,8 @@ struct TimelineActivity: Identifiable {
       screenshot: screenshot,
       appSites: appSites,
       isBackupGenerated: isBackupGenerated,
-      screenshots: screenshots
+      screenshots: screenshots,
+      isPendingAnalysis: isPendingAnalysis
     )
   }
 
@@ -87,7 +95,8 @@ struct TimelineActivity: Identifiable {
       screenshot: screenshot,
       appSites: appSites,
       isBackupGenerated: isBackupGenerated,
-      screenshots: screenshots
+      screenshots: screenshots,
+      isPendingAnalysis: isPendingAnalysis
     )
   }
 
@@ -108,7 +117,8 @@ struct TimelineActivity: Identifiable {
       screenshot: screenshot,
       appSites: appSites,
       isBackupGenerated: isBackupGenerated,
-      screenshots: screenshots
+      screenshots: screenshots,
+      isPendingAnalysis: isPendingAnalysis
     )
   }
 }

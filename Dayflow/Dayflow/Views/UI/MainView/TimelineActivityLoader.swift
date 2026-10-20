@@ -56,7 +56,13 @@ enum TimelineActivityLoader {
     let dayString = DateFormatter.yyyyMMdd.string(from: timelineDate)
     let cards = storageManager.fetchTimelineCards(forDay: dayString)
     let visibleCards = displayableCards(cards, storageManager: storageManager)
-    return (dayString, timelineDate, buildActivities(from: visibleCards))
+    let dayInfo = timelineDate.getDayInfoFor4AMBoundary()
+    let pendingActivities = pendingCaptureActivities(
+      from: dayInfo.startOfDay,
+      to: dayInfo.endOfDay,
+      storageManager: storageManager
+    )
+    return (dayString, timelineDate, buildActivities(from: visibleCards) + pendingActivities)
   }
 
   static func activities(
@@ -65,7 +71,71 @@ enum TimelineActivityLoader {
   ) -> [TimelineActivity] {
     let cards = storageManager.fetchTimelineCardsByTimeRange(
       from: weekRange.weekStart, to: weekRange.weekEnd)
+    let pendingActivities: [TimelineActivity]
+    if let firstDay = weekRange.days.first?.date.getDayInfoFor4AMBoundary(),
+      let lastDay = weekRange.days.last?.date.getDayInfoFor4AMBoundary()
+    {
+      pendingActivities = pendingCaptureActivities(
+        from: firstDay.startOfDay,
+        to: lastDay.endOfDay,
+        storageManager: storageManager
+      )
+    } else {
+      pendingActivities = []
+    }
     return buildActivities(from: displayableCards(cards, storageManager: storageManager))
+      + pendingActivities
+  }
+
+  private static func pendingCaptureActivities(
+    from start: Date,
+    to end: Date,
+    storageManager: StorageManaging
+  ) -> [TimelineActivity] {
+    let gapSeconds = 5 * 60
+    let intervals = storageManager.fetchPendingCaptureIntervals(
+      from: Int(start.timeIntervalSince1970),
+      to: Int(end.timeIntervalSince1970),
+      groupingGapSeconds: gapSeconds
+    )
+    guard !intervals.isEmpty else { return [] }
+
+    var merged: [(start: Int, end: Int)] = []
+    for interval in intervals {
+      if let last = merged.indices.last,
+        interval.start <= merged[last].end + gapSeconds
+      {
+        merged[last].end = max(merged[last].end, interval.end)
+      } else {
+        merged.append(interval)
+      }
+    }
+
+    let title = TimelineActivity.pendingAnalysisTitle
+    let explanation = TimelineActivity.pendingAnalysisExplanation
+    return merged.map { interval in
+      let start = Date(timeIntervalSince1970: TimeInterval(interval.start))
+      let end = Date(timeIntervalSince1970: TimeInterval(interval.end))
+      return TimelineActivity(
+        id: "pending-analysis:\(interval.start):\(interval.end)",
+        recordId: nil,
+        batchId: nil,
+        startTime: start,
+        endTime: end,
+        title: title,
+        summary: explanation,
+        detailedSummary: explanation,
+        category: "Pending analysis",
+        subcategory: "pending",
+        distractions: nil,
+        videoSummaryURL: nil,
+        screenshot: nil,
+        appSites: nil,
+        isBackupGenerated: nil,
+        screenshots: nil,
+        isPendingAnalysis: true
+      )
+    }
   }
 
   static func shouldDisplay(_ card: TimelineCard, storageManager: StorageManaging) -> Bool {

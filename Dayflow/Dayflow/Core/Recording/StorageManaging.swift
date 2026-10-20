@@ -86,6 +86,8 @@ protocol StorageManaging: Sendable {
 
   /// All batches, newest first
   func allBatches() -> [(id: Int64, start: Int, end: Int, status: String)]
+  /// Oldest pending batches first, bounded for queue submission.
+  func pendingBatchIDs(limit: Int) -> [Int64]
 
   // MARK: - Screenshot Management (new - replaces video chunks)
 
@@ -103,7 +105,12 @@ protocol StorageManaging: Sendable {
   func mostRecentSegmentPath() -> String?
 
   /// Fetch screenshots that haven't been assigned to a batch yet
-  func fetchUnprocessedScreenshots(since oldestTimestamp: Int) -> [Screenshot]
+  func fetchUnprocessedScreenshots(since oldestTimestamp: Int, limit: Int) -> [Screenshot]
+
+  /// Time spans containing screenshots that have not produced analyzed cards yet.
+  func fetchPendingCaptureIntervals(
+    from startTimestamp: Int, to endTimestamp: Int, groupingGapSeconds: Int
+  ) -> [(start: Int, end: Int)]
 
   /// Create a batch from screenshots, returns batch ID
   func saveBatchWithScreenshots(startTs: Int, endTs: Int, screenshotIds: [Int64]) -> Int64?

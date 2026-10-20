@@ -520,18 +520,21 @@ final class AnalysisManager: AnalysisManaging {
     isProcessing = true
     defer { isProcessing = false }
 
+    let usesStudioQueue = StudioBatchQueue.isEnabled
+    if usesStudioQueue, !InputIdleSnapshot.isIdle() {
+      return
+    }
+
     // 1. Gather unprocessed screenshots
-    let screenshots = fetchUnprocessedScreenshots()
+    let screenshots = fetchUnprocessedScreenshots(includeOlderCaptures: usesStudioQueue)
     // 2. Build logical batches (duration based on provider config)
     let batches = createScreenshotBatches(from: screenshots)
     // 3. Persist batch rows & join table
     let batchIDs = batches.compactMap(saveScreenshotBatch)
-    if StudioBatchQueue.isEnabled {
-      // Keep batch assignment current while active, but defer network and image work.
-      guard InputIdleSnapshot.isIdle() else { return }
+    if usesStudioQueue {
       StudioBatchQueue.pollResults(store: store)
-      // Include batches whose upload was interrupted before the laptop slept.
-      let pendingIDs = store.allBatches().filter { $0.status == "pending" }.map(\.id)
+      // The batch/screenshot join is the durable cursor; submit the oldest pending batch.
+      let pendingIDs = store.pendingBatchIDs(limit: 1)
       for id in pendingIDs { queueLLMRequest(batchId: id) }
       return
     }
@@ -769,9 +772,12 @@ final class AnalysisManager: AnalysisManaging {
     var count: Int { screenshots.count }
   }
 
-  private func fetchUnprocessedScreenshots() -> [Screenshot] {
-    let oldest = Int(Date().timeIntervalSince1970) - Int(maxLookback)
-    return store.fetchUnprocessedScreenshots(since: oldest)
+  private func fetchUnprocessedScreenshots(includeOlderCaptures: Bool) -> [Screenshot] {
+    let oldest = includeOlderCaptures
+      ? Int.min
+      : Int(Date().timeIntervalSince1970) - Int(maxLookback)
+    let limit = includeOlderCaptures ? 2_000 : Int.max
+    return store.fetchUnprocessedScreenshots(since: oldest, limit: limit)
   }
 
   private func createScreenshotBatches(from screenshots: [Screenshot]) -> [ScreenshotBatch] {

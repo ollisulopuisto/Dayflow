@@ -346,10 +346,12 @@ struct CanvasTimelineDataView: View {
             durationMinutes: item.durationMinutes,
             style: style(for: item.categoryName),
             isSelected: selectedCardId == item.id,
+            isPendingAnalysis: item.activity.isPendingAnalysis,
             isSystemCategory: item.categoryName.trimmingCharacters(in: .whitespacesAndNewlines)
               .caseInsensitiveCompare("System") == .orderedSame,
             isBackupGenerated: item.activity.isBackupGenerated == true,
             onTap: {
+              guard !item.activity.isPendingAnalysis else { return }
               if selectedCardId == item.id {
                 clearSelection()
               } else {
@@ -651,7 +653,8 @@ struct CanvasTimelineDataView: View {
         // Card spacing: -2 total (1px top + 1px bottom)
         let durationMinutes = max(0, seg.end.timeIntervalSince(seg.start) / 60)
         let rawHeight = CGFloat(durationMinutes) * pixelsPerMinute
-        let height = max(10, rawHeight - 2)
+        let minimumHeight: CGFloat = seg.activity.isPendingAnalysis ? 18 : 10
+        let height = max(minimumHeight, rawHeight - 2)
         // Raw values for pattern matching, normalized for network fetch
         let primaryRaw = seg.activity.appSites?.primary
         let secondaryRaw = seg.activity.appSites?.secondary
@@ -822,6 +825,14 @@ struct CanvasTimelineDataView: View {
 
   private func style(for rawCategory: String) -> CanvasActivityCardStyle {
     let normalized = rawCategory.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    if normalized == "pending analysis" {
+      return CanvasActivityCardStyle(
+        text: theme.textSecondary,
+        time: theme.textSecondary,
+        accent: theme.textSecondary.opacity(0.55),
+        isIdle: false
+      )
+    }
     let categories = categoryStore.categories
     let matched = categories.first {
       $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized

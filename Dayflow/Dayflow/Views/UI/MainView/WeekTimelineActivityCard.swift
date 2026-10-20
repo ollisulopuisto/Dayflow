@@ -27,6 +27,7 @@ struct WeekTimelineActivityCard: View {
   let durationMinutes: Double
   let palette: WeekTimelineCardPalette
   let isSelected: Bool
+  let isPendingAnalysis: Bool
   // Parent-driven (debounced via hover-intent at the parent).
   let isHovered: Bool
   let showTimelineAppIcons: Bool
@@ -86,7 +87,7 @@ struct WeekTimelineActivityCard: View {
   // (~12pt). `max(1, …)` guarantees at least one line for the smallest
   // cards.
   private var maxUnhoveredTitleLines: Int {
-    let reservedStatusHeight: CGFloat = showsRetryStatus ? 14 : 0
+    let reservedStatusHeight: CGFloat = showsRetryStatus || isPendingAnalysis ? 14 : 0
     let available = height - 2 * verticalPadding - reservedStatusHeight
     let perLine: CGFloat = 12
     return max(1, Int(available / perLine))
@@ -111,7 +112,11 @@ struct WeekTimelineActivityCard: View {
         )
     }
     .buttonStyle(CanvasCardButtonStyle())
-    .pointingHandCursor()
+    .help(
+      isPendingAnalysis
+        ? TimelineActivity.pendingAnalysisExplanation : ""
+    )
+    .pointingHandCursor(enabled: !isPendingAnalysis)
     .hoverScaleEffect(scale: 1.01)
     .zIndex(isHovered ? 10 : (isSelected ? 2 : 0))
     .onHover { hovering in
@@ -148,7 +153,13 @@ struct WeekTimelineActivityCard: View {
           .lineLimit(renderingExpanded ? nil : maxUnhoveredTitleLines)
           .truncationMode(.tail)
 
-        if let statusLine, isFailedCard {
+        if isPendingAnalysis {
+          Text(String(localized: "Captured · waiting for analysis"))
+            .font(.custom("Figtree", size: 8))
+            .foregroundColor(theme.textSecondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+        } else if let statusLine, isFailedCard {
           retryStatusRow(statusLine: statusLine, renderingExpanded: renderingExpanded)
         }
 
@@ -174,8 +185,8 @@ struct WeekTimelineActivityCard: View {
           isFailedCard
             ? Color(red: 1, green: 0.16, blue: 0.11)
             : (isSelected ? palette.accent : palette.border),
-          style: isFailedCard
-            ? StrokeStyle(lineWidth: 0.5, dash: [2.5, 2.5])
+          style: isFailedCard || isPendingAnalysis
+            ? StrokeStyle(lineWidth: isSelected ? 1 : 0.5, dash: [2.5, 2.5])
             : StrokeStyle(lineWidth: isSelected ? 1 : 0.5)
         )
     )
@@ -231,7 +242,11 @@ struct WeekTimelineActivityCard: View {
           .multilineTextAlignment(.leading)
           .fixedSize(horizontal: false, vertical: true)
 
-        if let statusLine, isFailedCard {
+        if isPendingAnalysis {
+          Text(String(localized: "Captured · waiting for analysis"))
+            .font(.custom("Figtree", size: 8))
+            .fixedSize(horizontal: false, vertical: true)
+        } else if let statusLine, isFailedCard {
           retryStatusRow(statusLine: statusLine, renderingExpanded: true)
         }
       }

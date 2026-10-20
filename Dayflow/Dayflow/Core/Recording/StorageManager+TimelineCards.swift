@@ -446,6 +446,73 @@ extension StorageManager {
     }) ?? []
   }
 
+  func pendingBatchIDs(limit: Int) -> [Int64] {
+    guard limit > 0 else { return [] }
+    return
+      (try? db.read { db in
+        try Int64.fetchAll(
+          db,
+          sql: "SELECT id FROM analysis_batches WHERE status = 'pending' ORDER BY id ASC LIMIT ?",
+          arguments: [limit]
+        )
+      }) ?? []
+  }
+
+  func fetchPendingCaptureIntervals(
+    from startTimestamp: Int, to endTimestamp: Int, groupingGapSeconds: Int
+  ) -> [(start: Int, end: Int)] {
+    guard endTimestamp >= startTimestamp else { return [] }
+    let gap = max(1, groupingGapSeconds)
+    return
+      (try? db.read { db in
+        let batchIntervals = try Row.fetchAll(
+          db,
+          sql: """
+            SELECT batch_start_ts AS start_ts, batch_end_ts AS end_ts
+            FROM analysis_batches
+            WHERE status IN ('pending', 'studio_queued', 'processing')
+              AND batch_end_ts >= ? AND batch_start_ts <= ?
+            ORDER BY batch_start_ts ASC
+            """,
+          arguments: [startTimestamp, endTimestamp]
+        ).map { row in
+          (
+            start: max(startTimestamp, row["start_ts"] as Int),
+            end: min(endTimestamp, row["end_ts"] as Int)
+          )
+        }
+
+        let unbatchedIntervals = try Row.fetchAll(
+          db,
+          sql: """
+            WITH captures AS (
+              SELECT captured_at,
+                     LAG(captured_at) OVER (ORDER BY captured_at) AS previous_at
+              FROM screenshots
+              WHERE captured_at >= ? AND captured_at <= ?
+                AND is_deleted = 0
+                AND id NOT IN (SELECT screenshot_id FROM batch_screenshots)
+            ), grouped_captures AS (
+              SELECT captured_at,
+                     SUM(CASE WHEN previous_at IS NULL OR captured_at - previous_at > ?
+                              THEN 1 ELSE 0 END)
+                       OVER (ORDER BY captured_at) AS group_id
+              FROM captures
+            )
+            SELECT MIN(captured_at) AS start_ts, MAX(captured_at) AS end_ts
+            FROM grouped_captures
+            GROUP BY group_id
+            ORDER BY start_ts ASC
+            """,
+          arguments: [startTimestamp, endTimestamp, gap]
+        ).map { row in
+          (start: row["start_ts"] as Int, end: row["end_ts"] as Int)
+        }
+
+        return (batchIntervals + unbatchedIntervals).sorted { $0.start < $1.start }
+      }) ?? []
+  }
+
   func fetchRecentAnalysisBatchesForDebug(limit: Int) -> [AnalysisBatchDebugEntry] {
     guard limit > 0 else { return [] }
 
