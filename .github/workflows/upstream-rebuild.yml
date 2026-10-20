@@ -16,7 +16,7 @@ jobs:
   rebuild:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: koti-batching-2.7.1
           fetch-depth: 0
