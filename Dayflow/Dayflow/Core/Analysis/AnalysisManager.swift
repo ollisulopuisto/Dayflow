@@ -551,10 +551,14 @@ final class AnalysisManager: AnalysisManaging {
     Task.detached(priority: .utility) { [weak self, cardIds, cardCount, batchId] in
       guard let self else { return }
 
+      let cardIdsToFetch = Array(cardIds.prefix(cardCount))
+      let timelineCards = self.store.fetchTimelineCards(byIds: cardIdsToFetch)
+      let cardsById = Dictionary(uniqueKeysWithValues: timelineCards.map { ($0.id, $0) })
+
       for (index, cardId) in cardIds.enumerated() {
         if index >= cardCount { continue }
 
-        guard let timelineCard = self.store.fetchTimelineCard(byId: cardId) else {
+        guard let timelineCard = cardsById[cardId] else {
           print("Warning: Could not fetch timeline card \(cardId)")
           continue
         }

@@ -799,6 +799,52 @@ extension StorageManager {
   }
 
   /// Fetch a specific timeline card by ID including timestamp fields
+  func fetchTimelineCards(byIds ids: [Int64]) -> [TimelineCardWithTimestamps] {
+    guard !ids.isEmpty else { return [] }
+    let decoder = JSONDecoder()
+
+    let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ", ")
+
+    return (try? timedRead("fetchTimelineCards(byIds)") { db in
+      try Row.fetchAll(
+        db,
+        sql: """
+              SELECT * FROM timeline_cards
+              WHERE id IN (\(placeholders))
+                AND is_deleted = 0
+          """, arguments: StatementArguments(ids)
+      ).map { row in
+        var distractions: [Distraction]? = nil
+        if let metadataString: String = row["metadata"],
+          let jsonData = metadataString.data(using: .utf8)
+        {
+          if let meta = try? decoder.decode(TimelineMetadata.self, from: jsonData) {
+            distractions = meta.distractions
+          } else if let legacy = try? decoder.decode([Distraction].self, from: jsonData) {
+            distractions = legacy
+          }
+        }
+
+        return TimelineCardWithTimestamps(
+          id: row["id"],
+          startTimestamp: row["start"] ?? "",
+          endTimestamp: row["end"] ?? "",
+          startTs: row["start_ts"] ?? 0,
+          endTs: row["end_ts"] ?? 0,
+          category: row["category"],
+          subcategory: row["subcategory"] ?? "",
+          title: row["title"],
+          summary: row["summary"] ?? "",
+          detailedSummary: row["detailed_summary"] ?? "",
+          day: row["day"],
+          distractions: distractions,
+          videoSummaryURL: row["video_summary_url"]
+        )
+      }
+    }) ?? []
+  }
+
+  /// Fetch a specific timeline card by ID including timestamp fields
   func fetchTimelineCard(byId id: Int64) -> TimelineCardWithTimestamps? {
     let decoder = JSONDecoder()
 
