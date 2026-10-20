@@ -33,6 +33,7 @@ struct TimelineReviewOverlay: View {
   @State private var cardSize = CGSize(width: 340, height: 440)
   @State private var isBackAnimating = false
   @State private var dayRatingSummary = TimelineReviewSummary(durationByRating: [:])
+  @State private var screenshotSource = TimelineReviewScreenshotSource()
 
   private enum ReviewLayout {
     static let baseCardSize = CGSize(width: 340, height: 440)
@@ -168,6 +169,7 @@ struct TimelineReviewOverlay: View {
                 highlightOpacity: 1,
                 isActive: isActive,
                 playbackToggleToken: playbackToggleToken,
+                screenshotSource: screenshotSource,
                 onSummaryHover: { hovering in
                   if isActive { isPointerOverSummary = hovering }
                 }
@@ -562,6 +564,9 @@ struct TimelineReviewOverlay: View {
       let reviewActivities = Self.filterUnreviewedActivities(
         activities: activities, ratingSegments: ratingSegments, dayStartTs: dayStartTs,
         dayEndTs: dayEndTs)
+
+      await self.screenshotSource.prefetchDay(startTs: dayStartTs, endTs: dayEndTs)
+
       await MainActor.run {
         self.activities = reviewActivities
         self.currentIndex = 0

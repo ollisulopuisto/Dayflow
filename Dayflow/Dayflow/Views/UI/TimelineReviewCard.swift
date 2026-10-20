@@ -18,7 +18,7 @@ struct TimelineReviewCard: View {
     false
   @StateObject private var playerModel: TimelineReviewPlayerModel
   @StateObject private var legacyPlayerModel: TimelineReviewLegacyPlayerModel
-  private let previewSource = TimelineReviewScreenshotSource()
+  private let previewSource: TimelineReviewScreenshotSource
   @State private var isHoveringMedia = false
   @State private var previewImage: CGImage?
   @State private var previewRequestID: Int = 0
@@ -32,6 +32,7 @@ struct TimelineReviewCard: View {
     highlightOpacity: Double,
     isActive: Bool,
     playbackToggleToken: Int,
+    screenshotSource: TimelineReviewScreenshotSource,
     onSummaryHover: @escaping (Bool) -> Void
   ) {
     self.activity = activity
@@ -41,8 +42,9 @@ struct TimelineReviewCard: View {
     self.highlightOpacity = highlightOpacity
     self.isActive = isActive
     self.playbackToggleToken = playbackToggleToken
+    self.previewSource = screenshotSource
     self.onSummaryHover = onSummaryHover
-    _playerModel = StateObject(wrappedValue: TimelineReviewPlayerModel(activity: activity))
+    _playerModel = StateObject(wrappedValue: TimelineReviewPlayerModel(activity: activity, screenshotSource: screenshotSource))
     _legacyPlayerModel = StateObject(wrappedValue: TimelineReviewLegacyPlayerModel())
   }
 

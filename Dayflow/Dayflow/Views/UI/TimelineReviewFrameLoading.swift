@@ -5,23 +5,59 @@ import SwiftUI
 
 actor TimelineReviewScreenshotSource {
   private let storage: any StorageManaging
+  private var dayScreenshots: [Screenshot]?
+  private var dayStartTs: Int?
+  private var dayEndTs: Int?
+  private var cardBoundsCache: [Int64: (startTs: Int, endTs: Int)] = [:]
 
   init(storage: any StorageManaging = StorageManager.shared) {
     self.storage = storage
   }
 
-  func screenshots(for activity: TimelineActivity) -> [Screenshot] {
-    if let recordId = activity.recordId,
-      let timelineCard = storage.fetchTimelineCard(byId: recordId)
+  func prefetchDay(startTs: Int, endTs: Int) {
+    self.dayStartTs = startTs
+    self.dayEndTs = endTs
+    self.dayScreenshots = storage.fetchScreenshotsInTimeRange(startTs: startTs, endTs: endTs)
+    self.cardBoundsCache.removeAll()
+  }
+
+  private func fetchScreenshotsFromCacheOrDB(startTs: Int, endTs: Int) -> [Screenshot] {
+    if let dayScreenshots = dayScreenshots,
+       let dayStart = dayStartTs,
+       let dayEnd = dayEndTs,
+       startTs >= dayStart, endTs <= dayEnd
     {
-      let screenshots = storage.fetchScreenshotsInTimeRange(
-        startTs: timelineCard.startTs, endTs: timelineCard.endTs)
-      if screenshots.isEmpty == false { return screenshots }
+      return dayScreenshots.filter { $0.capturedAt >= startTs && $0.capturedAt <= endTs }
     }
+    return storage.fetchScreenshotsInTimeRange(startTs: startTs, endTs: endTs)
+  }
+
+  func screenshots(for activity: TimelineActivity) -> [Screenshot] {
+    if let recordId = activity.recordId {
+      let startTs: Int
+      let endTs: Int
+      if let bounds = cardBoundsCache[recordId] {
+        startTs = bounds.startTs
+        endTs = bounds.endTs
+      } else if let timelineCard = storage.fetchTimelineCard(byId: recordId) {
+        startTs = timelineCard.startTs
+        endTs = timelineCard.endTs
+        cardBoundsCache[recordId] = (startTs, endTs)
+      } else {
+        startTs = 0
+        endTs = 0
+      }
+
+      if endTs > startTs {
+        let screenshots = fetchScreenshotsFromCacheOrDB(startTs: startTs, endTs: endTs)
+        if screenshots.isEmpty == false { return screenshots }
+      }
+    }
+
     let startTs = Int(activity.startTime.timeIntervalSince1970)
     let endTs = Int(activity.endTime.timeIntervalSince1970)
     guard endTs > startTs else { return [] }
-    return storage.fetchScreenshotsInTimeRange(startTs: startTs, endTs: endTs)
+    return fetchScreenshotsFromCacheOrDB(startTs: startTs, endTs: endTs)
   }
 
   func previewScreenshot(for activity: TimelineActivity) -> Screenshot? {
