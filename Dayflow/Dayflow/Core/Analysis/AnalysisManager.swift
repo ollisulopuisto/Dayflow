@@ -395,6 +395,8 @@ final class AnalysisManager: AnalysisManaging {
     // 3. Persist batch rows & join table
     let batchIDs = batches.compactMap(saveScreenshotBatch)
     if StudioBatchQueue.isEnabled {
+      // Keep batch assignment current while active, but defer network and image work.
+      guard InputIdleSnapshot.isIdle() else { return }
       StudioBatchQueue.pollResults(store: store)
       // Include batches whose upload was interrupted before the laptop slept.
       let pendingIDs = store.allBatches().filter { $0.status == "pending" }.map(\.id)
@@ -410,6 +412,12 @@ final class AnalysisManager: AnalysisManaging {
     progressHandler: ((LLMProcessingStep) -> Void)? = nil,
     completion: ((Result<Void, Error>) -> Void)? = nil
   ) {
+    if StudioBatchQueue.isEnabled {
+      StudioBatchQueue.submitAndImport(batchId: batchId, store: store)
+      completion?(.success(()))
+      return
+    }
+
     let screenshotsInBatch = store.screenshotsForBatch(batchId)
 
     guard !screenshotsInBatch.isEmpty else {
@@ -457,12 +465,6 @@ final class AnalysisManager: AnalysisManaging {
       }
 
       print("Idle shortcut fallback for batch \(batchId); continuing with normal LLM processing.")
-    }
-
-    if StudioBatchQueue.isEnabled {
-      StudioBatchQueue.submitAndImport(batchId: batchId, store: store)
-      completion?(.success(()))
-      return
     }
 
     // Start performance tracking for batch processing

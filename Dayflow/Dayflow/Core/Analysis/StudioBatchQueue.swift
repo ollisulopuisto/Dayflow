@@ -7,14 +7,60 @@ enum StudioBatchQueue {
   private static let tokenKey = "studioBatchQueueToken"
   private static let deviceKey = "studioBatchQueueDeviceID"
   private static let maxImagesPerBatch = 15
+  private static let backgroundQueue = DispatchQueue(
+    label: "com.dayflow.studio-batch-upload", qos: .background)
+  private static let inFlight = UploadState()
+
+  private final class UploadState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var uploadingBatchID: Int64?
+    private var isPolling = false
+
+    func beginUpload(batchID: Int64) -> Bool {
+      lock.lock()
+      defer { lock.unlock() }
+      guard uploadingBatchID == nil else { return false }
+      uploadingBatchID = batchID
+      return true
+    }
+
+    func finishUpload(batchID: Int64) {
+      lock.lock()
+      defer { lock.unlock() }
+      guard uploadingBatchID == batchID else { return }
+      uploadingBatchID = nil
+    }
+
+    func beginPolling() -> Bool {
+      lock.lock()
+      defer { lock.unlock() }
+      guard !isPolling else { return false }
+      isPolling = true
+      return true
+    }
+
+    func finishPolling() {
+      lock.lock()
+      defer { lock.unlock() }
+      isPolling = false
+    }
+  }
 
   static var isEnabled: Bool {
     endpoint != nil
   }
 
   static func pollResults(store: any StorageManaging) {
-    guard let endpoint else { return }
-    importAvailableResults(from: endpoint, store: store)
+    guard InputIdleSnapshot.isIdle(), let endpoint, inFlight.beginPolling() else { return }
+    backgroundQueue.async {
+      guard InputIdleSnapshot.isIdle() else {
+        inFlight.finishPolling()
+        return
+      }
+      importAvailableResults(from: endpoint, store: store) {
+        inFlight.finishPolling()
+      }
+    }
   }
 
   private static var endpoint: URL? {
@@ -33,16 +79,39 @@ enum StudioBatchQueue {
 
   /// Queue the batch once and import any results the Studio has finished.
   static func submitAndImport(batchId: Int64, store: any StorageManaging) {
-    guard let endpoint else { return }
-    let batch = store.allBatches().first { $0.id == batchId }
-    guard let batch else { return }
-    if batch.status != "studio_queued" && batch.status != "completed" {
+    guard InputIdleSnapshot.isIdle(), let endpoint, inFlight.beginUpload(batchID: batchId) else { return }
+    backgroundQueue.async {
+      guard InputIdleSnapshot.isIdle() else {
+        inFlight.finishUpload(batchID: batchId)
+        return
+      }
+
+      guard let batch = store.allBatches().first(where: { $0.id == batchId }) else {
+        inFlight.finishUpload(batchID: batchId)
+        return
+      }
+
+      guard batch.status != "studio_queued" && batch.status != "completed" else {
+        inFlight.finishUpload(batchID: batchId)
+        importAvailableResults(from: endpoint, store: store)
+        return
+      }
+
       guard let payload = makePayload(batchId: batchId, start: batch.start, end: batch.end, store: store),
         let body = try? JSONSerialization.data(withJSONObject: payload)
       else {
+        inFlight.finishUpload(batchID: batchId)
         store.markBatchFailed(batchId: batchId, reason: "Could not prepare screenshots for Studio queue")
         return
       }
+
+      // Image decoding and JSON construction can be expensive. If activity resumed while
+      // preparing the payload, leave the batch pending for the next idle window.
+      guard InputIdleSnapshot.isIdle() else {
+        inFlight.finishUpload(batchID: batchId)
+        return
+      }
+
       var request = URLRequest(url: endpoint.appendingPathComponent("v1/jobs"))
       request.httpMethod = "POST"
       request.timeoutInterval = 180
@@ -52,7 +121,8 @@ enum StudioBatchQueue {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
       }
       request.httpBody = body
-      URLSession.shared.dataTask(with: request) { _, response, error in
+      let task = URLSession.shared.dataTask(with: request) { _, response, error in
+        defer { inFlight.finishUpload(batchID: batchId) }
         guard error == nil, let response = response as? HTTPURLResponse,
           (200..<300).contains(response.statusCode)
         else {
@@ -60,10 +130,12 @@ enum StudioBatchQueue {
           return
         }
         store.updateBatchStatus(batchId: batchId, status: "studio_queued")
-        importAvailableResults(from: endpoint, store: store)
-      }.resume()
-    } else {
-      importAvailableResults(from: endpoint, store: store)
+        if InputIdleSnapshot.isIdle() {
+          importAvailableResults(from: endpoint, store: store)
+        }
+      }
+      task.priority = 0.1
+      task.resume()
     }
   }
 
@@ -79,13 +151,15 @@ enum StudioBatchQueue {
       }
     }
     let encoded = sampled.compactMap { screenshot -> [String: Any]? in
-      guard let data = screenshot.jpegData(maxHeight: 720, quality: 0.85) else { return nil }
-      return [
-        "id": screenshot.id,
-        "captured_at": screenshot.capturedAt,
-        "idle_seconds": screenshot.idleSecondsAtCapture.map { $0 as Any } ?? NSNull(),
-        "image_base64": data.base64EncodedString(),
-      ]
+      autoreleasepool {
+        guard let data = screenshot.jpegData(maxHeight: 720, quality: 0.85) else { return nil }
+        return [
+          "id": screenshot.id,
+          "captured_at": screenshot.capturedAt,
+          "idle_seconds": screenshot.idleSecondsAtCapture.map { $0 as Any } ?? NSNull(),
+          "image_base64": data.base64EncodedString(),
+        ]
+      }
     }
     guard !encoded.isEmpty else { return nil }
     let categories = (try? JSONEncoder().encode(CategoryStore.descriptorsForLLM()))
@@ -105,7 +179,11 @@ enum StudioBatchQueue {
     ]
   }
 
-  private static func importAvailableResults(from endpoint: URL, store: any StorageManaging) {
+  private static func importAvailableResults(
+    from endpoint: URL,
+    store: any StorageManaging,
+    completion: (() -> Void)? = nil
+  ) {
     var request = URLRequest(url: endpoint.appendingPathComponent("v1/results").appending(queryItems: [
       URLQueryItem(name: "device_id", value: deviceID)
     ]))
@@ -113,7 +191,9 @@ enum StudioBatchQueue {
     if let token = UserDefaults.standard.string(forKey: tokenKey), !token.isEmpty {
       request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     }
-    URLSession.shared.dataTask(with: request) { data, response, error in
+    let task = URLSession.shared.dataTask(with: request) { data, response, error in
+      defer { completion?() }
+      guard InputIdleSnapshot.isIdle() else { return }
       guard error == nil, let response = response as? HTTPURLResponse,
         (200..<300).contains(response.statusCode), let data,
         let results = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
@@ -149,7 +229,9 @@ enum StudioBatchQueue {
         if cards.isEmpty { store.updateBatchStatus(batchId: batchID, status: "completed_empty") }
         acknowledge(jobID: jobID, deviceID: deviceID, endpoint: endpoint)
       }
-    }.resume()
+    }
+    task.priority = 0.1
+    task.resume()
   }
 
   private static func acknowledge(jobID: String, deviceID: String, endpoint: URL) {
