@@ -202,7 +202,7 @@ final class TimelineReviewPlayerModel: ObservableObject {
   let mediaState = TimelineReviewPlaybackMediaState()
   let timelineState = TimelineReviewPlaybackTimelineState()
 
-  private let screenshotSource = TimelineReviewScreenshotSource()
+  private let screenshotSource: TimelineReviewScreenshotSource
   private var frameLoader: TimelineReviewFrameLoader?
   private var frameOffsets: [Double] = []
   private var currentIndex = 0
@@ -221,7 +221,8 @@ final class TimelineReviewPlayerModel: ObservableObject {
   private var lastDisplayTimestamp: CFTimeInterval?
   private var lastFrameDisplayTime: CFTimeInterval = 0
 
-  init(activity: TimelineActivity) {
+  init(activity: TimelineActivity, screenshotSource: TimelineReviewScreenshotSource) {
+    self.screenshotSource = screenshotSource
     if let savedSpeed = Self.loadSavedSpeed(from: speedOptions) { playbackSpeed = savedSpeed }
     timelineState.speedLabel = currentSpeedLabel
     updateActivity(activity)

@@ -33,6 +33,7 @@ struct TimelineReviewOverlay: View {
   @State private var cardSize = CGSize(width: 340, height: 440)
   @State private var isBackAnimating = false
   @State private var dayRatingSummary = TimelineReviewSummary(durationByRating: [:])
+  @State private var screenshotSource = TimelineReviewScreenshotSource()
 
   private enum ReviewLayout {
     static let baseCardSize = CGSize(width: 340, height: 440)
@@ -168,6 +169,7 @@ struct TimelineReviewOverlay: View {
                 highlightOpacity: 1,
                 isActive: isActive,
                 playbackToggleToken: playbackToggleToken,
+                screenshotSource: screenshotSource,
                 onSummaryHover: { hovering in
                   if isActive { isPointerOverSummary = hovering }
                 }
@@ -563,20 +565,7 @@ struct TimelineReviewOverlay: View {
         activities: activities, ratingSegments: ratingSegments, dayStartTs: dayStartTs,
         dayEndTs: dayEndTs)
 
-      // Fetch screenshots for all activities in a single batch query to avoid N+1 query issue
-      let startTsForScreenshots = reviewActivities.map { Int($0.startTime.timeIntervalSince1970) }.min() ?? dayStartTs
-      let endTsForScreenshots = reviewActivities.map { Int($0.endTime.timeIntervalSince1970) }.max() ?? dayEndTs
-      let allScreenshots = StorageManager.shared.fetchScreenshotsInTimeRange(startTs: startTsForScreenshots, endTs: endTsForScreenshots)
-
-      for i in 0..<reviewActivities.count {
-          let activityStartTs = Int(reviewActivities[i].startTime.timeIntervalSince1970)
-          let activityEndTs = Int(reviewActivities[i].endTime.timeIntervalSince1970)
-
-          let activityScreenshots = allScreenshots.filter { screenshot in
-              screenshot.capturedAt >= activityStartTs && screenshot.capturedAt <= activityEndTs
-          }
-          reviewActivities[i].screenshots = activityScreenshots
-      }
+      await self.screenshotSource.prefetchDay(startTs: dayStartTs, endTs: dayEndTs)
 
       await MainActor.run {
         self.activities = reviewActivities
