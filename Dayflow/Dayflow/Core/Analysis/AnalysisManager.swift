@@ -59,7 +59,7 @@ final class AnalysisManager: AnalysisManaging {
         selector: #selector(self.timerFired),
         userInfo: nil,
         repeats: true)
-      self.triggerAnalysisNow()  // immediate run
+      self.timerFired()  // immediate run but respects idle check
     }
   }
 
@@ -381,7 +381,14 @@ final class AnalysisManager: AnalysisManaging {
     }
   }
 
-  @objc private func timerFired() { triggerAnalysisNow() }
+  @objc private func timerFired() {
+    // Only run automatic processing when the system has been idle for at least 3 minutes
+    let idleSeconds = SystemIdleMonitor.currentIdleSeconds() ?? 0
+    guard idleSeconds >= 180 else {
+      return
+    }
+    triggerAnalysisNow()
+  }
 
   private func processRecordings() {
     guard !isProcessing else { return }

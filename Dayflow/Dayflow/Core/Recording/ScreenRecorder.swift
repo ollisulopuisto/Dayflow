@@ -17,21 +17,6 @@ import Sentry
 // MARK: - Configuration
 // Capture interval and resolution live in `ScreenshotConfig` (RecordingPreferences.swift).
 
-private enum InputIdleSnapshot {
-  // Bridge kCGAnyInputEventType into Swift without relying on a generated symbol name.
-  static let anyInputEventType = CGEventType(rawValue: UInt32.max)!
-
-  static func currentIdleSeconds() -> Int? {
-    // Prefer the HID state table so the signal reflects hardware-originated user input.
-    let idleSeconds = CGEventSource.secondsSinceLastEventType(
-      .hidSystemState,
-      eventType: anyInputEventType
-    )
-    guard idleSeconds.isFinite, idleSeconds >= 0 else { return nil }
-    return Int(idleSeconds.rounded(.down))
-  }
-}
-
 // MARK: - Debug Logging
 
 private let recorderDebugLogging = false
@@ -358,7 +343,7 @@ final class ScreenRecorder: NSObject, @unchecked Sendable {
     }
 
     let captureTime = Date()
-    let idleSecondsAtCapture = InputIdleSnapshot.currentIdleSeconds()
+    let idleSecondsAtCapture = SystemIdleMonitor.currentIdleSeconds()
 
     do {
       let captureSize = scaledCaptureSize(for: display)
