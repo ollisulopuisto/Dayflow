@@ -377,7 +377,7 @@ struct ActivityCard: View {
           )
           .foregroundColor(Color(red: 0.55, green: 0.55, blue: 0.55))
 
-        renderMarkdownText(summaryText(for: activity))
+        renderMarkdownText(activity.summary)
           .font(
             Font.custom("Figtree", size: 12)
           )
@@ -387,9 +387,7 @@ struct ActivityCard: View {
           .textSelection(.enabled)
       }
 
-      if !isFailedCard(activity) && !activity.detailedSummary.isEmpty
-        && activity.detailedSummary != activity.summary
-      {
+      if !activity.detailedSummary.isEmpty && activity.detailedSummary != activity.summary {
         VStack(alignment: .leading, spacing: 3) {
           Text("DETAILED SUMMARY")
             .font(
@@ -409,19 +407,6 @@ struct ActivityCard: View {
         }
       }
     }
-  }
-
-  /// Failed cards saved before the failure rework carry raw error text
-  /// ("Failed to process 15 minutes… An unexpected error occurred."), so they
-  /// get a plain sentence instead. Newer failed cards are already plain.
-  private func summaryText(for activity: TimelineActivity) -> String {
-    guard isFailedCard(activity), activity.summary.hasPrefix("Failed to process") else {
-      return activity.summary
-    }
-    return String(
-      localized:
-        "This time couldn't be turned into cards yet. Dayflow will try again automatically. Your recording is saved."
-    )
   }
 
   private func renderMarkdownText(_ content: String) -> Text {

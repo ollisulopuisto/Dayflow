@@ -3,13 +3,6 @@ import Foundation
 struct TimelineFailureToastPayload {
   let message: String
   let title: String?
-  /// Provider the card is about, used to pick its logo.
-  let providerName: String
-  /// Plain-language fix steps; `command` is shown under the first one.
-  let steps: [String]
-  let command: String?
-  /// How much recorded time is currently waiting to be turned into cards.
-  let waitingSeconds: Int
   let destination: TimelineFailureToastDestination
   let failureKind: String
   let operation: String
@@ -26,9 +19,6 @@ struct TimelineFailureToastPayload {
   var notificationUserInfo: [String: Any] {
     var userInfo: [String: Any] = [
       "message": message,
-      "provider_name": providerName,
-      "steps": steps,
-      "waiting_seconds": waitingSeconds,
       "destination": destination.rawValue,
       "failure_kind": failureKind,
       "operation": operation,
@@ -41,9 +31,6 @@ struct TimelineFailureToastPayload {
     ]
     if let title {
       userInfo["title"] = title
-    }
-    if let command {
-      userInfo["command"] = command
     }
     if let backupProvider {
       userInfo["backup_provider"] = backupProvider
@@ -64,10 +51,6 @@ struct TimelineFailureToastPayload {
   init(
     message: String,
     title: String?,
-    providerName: String,
-    steps: [String],
-    command: String?,
-    waitingSeconds: Int,
     destination: TimelineFailureToastDestination,
     failureKind: String,
     operation: String,
@@ -83,10 +66,6 @@ struct TimelineFailureToastPayload {
   ) {
     self.message = message
     self.title = title
-    self.providerName = providerName
-    self.steps = steps
-    self.command = command
-    self.waitingSeconds = waitingSeconds
     self.destination = destination
     self.failureKind = failureKind
     self.operation = operation
@@ -113,10 +92,6 @@ struct TimelineFailureToastPayload {
     }
 
     let title = userInfo["title"] as? String
-    let providerName = userInfo["provider_name"] as? String ?? ""
-    let steps = userInfo["steps"] as? [String] ?? []
-    let command = userInfo["command"] as? String
-    let waitingSeconds = (userInfo["waiting_seconds"] as? NSNumber)?.intValue ?? 0
     let destination =
       (userInfo["destination"] as? String)
       .flatMap(TimelineFailureToastDestination.init(rawValue:)) ?? .providers
@@ -148,10 +123,6 @@ struct TimelineFailureToastPayload {
     self.init(
       message: message,
       title: title,
-      providerName: providerName,
-      steps: steps,
-      command: command,
-      waitingSeconds: waitingSeconds,
       destination: destination,
       failureKind: failureKind,
       operation: operation,
@@ -176,13 +147,6 @@ enum TimelineFailureToastCenter {
         object: nil,
         userInfo: payload.notificationUserInfo
       )
-    }
-  }
-
-  /// A batch just succeeded, so whatever the card asked the user to fix is fixed.
-  static func hide() {
-    DispatchQueue.main.async {
-      NotificationCenter.default.post(name: .hideTimelineFailureToast, object: nil)
     }
   }
 }

@@ -26,12 +26,8 @@ struct DayflowEntitlement: Codable, Equatable {
   )
 
   var displayName: String {
-    guard status == "active" else { return String(localized: "Free") }
-    switch plan {
-    case "pro": return String(localized: "Dayflow Pro")
-    case "plus": return String(localized: "Dayflow Plus")
-    default: return String(localized: "Free")
-    }
+    plan == "pro" && status == "active"
+      ? String(localized: "Dayflow Pro") : String(localized: "Free")
   }
 
   private enum CodingKeys: String, CodingKey {
@@ -276,7 +272,6 @@ final class DayflowAuthManager: ObservableObject {
   @Published private(set) var errorText: String?
   @Published private(set) var isBusy = false
   @Published private(set) var hasLoadedStoredSession = false
-  @Published private(set) var isRestoringStoredSession = false
   @Published private(set) var referralSummary: DayflowReferralSummary?
   @Published private(set) var pendingReferralCode: String?
 
@@ -330,25 +325,7 @@ final class DayflowAuthManager: ObservableObject {
       return
     }
 
-    isRestoringStoredSession = true
-    Task {
-      defer { isRestoringStoredSession = false }
-      await refreshAccount()
-    }
-  }
-
-  /// A saved login whose account never loaded, e.g. the launch fetch failed offline.
-  var hasUnrestoredSession: Bool {
-    user == nil && retrieveSessionToken() != nil
-  }
-
-  /// Tries the account fetch again when the one at launch failed.
-  func restoreStoredSession() async {
-    guard hasUnrestoredSession, !isRestoringStoredSession else { return }
-    isRestoringStoredSession = true
-    defer { isRestoringStoredSession = false }
-    await waitUntilIdle()
-    await refreshAccount()
+    Task { await refreshAccount() }
   }
 
   @discardableResult
@@ -436,9 +413,6 @@ final class DayflowAuthManager: ObservableObject {
       } else {
         referralSummary = try? await fetchReferralSummary(token: response.sessionToken)
       }
-    } onAuthFailure: {
-      self.errorText = String(
-        localized: "That code is wrong or has expired. Check it, or send a new one.")
     }
     if let failure {
       return .failure(failure, endpoint: endpoint)
@@ -484,22 +458,16 @@ final class DayflowAuthManager: ObservableObject {
     }
   }
 
-  /// `plan` is "plus" for Dayflow Plus (Flow only); nil buys Dayflow Pro.
-  func openBillingCheckout(interval: DayflowBillingInterval = .monthly, plan: String? = nil) async {
+  func openBillingCheckout(interval: DayflowBillingInterval = .monthly) async {
     guard let token = retrieveSessionToken() else {
       errorText = String(localized: "Sign in first.")
       return
     }
 
-    // An account refresh runs every time the app comes to the front, and
-    // perform drops a second request while one is in flight: wait it out so
-    // the click is never lost.
-    await waitUntilIdle()
     let error = await perform {
       var request = try makeRequest(path: "/v1/billing/checkout", method: "POST")
       request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-      request.httpBody = try JSONEncoder().encode(
-        BillingCheckoutRequest(interval: interval, plan: plan))
+      request.httpBody = try JSONEncoder().encode(BillingCheckoutRequest(interval: interval))
 
       let response: BillingCheckoutResponse = try await send(request)
       guard let url = URL(string: response.url) else {
@@ -515,28 +483,6 @@ final class DayflowAuthManager: ObservableObject {
     if let error, case DayflowAuthError.backend(let statusCode, _, _) = error, statusCode == 409 {
       awaitingCheckout = true
       refreshAfterCheckout()
-    } else if case DayflowAuthError.busy? = error {
-      errorText = String(localized: "Dayflow was busy and could not open checkout. Try again.")
-    }
-  }
-
-  /// Waits for a request already in flight, for a few seconds at most.
-  private func waitUntilIdle() async {
-    for _ in 0..<100 where isBusy {
-      try? await Task.sleep(for: .milliseconds(100))
-    }
-  }
-
-  /// While a checkout is open in the browser, re-reads the account so whoever
-  /// is waiting on the purchase (the Flow page asks every few seconds) sees it
-  /// as soon as Stripe's webhook lands, however long the payment form takes.
-  func refreshIfAwaitingCheckout() async {
-    guard awaitingCheckout, isSignedIn else { return }
-    await waitUntilIdle()
-    await refreshAccount()
-    if entitlements.plan != "free" && entitlements.status == "active" {
-      awaitingCheckout = false
-      checkoutRefreshTask?.cancel()
     }
   }
 
@@ -549,7 +495,7 @@ final class DayflowAuthManager: ObservableObject {
         guard !Task.isCancelled, let self, self.isSignedIn else { return }
         await self.refreshAccount()
         guard !Task.isCancelled else { return }
-        if self.entitlements.plan != "free" && self.entitlements.status == "active" {
+        if self.entitlements.plan == "pro" && self.entitlements.status == "active" {
           self.awaitingCheckout = false
           return
         }
@@ -557,27 +503,6 @@ final class DayflowAuthManager: ObservableObject {
           do { try await Task.sleep(for: .seconds(5)) } catch { return }
         }
       }
-    }
-  }
-
-  /// The free Dayflow Plus trial (Flow only): seven days, no card, once per account.
-  func startPlusTrial() async {
-    guard let token = retrieveSessionToken() else {
-      errorText = String(localized: "Sign in first.")
-      return
-    }
-
-    await waitUntilIdle()
-    let error = await perform {
-      var request = try makeRequest(path: "/v1/billing/plus-trial", method: "POST")
-      request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-      let response: BillingStatusResponse = try await send(request)
-      entitlements = response.entitlements
-      errorText = nil
-    }
-    if case DayflowAuthError.busy? = error {
-      errorText = String(localized: "Dayflow was busy and could not start the trial. Try again.")
     }
   }
 
@@ -1074,10 +999,6 @@ private struct BillingCheckoutResponse: Codable {
   let url: String
 }
 
-private struct BillingStatusResponse: Codable {
-  let entitlements: DayflowEntitlement
-}
-
 private struct BillingTrialResponse: Codable {
   let ok: Bool
   let message: String
@@ -1087,8 +1008,6 @@ private struct BillingTrialResponse: Codable {
 
 private struct BillingCheckoutRequest: Codable {
   let interval: DayflowBillingInterval
-  /// Left out for Pro, which is what the backend sells when no plan is named.
-  let plan: String?
 }
 
 private struct BillingPortalResponse: Codable {

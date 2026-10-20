@@ -7,10 +7,6 @@ enum ScreenRecordingPermissionNotice {
     CGPreflightScreenCaptureAccess()
   }
 
-  /// Posted when macOS reports access as granted but every capture request
-  /// keeps failing, so the notice shows even though `isGranted` is true.
-  static let captureFailingReason = "capture_failing_while_granted"
-
   static func post(reason: String) {
     let notification = {
       NotificationCenter.default.post(

@@ -16,8 +16,6 @@ struct AppRootView: View {
   @State private var activeWhatsNewVersion: String? = nil
   @State private var shouldMarkWhatsNewSeen = false
   @State private var goalFlowPresentation: DayGoalFlowPresentation? = nil
-  @State private var isShowingGettingStartedTour = false
-  @State private var isGettingStartedTourReplay = false
 
   var body: some View {
     ZStack {
@@ -26,12 +24,9 @@ struct AppRootView: View {
         .environmentObject(categoryStore)
 
       goalFlowOverlay
-
-      gettingStartedTourOverlay
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .onAppear {
-      showGettingStartedTourIfPending()
       guard whatsNewNote == nil else { return }
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
         if let note = WhatsNewConfiguration.pendingReleaseForCurrentBuild() {
@@ -59,12 +54,6 @@ struct AppRootView: View {
         [
           "version": release.version
         ])
-    }
-    .onReceive(NotificationCenter.default.publisher(for: .showGettingStartedTour)) { _ in
-      isGettingStartedTourReplay = true
-      withAnimation(.easeOut(duration: 0.25)) {
-        isShowingGettingStartedTour = true
-      }
     }
     .onReceive(NotificationCenter.default.publisher(for: .timelineDataUpdated)) { _ in
       showGitHubStarPromptIfEligible(source: "first_card")
@@ -113,38 +102,9 @@ struct AppRootView: View {
     }
   }
 
-  @ViewBuilder
-  private var gettingStartedTourOverlay: some View {
-    if isShowingGettingStartedTour {
-      GettingStartedTourOverlay(
-        isReplay: isGettingStartedTourReplay, onFinish: finishGettingStartedTour
-      )
-      .transition(.opacity)
-      .zIndex(4)
-    }
-  }
-
-  private func showGettingStartedTourIfPending() {
-    guard UserDefaults.standard.bool(forKey: GettingStarted.Keys.tourPending) else { return }
-    // Let the timeline's entrance animation land first.
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-      withAnimation(.easeOut(duration: 0.25)) {
-        isShowingGettingStartedTour = true
-      }
-    }
-  }
-
-  private func finishGettingStartedTour() {
-    UserDefaults.standard.set(false, forKey: GettingStarted.Keys.tourPending)
-    withAnimation(.easeOut(duration: 0.2)) {
-      isShowingGettingStartedTour = false
-    }
-    isGettingStartedTourReplay = false
-  }
-
   private var canShowGitHubStarPrompt: Bool {
     !isShowingGitHubStarPrompt && whatsNewNote == nil && goalFlowPresentation == nil
-      && !isShowingGettingStartedTour && !SurveyCenter.shared.isShowingSurvey
+      && !SurveyCenter.shared.isShowingSurvey
   }
 
   /// Keeps the star card off the day a survey was shown.
@@ -157,7 +117,7 @@ struct AppRootView: View {
   private func showSurveyIfEligible(source: String) {
     SurveyCenter.shared.checkForSurvey(source: source) {
       whatsNewNote == nil && goalFlowPresentation == nil && !isShowingGitHubStarPrompt
-        && !isCheckingGitHubStar && !isShowingGettingStartedTour
+        && !isCheckingGitHubStar
     }
   }
 
@@ -436,7 +396,7 @@ struct DayflowApp: App {
           UserDefaults.standard.removeObject(forKey: "onboardingSelectedProviderID")
           // Force quit and restart the app to show onboarding
           Task { @MainActor in
-            AppDelegate.permitTermination(reason: "reset_onboarding")
+            AppDelegate.allowTermination = true
             NSApp.terminate(nil)
           }
         }
@@ -532,10 +492,6 @@ struct DayflowApp: App {
         NotificationCenter.default.post(name: .navigateToDaily, object: nil)
       case .support:
         NotificationCenter.default.post(name: .navigateToSupport, object: nil)
-      case .flow:
-        NotificationCenter.default.post(name: .navigateToFlow, object: nil)
-      case .timeline:
-        NotificationCenter.default.post(name: .navigateToTimeline, object: nil)
       case .weekly:
         NotificationCenter.default.post(name: .navigateToWeekly, object: nil)
       }
@@ -548,19 +504,16 @@ struct DayflowApp: App {
 extension Notification.Name {
   static let analyticsPreferenceChanged = Notification.Name("analyticsPreferenceChanged")
   static let showWhatsNew = Notification.Name("showWhatsNew")
-  static let showGettingStartedTour = Notification.Name("showGettingStartedTour")
   static let navigateToDaily = Notification.Name("navigateToDaily")
   static let navigateToSupport = Notification.Name("navigateToSupport")
   static let navigateToWeekly = Notification.Name("navigateToWeekly")
   static let timelineDataUpdated = Notification.Name("timelineDataUpdated")
   static let showTimelineFailureToast = Notification.Name("showTimelineFailureToast")
-  static let hideTimelineFailureToast = Notification.Name("hideTimelineFailureToast")
   static let showScreenRecordingPermissionNotice = Notification.Name(
     "showScreenRecordingPermissionNotice")
   static let openProvidersSettings = Notification.Name("openProvidersSettings")
   static let openAccountSettings = Notification.Name("openAccountSettings")
   static let navigateToFlow = Notification.Name("navigateToFlow")
-  static let navigateToTimeline = Notification.Name("navigateToTimeline")
 }
 
 @MainActor

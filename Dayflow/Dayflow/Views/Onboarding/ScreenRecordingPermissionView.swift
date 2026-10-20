@@ -50,7 +50,7 @@ struct ScreenRecordingPermissionView: View {
         Task { @MainActor in AppDelegate.allowTermination = false }
       } else {
         permissionState = .notRequested
-        Task { @MainActor in AppDelegate.permitTermination(reason: "screen_permission_step") }
+        Task { @MainActor in AppDelegate.allowTermination = true }
       }
     }
     // Re-check when app becomes active again (e.g., returning from System Settings)
@@ -307,14 +307,14 @@ struct ScreenRecordingPermissionView: View {
     } else {
       permissionState = .needsAction
       AnalyticsService.shared.capture("screen_permission_denied")
-      Task { @MainActor in AppDelegate.permitTermination(reason: "screen_permission_step") }
+      Task { @MainActor in AppDelegate.allowTermination = true }
     }
     isCheckingPermission = false
   }
 
   private func openSystemSettings() {
     initiatedFlow = true
-    Task { @MainActor in AppDelegate.permitTermination(reason: "screen_permission_step") }
+    Task { @MainActor in AppDelegate.allowTermination = true }
     if let url = URL(
       string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
     {
@@ -326,7 +326,7 @@ struct ScreenRecordingPermissionView: View {
 
   private func quitAndReopen() {
     Task { @MainActor in
-      AppDelegate.permitTermination(reason: "screen_permission_quit_and_reopen")
+      AppDelegate.allowTermination = true
       NSApp.terminate(nil)
     }
   }

@@ -36,10 +36,7 @@ enum RecordingControl {
 
   static func start(reason: String) {
     Task { @MainActor in
-      // Preflight only: an SCShareableContent probe here would be one more
-      // ScreenCaptureKit request for macOS to re-check (issue #381), and the
-      // recorder handles a start that fails anyway.
-      guard ScreenRecordingPermissionNotice.isGranted else {
+      guard await hasScreenRecordingPermission() else {
         print("[RecordingControl] Screen recording permission not granted; start ignored")
         ScreenRecordingPermissionNotice.post(reason: "recording_control_start")
         return
@@ -53,5 +50,19 @@ enum RecordingControl {
   static func stop(reason: String) {
     PauseManager.shared.clearPauseState()
     AppState.shared.setRecording(false, analyticsReason: reason)
+  }
+
+  private static func hasScreenRecordingPermission() async -> Bool {
+    guard CGPreflightScreenCaptureAccess() else { return false }
+
+    do {
+      _ = try await SCShareableContent.excludingDesktopWindows(
+        false,
+        onScreenWindowsOnly: true
+      )
+      return true
+    } catch {
+      return false
+    }
   }
 }

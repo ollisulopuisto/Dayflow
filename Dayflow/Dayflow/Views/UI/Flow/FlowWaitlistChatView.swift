@@ -29,10 +29,6 @@ struct FlowWaitlistChatView: View {
           }
         }
         .opacity(chatUnavailable ? 0 : 1)
-        .onAppear {
-          SupportChatSession.session(for: .flowWaitlist(email: email, accountID: accountID))
-            .setMessagePlaceholder(String(localized: "Who are you, and how would you use Flow?"))
-        }
 
         if chatUnavailable {
           VStack(spacing: 12) {

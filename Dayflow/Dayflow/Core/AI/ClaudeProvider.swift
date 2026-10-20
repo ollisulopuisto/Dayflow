@@ -55,11 +55,14 @@ final class ClaudeProvider: AgentCLISupporting {
 
   func validateSuccessfulClaudeProcess(_ run: ChatCLIRunResult) throws {
     guard run.exitCode == 0 else {
+      let message = run.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
       throw NSError(
         domain: "ClaudeProvider",
         code: Int(run.exitCode),
         userInfo: [
-          NSLocalizedDescriptionKey: run.failureMessage(toolName: "Claude CLI")
+          NSLocalizedDescriptionKey: message.isEmpty
+            ? "Claude CLI exited with code \(run.exitCode)"
+            : message
         ]
       )
     }

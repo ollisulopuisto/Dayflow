@@ -215,9 +215,7 @@ extension ClaudeProvider {
 
     return normalizedCards
   }
-}
 
-extension TimelineOutputSupporting {
   func makeClaudeCardGenerationPlan(
     observations: [Observation],
     context: ActivityGenerationContext
@@ -311,9 +309,7 @@ extension TimelineOutputSupporting {
       expectedEndTime: lastEnd.map { formatTimestampForPrompt($0) }
     )
   }
-}
 
-extension ClaudeProvider {
   func validateClaudeCardPolicy(
     _ cards: [ActivityCardData],
     requiresSingleCard: Bool,
