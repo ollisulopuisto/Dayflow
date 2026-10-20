@@ -80,18 +80,6 @@ final class OllamaProvider {
     self.injectedRuntimeConfiguration = configuration
   }
 
-  // Strip user references from observations to prevent LLM from using third-person language
-  // For some reason, even after adding negative prompts during observation generation,
-  // it still generates text with "a user" and "the user", which poisons the context
-  // for the summary prompt and makes it more likely to write in 3rd person.
-  // TODO: Remove this when observation generation is fixed upstream
-  func stripUserReferences(_ text: String) -> String {
-    return
-      text
-      .replacingOccurrences(of: "The user", with: "", options: .caseInsensitive)
-      .replacingOccurrences(of: "A user", with: "", options: .caseInsensitive)
-  }
-
   func logCallDuration(operation: String, duration: TimeInterval, status: Int? = nil) {
     let statusText = status.map { " status=\($0)" } ?? ""
     print("⏱️ [\(localEngine)] \(operation) \(String(format: "%.2f", duration))s\(statusText)")
