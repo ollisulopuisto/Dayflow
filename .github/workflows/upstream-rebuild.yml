@@ -74,6 +74,6 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip
           gh release create "fork-$TAG" Dayflow-macos.zip \
             --repo "$GITHUB_REPOSITORY" \
-            --target "$(git rev-parse HEAD)" \
+            --target koti-batching-2.7.1 \
             --title "Dayflow fork built from upstream $TAG" \
             --notes "Upstream $TAG merged into koti-batching-2.7.1 (fork commit $(git rev-parse --short HEAD)). Unsigned build."
