@@ -3,6 +3,13 @@ import GRDB
 import Sentry
 
 extension StorageManager {
+  private static let timeFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "h:mm a"
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    return formatter
+  }()
+
   /// Check whether a day meets the requested timeline activity threshold.
   func hasMinimumTimelineActivity(forDay day: String, minimumMinutes: Int = 60) -> Bool {
     guard let dayDate = dateFormatter.date(from: day) else { return false }
@@ -74,12 +81,8 @@ extension StorageManager {
     }
     let baseDate = Date(timeIntervalSince1970: TimeInterval(batchStartTs))
 
-    let timeFormatter = DateFormatter()
-    timeFormatter.dateFormat = "h:mm a"
-    timeFormatter.locale = Locale(identifier: "en_US_POSIX")
-
-    guard let startTime = timeFormatter.date(from: card.startTimestamp),
-      let endTime = timeFormatter.date(from: card.endTimestamp)
+    guard let startTime = Self.timeFormatter.date(from: card.startTimestamp),
+      let endTime = Self.timeFormatter.date(from: card.endTimestamp)
     else {
       return nil
     }
@@ -285,12 +288,8 @@ extension StorageManager {
     let startTime = now.addingTimeInterval(-13 * 60)  // 13 minute card
 
     // Format times as "h:mm a" (e.g., "2:30 PM")
-    let timeFormatter = DateFormatter()
-    timeFormatter.dateFormat = "h:mm a"
-    timeFormatter.locale = Locale(identifier: "en_US_POSIX")
-
-    let startTimeString = timeFormatter.string(from: startTime)
-    let endTimeString = timeFormatter.string(from: now)
+    let startTimeString = Self.timeFormatter.string(from: startTime)
+    let endTimeString = Self.timeFormatter.string(from: now)
 
     let startTs = Int(startTime.timeIntervalSince1970)
     let endTs = Int(now.timeIntervalSince1970)
@@ -910,10 +909,6 @@ extension StorageManager {
     var videoPaths: [String] = []
 
     // Setup date formatter for parsing clock times
-    let timeFormatter = DateFormatter()
-    timeFormatter.dateFormat = "h:mm a"
-    timeFormatter.locale = Locale(identifier: "en_US_POSIX")
-
     try? timedWrite("replaceTimelineCardsInRange(\(newCards.count)_cards)") { db in
       // First, fetch the video paths that will be soft-deleted
       // Note: We exclude error cards (category='System') from other batches to preserve them
@@ -1004,8 +999,8 @@ extension StorageManager {
           } ?? sameDay
         }
 
-        guard let startTime = timeFormatter.date(from: card.startTimestamp),
-          let endTime = timeFormatter.date(from: card.endTimestamp)
+        guard let startTime = Self.timeFormatter.date(from: card.startTimestamp),
+          let endTime = Self.timeFormatter.date(from: card.endTimestamp)
         else {
           continue
         }
