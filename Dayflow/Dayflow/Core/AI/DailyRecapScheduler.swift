@@ -57,14 +57,6 @@ final class DailyRecapScheduler: @unchecked Sendable {
       return
     }
 
-    if reason == "interval" {
-      // Only run automatic processing when the system has been idle for at least 3 minutes
-      let idleSeconds = SystemIdleMonitor.currentIdleSeconds() ?? 0
-      guard idleSeconds >= 180 else {
-        return
-      }
-    }
-
     isRunningCheck = true
     Task.detached(priority: .utility) { [weak self] in
       await self?.runCheck(reason: reason)

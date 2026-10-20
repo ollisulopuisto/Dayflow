@@ -156,11 +156,15 @@ struct BatchingConfig {
   let maxGap: TimeInterval
   let cardLookbackDuration: TimeInterval
 
-  static let standard = BatchingConfig(
-    targetDuration: 15 * 60,  // 15-minute analysis batches
-    maxGap: 2 * 60,  // Split batches if gap exceeds 2 minutes
-    cardLookbackDuration: 45 * 60  // Build cards with a 45-minute lookback window
-  )
+  static var standard: BatchingConfig {
+    let defaults = UserDefaults.standard
+    let durationMinutes = defaults.object(forKey: "studioBatchDurationMinutes") as? Int ?? 15
+    return BatchingConfig(
+      targetDuration: TimeInterval(min(max(durationMinutes, 5), 60) * 60),
+      maxGap: 2 * 60,  // Split batches if gap exceeds 2 minutes
+      cardLookbackDuration: 45 * 60  // Build cards with a 45-minute lookback window
+    )
+  }
 }
 
 struct AppSites: Codable {
