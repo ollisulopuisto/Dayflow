@@ -639,10 +639,7 @@ struct CanvasTimelineDataView: View {
       // Check for cancellation before expensive processing
       guard !Task.isCancelled else { return }
 
-      // Mitigation transform: resolve visual overlaps by trimming larger cards
-      // so that smaller cards "win". This is a display-only fix to handle
-      // upstream card-generation overlap bugs without touching stored data.
-      let segments = TimelineActivityLoader.resolveDisplaySegments(from: payload.activities)
+      let segments = TimelineActivityLoader.createDisplaySegments(from: payload.activities)
       let recordingProjection = TimelineActivityLoader.recordingProjectionWindow(
         for: payload.timelineDate,
         displaySegments: segments,
