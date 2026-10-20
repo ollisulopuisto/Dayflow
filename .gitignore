@@ -27,6 +27,8 @@ agents.md
 tools/*
 !tools/dayflow-cli/
 !tools/dayflow-cli/**
+!tools/dayflow-studio-queue/
+!tools/dayflow-studio-queue/**
 
 # Eval frameworks
 claudeeval/
