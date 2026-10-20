@@ -86,7 +86,7 @@ extension OllamaProvider {
       let endTime = formatTimestampForPrompt(obs.endTs)
       return "[\(startTime) - \(endTime)]: \(obs.observation)"
     }
-    let observationsText: String = stripUserReferences(observationLines.joined(separator: "\n\n"))
+    let observationsText: String = observationLines.joined(separator: "\n\n")
 
     let descriptorList = categories.isEmpty ? CategoryStore.descriptorsForLLM() : categories
     let categoryLines: [String] = descriptorList.enumerated().map { index, descriptor in

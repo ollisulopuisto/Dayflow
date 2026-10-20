@@ -3,6 +3,13 @@ import GRDB
 import Sentry
 
 extension StorageManager {
+  private static let timeFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "h:mm a"
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    return formatter
+  }()
+
   /// Check whether a day meets the requested timeline activity threshold.
   func hasMinimumTimelineActivity(forDay day: String, minimumMinutes: Int = 60) -> Bool {
     guard let dayDate = dateFormatter.date(from: day) else { return false }
@@ -74,12 +81,8 @@ extension StorageManager {
     }
     let baseDate = Date(timeIntervalSince1970: TimeInterval(batchStartTs))
 
-    let timeFormatter = DateFormatter()
-    timeFormatter.dateFormat = "h:mm a"
-    timeFormatter.locale = Locale(identifier: "en_US_POSIX")
-
-    guard let startTime = timeFormatter.date(from: card.startTimestamp),
-      let endTime = timeFormatter.date(from: card.endTimestamp)
+    guard let startTime = Self.timeFormatter.date(from: card.startTimestamp),
+      let endTime = Self.timeFormatter.date(from: card.endTimestamp)
     else {
       return nil
     }
@@ -285,12 +288,8 @@ extension StorageManager {
     let startTime = now.addingTimeInterval(-13 * 60)  // 13 minute card
 
     // Format times as "h:mm a" (e.g., "2:30 PM")
-    let timeFormatter = DateFormatter()
-    timeFormatter.dateFormat = "h:mm a"
-    timeFormatter.locale = Locale(identifier: "en_US_POSIX")
-
-    let startTimeString = timeFormatter.string(from: startTime)
-    let endTimeString = timeFormatter.string(from: now)
+    let startTimeString = Self.timeFormatter.string(from: startTime)
+    let endTimeString = Self.timeFormatter.string(from: now)
 
     let startTs = Int(startTime.timeIntervalSince1970)
     let endTs = Int(now.timeIntervalSince1970)
@@ -800,6 +799,52 @@ extension StorageManager {
   }
 
   /// Fetch a specific timeline card by ID including timestamp fields
+  func fetchTimelineCards(byIds ids: [Int64]) -> [TimelineCardWithTimestamps] {
+    guard !ids.isEmpty else { return [] }
+    let decoder = JSONDecoder()
+
+    let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ", ")
+
+    return (try? timedRead("fetchTimelineCards(byIds)") { db in
+      try Row.fetchAll(
+        db,
+        sql: """
+              SELECT * FROM timeline_cards
+              WHERE id IN (\(placeholders))
+                AND is_deleted = 0
+          """, arguments: StatementArguments(ids)
+      ).map { row in
+        var distractions: [Distraction]? = nil
+        if let metadataString: String = row["metadata"],
+          let jsonData = metadataString.data(using: .utf8)
+        {
+          if let meta = try? decoder.decode(TimelineMetadata.self, from: jsonData) {
+            distractions = meta.distractions
+          } else if let legacy = try? decoder.decode([Distraction].self, from: jsonData) {
+            distractions = legacy
+          }
+        }
+
+        return TimelineCardWithTimestamps(
+          id: row["id"],
+          startTimestamp: row["start"] ?? "",
+          endTimestamp: row["end"] ?? "",
+          startTs: row["start_ts"] ?? 0,
+          endTs: row["end_ts"] ?? 0,
+          category: row["category"],
+          subcategory: row["subcategory"] ?? "",
+          title: row["title"],
+          summary: row["summary"] ?? "",
+          detailedSummary: row["detailed_summary"] ?? "",
+          day: row["day"],
+          distractions: distractions,
+          videoSummaryURL: row["video_summary_url"]
+        )
+      }
+    }) ?? []
+  }
+
+  /// Fetch a specific timeline card by ID including timestamp fields
   func fetchTimelineCard(byId id: Int64) -> TimelineCardWithTimestamps? {
     let decoder = JSONDecoder()
 
@@ -910,10 +955,6 @@ extension StorageManager {
     var videoPaths: [String] = []
 
     // Setup date formatter for parsing clock times
-    let timeFormatter = DateFormatter()
-    timeFormatter.dateFormat = "h:mm a"
-    timeFormatter.locale = Locale(identifier: "en_US_POSIX")
-
     try? timedWrite("replaceTimelineCardsInRange(\(newCards.count)_cards)") { db in
       // First, fetch the video paths that will be soft-deleted
       // Note: We exclude error cards (category='System') from other batches to preserve them
@@ -1004,8 +1045,8 @@ extension StorageManager {
           } ?? sameDay
         }
 
-        guard let startTime = timeFormatter.date(from: card.startTimestamp),
-          let endTime = timeFormatter.date(from: card.endTimestamp)
+        guard let startTime = Self.timeFormatter.date(from: card.startTimestamp),
+          let endTime = Self.timeFormatter.date(from: card.endTimestamp)
         else {
           continue
         }
