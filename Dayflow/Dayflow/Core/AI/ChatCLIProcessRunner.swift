@@ -592,6 +592,16 @@ struct ChatCLIProcessRunner {
         reasoningEffort: reasoningEffort,
         sessionId: sessionId
       )
+    case .agy:
+      // Plan mode asks agy to plan rather than edit; `agy` is resolved from the login shell PATH.
+      cmdParts.append(contentsOf: [
+        "-p", LoginShellRunner.shellEscape(prompt),
+        "--output-format", "stream-json",
+        "--mode", "plan",
+      ])
+      if let sessionId {
+        cmdParts.append(contentsOf: ["--conversation", LoginShellRunner.shellEscape(sessionId)])
+      }
     }
 
     let shellCommand =
@@ -880,6 +890,40 @@ struct ChatCLIProcessRunner {
       return parseCodexEvent(data)
     case .claude:
       return parseClaudeEvent(data)
+    case .agy:
+      return parseAgyEvent(data)
+    }
+  }
+
+  /// Antigravity CLI (`agy -p … --output-format stream-json`): one JSON object per line.
+  func parseAgyEvent(_ data: Data) -> ChatStreamEvent? {
+    guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+      let event = object["event"] as? String
+    else { return nil }
+
+    switch event {
+    case "init":
+      guard let id = object["conversation_id"] as? String, !id.isEmpty else { return nil }
+      return .sessionStarted(id: id)
+    case "step_update":
+      // Stream only the agent's text while it is being written; the final result carries the full text.
+      guard let update = object["step_update"] as? [String: Any],
+        update["step_type"] as? String == "agent_response",
+        update["state"] as? String == "ACTIVE",
+        let delta = update["text_delta"] as? String, !delta.isEmpty
+      else { return nil }
+      return .textDelta(delta)
+    case "result":
+      guard let result = object["result"] as? [String: Any] else { return nil }
+      let status = result["status"] as? String ?? ""
+      let response = (result["response"] as? String ?? "")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      if status == "SUCCESS" {
+        return .complete(text: response)
+      }
+      return .error(response.isEmpty ? "Antigravity finished with status \(status)." : response)
+    default:
+      return nil
     }
   }
 

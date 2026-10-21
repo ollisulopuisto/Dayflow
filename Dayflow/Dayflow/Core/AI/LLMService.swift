@@ -1209,6 +1209,11 @@ final class LLMService: LLMServicing {
         prompt: request.prompt,
         sessionId: request.sessionId
       )
+    case .agy:
+      return AgyProvider().generateChatStreaming(
+        prompt: request.prompt,
+        sessionId: request.sessionId
+      )
     }
   }
 }

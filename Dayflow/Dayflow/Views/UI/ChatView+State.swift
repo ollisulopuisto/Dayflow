@@ -12,7 +12,7 @@ extension ChatView {
   }
 
   var anyRuntimeAvailable: Bool {
-    geminiConfigured || codexDetected || claudeDetected
+    geminiConfigured || codexDetected || claudeDetected || agyDetected
   }
 
   var hasChatMinimumAccess: Bool {

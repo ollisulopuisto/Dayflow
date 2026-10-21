@@ -304,13 +304,15 @@ extension ChatView {
       let detection = await Task.detached(priority: .utility) {
         (
           CLIDetector.isInstalled(.codex),
-          CLIDetector.isInstalled(.claude)
+          CLIDetector.isInstalled(.claude),
+          LoginShellRunner.isInstalled("agy")
         )
       }.value
 
       guard !Task.isCancelled else { return }
       codexDetected = detection.0
       claudeDetected = detection.1
+      agyDetected = detection.2
       geminiConfigured = isGeminiConfigured()
       normalizeSelectedProviderIfNeeded()
     }
@@ -350,6 +352,8 @@ extension ChatView {
       return codexDetected
     case .claude:
       return claudeDetected
+    case .agy:
+      return agyDetected
     }
   }
 
@@ -361,6 +365,8 @@ extension ChatView {
       applySelectedProvider(.codex)
     } else if claudeDetected {
       applySelectedProvider(.claude)
+    } else if agyDetected {
+      applySelectedProvider(.agy)
     }
   }
 
@@ -379,6 +385,8 @@ extension ChatView {
       return String(localized: "Claude")
     case .codex:
       return String(localized: "Codex")
+    case .agy:
+      return String(localized: "Antigravity")
     case .none:
       return String(localized: "selected provider")
     }

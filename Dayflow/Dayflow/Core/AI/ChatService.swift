@@ -477,7 +477,7 @@ final class ChatService: ObservableObject {
         systemInstruction: nil,
         history: []
       )
-    case .claude:
+    case .claude, .agy:
       let prompt: String
       if isResume {
         prompt = conversationHistory.last?.content ?? ""
@@ -558,7 +558,7 @@ final class ChatService: ObservableObject {
         lines.append("\(turn.role.promptLabel): \(turn.content)")
       }
       return lines.joined(separator: "\n\n")
-    case .codex, .claude:
+    case .codex, .claude, .agy:
       if isResume, let sessionId = request.sessionId {
         return String(localized: "[Resuming session \(sessionId)] \(request.prompt)")
       }
