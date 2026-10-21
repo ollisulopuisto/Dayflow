@@ -287,7 +287,7 @@ extension MainView {
       }
       .padding(.horizontal, 24)
 
-      if timelineMode == .day, reviewPromptCount > 0 {
+      if timelineMode == .day || timelineMode == .hour, reviewPromptCount > 0 {
         CardsToReviewButton(count: reviewPromptCount) {
           withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             showTimelineReview = true

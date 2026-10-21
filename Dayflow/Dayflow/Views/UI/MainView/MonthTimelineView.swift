@@ -9,6 +9,11 @@ struct MonthDaySummary: Equatable {
 }
 
 enum MonthTimelineSummary {
+  /// True when the whole calendar day starts after `now`, so it cannot have activity yet.
+  static func isFutureDay(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+    calendar.startOfDay(for: date) > now
+  }
+
   /// Groups activities by their 4 AM-bounded day string and sums time per category.
   /// Idle time is left out of the totals.
   static func summarize(
@@ -109,6 +114,11 @@ struct MonthTimelineView: View {
     .onChange(of: monthRange) { load() }
     .onChange(of: refreshTrigger) { load() }
     .onChange(of: mutedCategoryKeys) { load() }
+    // New cards arrive while the view is open, so refresh like the day and week views do.
+    .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in load() }
+    .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) {
+      _ in load()
+    }
     .onDisappear { loadTask?.cancel() }
   }
 
@@ -123,6 +133,7 @@ struct MonthTimelineView: View {
     let key = DateFormatter.yyyyMMdd.string(from: date)
     let summary = summaries[key]
     let isSelected = key == DateFormatter.yyyyMMdd.string(from: selectedDate)
+    let isFuture = MonthTimelineSummary.isFutureDay(date)
 
     return Button {
       onSelectDay(date)
@@ -150,8 +161,10 @@ struct MonthTimelineView: View {
           .strokeBorder(theme.textPrimary.opacity(isSelected ? 0.4 : 0.1), lineWidth: 0.75)
       )
       .contentShape(Rectangle())
+      .opacity(isFuture ? 0.4 : 1)
     }
     .buttonStyle(.plain)
+    .disabled(isFuture)
   }
 
   private func categoryBar(_ summary: MonthDaySummary) -> some View {

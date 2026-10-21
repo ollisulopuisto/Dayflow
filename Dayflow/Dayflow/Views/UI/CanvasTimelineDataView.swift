@@ -114,9 +114,16 @@ struct CanvasTimelineDataView: View {
   // Swift type-checker timeout that appeared when each closure inlined its
   // own copy of this calculation).
   private func nowCenteredTargetHourIndex() -> Int {
-    let currentHour = Calendar.current.component(.hour, from: Date())
+    Self.nowTargetHourIndex(
+      currentHour: Calendar.current.component(.hour, from: Date()), hourHeight: hourHeight)
+  }
+
+  static func nowTargetHourIndex(currentHour: Int, hourHeight: CGFloat) -> Int {
     let hoursSince4AM = currentHour >= 4 ? currentHour - 4 : (24 - 4) + currentHour
-    return max(0, hoursSince4AM - 2)
+    // Day puts "now" two hours down from the top. At a larger scale a single hour already
+    // fills that gap, so start at the current hour or "now" would sit off screen.
+    let hoursAbove = hourHeight > TimelineScale.hourHeight ? 0 : 2
+    return max(0, hoursSince4AM - hoursAbove)
   }
 
   private func scrollToNowCenteredHour(with proxy: ScrollViewProxy, animated: Bool = false) {

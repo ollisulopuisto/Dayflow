@@ -236,7 +236,8 @@ extension MainView {
     case .week:
       return Calendar.current.date(byAdding: .day, value: 7, to: selectedDate) ?? selectedDate
     case .month:
-      return Calendar.current.date(byAdding: .month, value: 1, to: selectedDate) ?? selectedDate
+      let next = Calendar.current.date(byAdding: .month, value: 1, to: selectedDate) ?? selectedDate
+      return min(next, Date())
     }
   }
 

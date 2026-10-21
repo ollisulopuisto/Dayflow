@@ -286,3 +286,34 @@ final class TimelineModeSwitchLayoutTests: XCTestCase {
     XCTAssertEqual(TimelineMode.allCases.count, 4)
   }
 }
+
+final class TimelineHourAndMonthBehaviorTests: XCTestCase {
+  func testDayScrollTargetIsTwoHoursBeforeNow() {
+    // 15:00 is 11 hours after the 4 AM start; two hours before that is index 9.
+    XCTAssertEqual(
+      CanvasTimelineDataView.nowTargetHourIndex(
+        currentHour: 15, hourHeight: TimelineScale.hourHeight), 9)
+  }
+
+  func testHourScrollTargetIsTheCurrentHourAtTripleScale() {
+    // At 3x one hour is taller than the 25% gap, so going two hours back would hide "now".
+    XCTAssertEqual(
+      CanvasTimelineDataView.nowTargetHourIndex(
+        currentHour: 15, hourHeight: TimelineScale.hourHeight * 3), 11)
+  }
+
+  func testScrollTargetHandlesHoursAfterMidnight() {
+    XCTAssertEqual(
+      CanvasTimelineDataView.nowTargetHourIndex(
+        currentHour: 2, hourHeight: TimelineScale.hourHeight), 18)
+  }
+
+  func testMonthCellsAfterTodayAreFuture() {
+    let calendar = Calendar.current
+    let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 21, hour: 9))!
+    let todayNoon = calendar.date(from: DateComponents(year: 2026, month: 10, day: 21, hour: 12))!
+    let tomorrowNoon = calendar.date(from: DateComponents(year: 2026, month: 10, day: 22, hour: 12))!
+    XCTAssertFalse(MonthTimelineSummary.isFutureDay(todayNoon, now: now, calendar: calendar))
+    XCTAssertTrue(MonthTimelineSummary.isFutureDay(tomorrowNoon, now: now, calendar: calendar))
+  }
+}
