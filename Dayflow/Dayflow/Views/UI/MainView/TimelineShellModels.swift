@@ -31,6 +31,16 @@ enum TimelineMode: String, CaseIterable, Identifiable {
   }
 }
 
+extension TimelineMode {
+  /// Width of one tab in the header's mode switch.
+  static let segmentWidth: CGFloat = 48
+
+  /// Total width of the mode switch, so the container grows with the number of modes.
+  static var switchWidth: CGFloat {
+    segmentWidth * CGFloat(allCases.count)
+  }
+}
+
 struct TimelineWeekDay: Identifiable, Equatable, Sendable {
   let date: Date
   let dayString: String

@@ -277,3 +277,12 @@ final class BrowserPrivacyDecisionTests: XCTestCase {
         excludedDomains: ["example.com"]))
   }
 }
+
+final class TimelineModeSwitchLayoutTests: XCTestCase {
+  func testSwitchIsWideEnoughForEveryMode() {
+    // A fixed 104pt container clipped the row to Day and Week once Hour and Month existed.
+    XCTAssertEqual(
+      TimelineMode.switchWidth, TimelineMode.segmentWidth * CGFloat(TimelineMode.allCases.count))
+    XCTAssertEqual(TimelineMode.allCases.count, 4)
+  }
+}

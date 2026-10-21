@@ -158,7 +158,7 @@ extension MainView {
     // Matches the pinned widths of each control (Figma-spec accurate).
     let chevronsWidth = (TimelineNavigationLayout.arrowSize * 2) + 2
     let calendarWidth: CGFloat = 36
-    let dayWeekWidth: CGFloat = 104
+    let dayWeekWidth: CGFloat = TimelineMode.switchWidth
     let todayWidth: CGFloat = 56
     let gap = TimelineNavigationLayout.calendarGap
     let datePad: CGFloat = 10
@@ -427,14 +427,14 @@ extension MainView {
             Text(mode.title)
               .font(.custom("Figtree", size: 12).weight(.medium))
               .foregroundColor(isSelected ? theme.controlText : theme.segmentInactiveText)
-              // Concrete width (52pt × 2 = 104pt container) instead of
+              // Concrete width (segmentWidth × number of modes) instead of
               // `.frame(maxWidth: .infinity)`. The infinity was being fought
               // by the `.fixedSize(horizontal: true)` ancestor on
               // `timelineLeadingControls`, which resolved the toggle's
               // ideal width as ~0 and collapsed the cream background +
               // "Day" label. Three independent parallel investigations
               // converged on this exact change.
-              .frame(width: 52, height: 30)
+              .frame(width: TimelineMode.segmentWidth, height: 30)
           }
           .contentShape(Capsule(style: .continuous))
         }
@@ -448,7 +448,7 @@ extension MainView {
         .pointingHandCursorOnHover(reassertOnPressEnd: true)
       }
     }
-    .frame(width: 104, height: 30)
+    .frame(width: TimelineMode.switchWidth, height: 30)
     .background(theme.segmentTrackFill)
     .clipShape(Capsule(style: .continuous))
     .overlay(
@@ -491,7 +491,7 @@ extension MainView {
       .lineLimit(1)
       .fixedSize(horizontal: true, vertical: false)
       .onTapGesture {
-        guard timelineMode == .day else { return }
+        guard timelineMode == .day || timelineMode == .hour else { return }
         showDatePicker = true
         lastDateNavMethod = "picker"
       }
