@@ -29,7 +29,10 @@ struct WeeklySankeyCard: View {
       WeeklySankeyFlowInteractionLayer(
         model: model,
         size: CGSize(width: width, height: height),
-        onHoveredNodeChanged: { hoveredNodeID = $0 },
+        onHoveredNodeChanged: { nodeID in
+          // Mouse moves fire continuously; only a different ribbon changes state.
+          if hoveredNodeID != nodeID { hoveredNodeID = nodeID }
+        },
         onFlowTapped: { togglePinned($0) },
         onEmptyTapped: { pinnedNodeID = nil }
       )
@@ -264,6 +267,34 @@ private struct WeeklySankeyFlowInteractionLayer: View {
   let onHoveredNodeChanged: (String?) -> Void
   let onFlowTapped: (String) -> Void
   let onEmptyTapped: () -> Void
+  /// Hit-test paths built once per layout instead of for every flow on every mouse move.
+  private let hitPaths: [(target: String, path: Path)]
+
+  init(
+    model: WeeklySankeyModel,
+    size: CGSize,
+    onHoveredNodeChanged: @escaping (String?) -> Void,
+    onFlowTapped: @escaping (String) -> Void,
+    onEmptyTapped: @escaping () -> Void
+  ) {
+    self.model = model
+    self.size = size
+    self.onHoveredNodeChanged = onHoveredNodeChanged
+    self.onFlowTapped = onFlowTapped
+    self.onEmptyTapped = onEmptyTapped
+    let scale = WeeklySankeyScale(size: size)
+    self.hitPaths = model.flows.reversed().map { flow in
+      let hitFlow = flow.expandingVertically(by: 8 / scale.y)
+      let path = sankeyRibbonPath(
+        flow: hitFlow,
+        curveTensionOverride: flow.from == model.source.id
+          ? WeeklySankeyDesign.sourceCurveTension
+          : nil,
+        scale: scale
+      )
+      return (target: flow.to, path: path)
+    }
+  }
 
   var body: some View {
     Rectangle()
@@ -276,7 +307,7 @@ private struct WeeklySankeyFlowInteractionLayer: View {
       .onContinuousHover(coordinateSpace: .local) { phase in
         switch phase {
         case .active(let location):
-          onHoveredNodeChanged(flow(at: location)?.to)
+          onHoveredNodeChanged(target(at: location))
         case .ended:
           onHoveredNodeChanged(nil)
         }
@@ -284,8 +315,8 @@ private struct WeeklySankeyFlowInteractionLayer: View {
       .gesture(
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
           .onEnded { value in
-            if let flow = flow(at: value.location) {
-              onFlowTapped(flow.to)
+            if let target = target(at: value.location) {
+              onFlowTapped(target)
             } else {
               onEmptyTapped()
             }
@@ -294,20 +325,8 @@ private struct WeeklySankeyFlowInteractionLayer: View {
       .accessibilityHidden(true)
   }
 
-  private func flow(at point: CGPoint) -> WeeklySankeyFlow? {
-    let scale = WeeklySankeyScale(size: size)
-
-    return model.flows.reversed().first { flow in
-      let hitFlow = flow.expandingVertically(by: 8 / scale.y)
-      let path = sankeyRibbonPath(
-        flow: hitFlow,
-        curveTensionOverride: flow.from == model.source.id
-          ? WeeklySankeyDesign.sourceCurveTension
-          : nil,
-        scale: scale
-      )
-      return path.contains(point, eoFill: false)
-    }
+  private func target(at point: CGPoint) -> String? {
+    hitPaths.first { $0.path.contains(point, eoFill: false) }?.target
   }
 }
 
