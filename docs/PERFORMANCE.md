@@ -8,13 +8,18 @@ Found by static review; nothing was profiled. Confirm with Instruments on a Mac 
 - Timeline: scroll frames no longer stored as state; 60 s refresh skips unchanged cards; entrance stagger capped at 0.3 s.
 - Weekly: 52-week search and access count off the main thread.
 - Browser privacy: skip unneeded checks, cache compiled AppleScript, 2 s timeout.
+- View refresh timers skip their tick while no Dayflow window is on screen (Cmd-Q only hides).
+- Day and Week cards: category colour lookup built once per render, not per card.
+- Chat: chart regex compiled once; replies without a chart skip it.
 
 ## Left, in impact order
-1. Gate view timers on window visibility (Cmd-Q only hides): CanvasTimelineDataView:828, WeekTimelineGridView:717, MonthTimelineView:118, DailyView:75, ChatView:120, WeeklyView:164.
-2. InnerGlow blur and two shadows on every card (CanvasActivityCard ~192, ~231; WeekTimelineActivityCard ~203).
-3. Week card hover animates every card; palette lookup per render (WeekTimelineGridView ~427, ~872).
+1. InnerGlow blur and two always-present shadows on every card (CanvasActivityCard ~192, ~231;
+   WeekTimelineActivityCard ~203). Profile first: replacing them changes the look, and an `if`
+   around the shadows would change view identity on hover.
+2. Week hover state lives in the grid, so every card re-evaluates on hover (WeekTimelineGridView ~427).
+3. Hour view card label size: 6x zoom, 13 pt text; check readability on screen.
 4. Treemap hover recomputes all layouts (WeeklyTreemapSection ~86).
 5. RetryCoordinator dotTick re-renders MainView every 0.6 s while retrying.
-6. Sankey hover rebuilds paths per mouse move; Chat regex compiled in body, non-lazy transcript.
+6. Sankey hover rebuilds paths per mouse move; Chat transcript is a non-lazy VStack.
 7. WeeklyAccessLockedView repeatForever animations; day cards loaded twice at launch; Sentry/PostHog setup before first frame.
 8. Studio payload: cache encoded JPEGs per batch; query pending batches by status instead of allBatches().
