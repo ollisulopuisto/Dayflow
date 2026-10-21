@@ -1425,6 +1425,12 @@ struct ChatCLIProcessRunner {
         profile: claudeProfile,
         sessionMode: claudeSessionMode
       )
+    case .agy:
+      cmdParts.append(contentsOf: [
+        "-p", LoginShellRunner.shellEscape(prompt),
+        "--output-format", "text",
+        "--mode", "plan",
+      ])
     }
 
     let shellCommand =

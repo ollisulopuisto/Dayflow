@@ -11,7 +11,7 @@ enum CLIAutoUpdater {
     guard let routing = try? LLMProviderRoutingStore.load() else { return }
     let providers = [routing.primary, routing.secondary]
     let tools = [ChatCLITool.codex, ChatCLITool.claude].filter {
-      providers.contains($0.providerID)
+      providers.contains(providerID(for: $0))
     }
     guard !tools.isEmpty else { return }
 
@@ -20,6 +20,13 @@ enum CLIAutoUpdater {
         update(tool)
       }
       await CLIVersionTelemetry.refresh()
+    }
+  }
+
+  private static func providerID(for tool: ChatCLITool) -> LLMProviderID {
+    switch tool {
+    case .codex: return .chatGPT
+    case .claude, .agy: return .claude
     }
   }
 
@@ -55,6 +62,8 @@ enum CLIAutoUpdater {
     switch tool {
     case .claude:
       return "claude update"
+    case .agy:
+      return "agy update"
     case .codex:
       guard let codex = CodexExecutableResolver.shared.resolve(), codex.source == .path else {
         return nil
@@ -67,6 +76,8 @@ enum CLIAutoUpdater {
     switch tool {
     case .claude:
       return LoginShellRunner.version(of: "claude").map(CLIVersionTelemetry.numericVersion)
+    case .agy:
+      return LoginShellRunner.version(of: "agy").map(CLIVersionTelemetry.numericVersion)
     case .codex:
       // Drop the cached resolution so the post-update probe sees the new binary.
       CodexExecutableResolver.shared.invalidate()
