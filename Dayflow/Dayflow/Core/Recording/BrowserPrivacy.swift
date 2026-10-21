@@ -109,6 +109,24 @@ enum BrowserPrivacy {
   private static let safariBundleID = "com.apple.Safari"
   private static let firefoxBundleIDs: Set<String> = ["org.mozilla.firefox"]
 
+  enum BrowserKind {
+    case chromium
+    case safari
+    case firefox
+  }
+
+  /// Whether asking this browser anything could change the decision. Each check is an Apple
+  /// Event or a window list scan on every capture, so it is skipped when no setting needs it.
+  static func needsCheck(_ kind: BrowserKind, hidesIncognito: Bool, excludedDomains: [String])
+    -> Bool
+  {
+    switch kind {
+    case .chromium: return hidesIncognito || !excludedDomains.isEmpty
+    case .safari: return !excludedDomains.isEmpty  // Safari only reports the URL.
+    case .firefox: return hidesIncognito  // Firefox only reports its window title.
+    }
+  }
+
   /// The state of the frontmost window when it belongs to a supported browser, otherwise nil.
   @MainActor
   static func frontmostBrowserState() -> State? {
@@ -116,35 +134,59 @@ enum BrowserPrivacy {
       let bundleID = app.bundleIdentifier
     else { return nil }
 
+    let kind: BrowserKind
     if chromiumBundleIDs.contains(bundleID) {
+      kind = .chromium
+    } else if bundleID == safariBundleID {
+      kind = .safari
+    } else if firefoxBundleIDs.contains(bundleID) {
+      kind = .firefox
+    } else {
+      return nil
+    }
+    guard needsCheck(kind, hidesIncognito: hidesIncognito, excludedDomains: excludedDomains)
+    else { return nil }
+
+    switch kind {
+    case .chromium:
       return scriptedState(bundleID: bundleID, chromium: true)
-    }
-    if bundleID == safariBundleID {
+    case .safari:
       return scriptedState(bundleID: bundleID, chromium: false)
-    }
-    if firefoxBundleIDs.contains(bundleID) {
+    case .firefox:
       let title = frontWindowTitle(pid: app.processIdentifier) ?? ""
       return State(isIncognito: title.contains("Private Browsing"), url: nil)
     }
-    return nil
   }
 
-  private static func scriptedState(bundleID: String, chromium: Bool) -> State? {
-    let source =
+  /// Compiled once per browser; compiling AppleScript on every capture was wasted work.
+  @MainActor private static var compiledScripts: [String: NSAppleScript] = [:]
+
+  @MainActor
+  private static func compiledScript(bundleID: String, chromium: Bool) -> NSAppleScript? {
+    if let cached = compiledScripts[bundleID] { return cached }
+    // The timeout keeps a hung browser from blocking the main thread for the 2 minute default.
+    let body =
       chromium
-      ? """
-      tell application id "\(bundleID)"
-        if (count of windows) is 0 then return ""
-        return (mode of front window) & linefeed & (URL of active tab of front window)
-      end tell
-      """
-      : """
-      tell application id "\(bundleID)"
-        if (count of windows) is 0 then return ""
-        return "normal" & linefeed & (URL of current tab of front window)
-      end tell
+      ? "return (mode of front window) & linefeed & (URL of active tab of front window)"
+      : "return \"normal\" & linefeed & (URL of current tab of front window)"
+    let source = """
+      with timeout of 2 seconds
+        tell application id "\(bundleID)"
+          if (count of windows) is 0 then return ""
+          \(body)
+        end tell
+      end timeout
       """
     guard let script = NSAppleScript(source: source) else { return nil }
+    var error: NSDictionary?
+    guard script.compileAndReturnError(&error) else { return nil }
+    compiledScripts[bundleID] = script
+    return script
+  }
+
+  @MainActor
+  private static func scriptedState(bundleID: String, chromium: Bool) -> State? {
+    guard let script = compiledScript(bundleID: bundleID, chromium: chromium) else { return nil }
     var error: NSDictionary?
     let result = script.executeAndReturnError(&error)
     guard error == nil, let text = result.stringValue, !text.isEmpty else { return nil }

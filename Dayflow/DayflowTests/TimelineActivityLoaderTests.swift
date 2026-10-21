@@ -345,3 +345,26 @@ final class HourViewReadabilityTests: XCTestCase {
     XCTAssertEqual(CanvasTimelineDataView.cardFontSize(base: 16, showsShortCardText: true), 13)
   }
 }
+
+final class BrowserPrivacyCheckNeedTests: XCTestCase {
+  func testNothingIsCheckedWhenBothSettingsAreOff() {
+    for kind in [BrowserPrivacy.BrowserKind.chromium, .safari, .firefox] {
+      XCTAssertFalse(BrowserPrivacy.needsCheck(kind, hidesIncognito: false, excludedDomains: []))
+    }
+  }
+
+  func testSafariIsOnlyAskedForItsURLWhenSitesAreExcluded() {
+    XCTAssertFalse(BrowserPrivacy.needsCheck(.safari, hidesIncognito: true, excludedDomains: []))
+    XCTAssertTrue(BrowserPrivacy.needsCheck(.safari, hidesIncognito: false, excludedDomains: ["x.com"]))
+  }
+
+  func testFirefoxIsOnlyCheckedForPrivateWindows() {
+    XCTAssertTrue(BrowserPrivacy.needsCheck(.firefox, hidesIncognito: true, excludedDomains: []))
+    XCTAssertFalse(BrowserPrivacy.needsCheck(.firefox, hidesIncognito: false, excludedDomains: ["x.com"]))
+  }
+
+  func testChromiumIsCheckedForEitherSetting() {
+    XCTAssertTrue(BrowserPrivacy.needsCheck(.chromium, hidesIncognito: true, excludedDomains: []))
+    XCTAssertTrue(BrowserPrivacy.needsCheck(.chromium, hidesIncognito: false, excludedDomains: ["x.com"]))
+  }
+}
