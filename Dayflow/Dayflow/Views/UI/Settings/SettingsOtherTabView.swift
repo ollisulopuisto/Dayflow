@@ -5,6 +5,11 @@ struct SettingsOtherTabView: View {
   @ObservedObject var launchAtLoginManager: LaunchAtLoginManager
   @AppStorage(DayflowAppearance.storageKey) private var appearance: DayflowAppearance = .system
   @FocusState private var isOutputLanguageFocused: Bool
+  @AppStorage(SidebarIcon.hideFlowKey) private var hideFlow = true
+
+  private var showFlowBinding: Binding<Bool> {
+    Binding(get: { !hideFlow }, set: { hideFlow = !$0 })
+  }
   @State private var appLanguage = AppLanguagePreferences.selection()
 
   var body: some View {
@@ -109,6 +114,14 @@ struct SettingsOtherTabView: View {
           subtitle: String(localized: "When off, timeline cards won't show app or website icons.")
         ) {
           SettingsToggle(isOn: $viewModel.showTimelineAppIcons)
+        }
+
+        SettingsRow(
+          label: String(localized: "Show Flow in sidebar"),
+          subtitle: String(
+            localized: "Flow is hidden by default. Turn this on to show the Flow tab in the sidebar.")
+        ) {
+          SettingsToggle(isOn: showFlowBinding)
         }
 
         SettingsRow(

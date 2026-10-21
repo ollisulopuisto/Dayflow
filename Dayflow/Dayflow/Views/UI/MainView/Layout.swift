@@ -90,7 +90,8 @@ extension MainView {
       }
       .onReceive(NotificationCenter.default.publisher(for: .navigateToSection)) { notification in
         guard let number = notification.userInfo?["number"] as? Int,
-          let icon = SidebarIcon.forCommandNumber(number)
+          let icon = SidebarIcon.forCommandNumber(number),
+          SidebarIcon.visibleIcons(hideFlow: SidebarIcon.hidesFlowByDefault).contains(icon)
         else { return }
         withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
           selectedIcon = icon

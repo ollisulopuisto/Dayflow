@@ -145,3 +145,17 @@ final class SidebarShortcutTests: XCTestCase {
     XCTAssertNil(SidebarIcon.forCommandNumber(9))
   }
 }
+
+final class SidebarFlowVisibilityTests: XCTestCase {
+  func testHidingFlowRemovesOnlyFlowFromTheSidebar() {
+    let visible = SidebarIcon.visibleIcons(hideFlow: true)
+    XCTAssertFalse(visible.contains(.flow))
+    XCTAssertEqual(visible.count, SidebarIcon.allCases.count - 1)
+    XCTAssertTrue(visible.contains(.timeline))
+    XCTAssertTrue(visible.contains(.settings))
+  }
+
+  func testShowingFlowKeepsTheFullSidebar() {
+    XCTAssertEqual(SidebarIcon.visibleIcons(hideFlow: false), SidebarIcon.allCases)
+  }
+}

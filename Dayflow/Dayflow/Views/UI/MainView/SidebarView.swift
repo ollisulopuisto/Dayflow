@@ -97,13 +97,27 @@ enum SidebarIcon: CaseIterable {
   }
 }
 
+extension SidebarIcon {
+  /// Flow is hidden from the sidebar unless the user turns "Show Flow" on in Settings > Other.
+  static let hideFlowKey = "hideFlowInSidebar"
+
+  static var hidesFlowByDefault: Bool {
+    UserDefaults.standard.object(forKey: hideFlowKey) as? Bool ?? true
+  }
+
+  static func visibleIcons(hideFlow: Bool) -> [SidebarIcon] {
+    allCases.filter { !(hideFlow && $0 == .flow) }
+  }
+}
+
 struct SidebarView: View {
   @Binding var selectedIcon: SidebarIcon
   @ObservedObject private var badgeManager = NotificationBadgeManager.shared
+  @AppStorage(SidebarIcon.hideFlowKey) private var hideFlow = true
 
   var body: some View {
     VStack(alignment: .center, spacing: SidebarMetrics.itemSpacing) {
-      ForEach(SidebarIcon.allCases, id: \.self) { icon in
+      ForEach(SidebarIcon.visibleIcons(hideFlow: hideFlow), id: \.self) { icon in
         SidebarIconButton(
           icon: icon,
           isSelected: selectedIcon == icon,
