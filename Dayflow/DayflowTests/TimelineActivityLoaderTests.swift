@@ -208,3 +208,38 @@ final class WeeklyTreemapOtherDrillDownTests: XCTestCase {
     XCTAssertEqual(outer.containedApps.map(\.name), ["Slack", "Mail"])
   }
 }
+
+final class BrowserPrivacyDecisionTests: XCTestCase {
+  func testHostParsingLowercasesAndDropsScheme() {
+    XCTAssertEqual(BrowserPrivacy.host(from: "https://WWW.Example.com/path?q=1"), "www.example.com")
+    XCTAssertNil(BrowserPrivacy.host(from: "not a url"))
+  }
+
+  func testExcludedDomainMatchesItselfAndSubdomainsOnly() {
+    let excluded = ["example.com"]
+    XCTAssertTrue(BrowserPrivacy.isExcluded(host: "example.com", excludedDomains: excluded))
+    XCTAssertTrue(BrowserPrivacy.isExcluded(host: "www.example.com", excludedDomains: excluded))
+    XCTAssertFalse(BrowserPrivacy.isExcluded(host: "notexample.com", excludedDomains: excluded))
+    XCTAssertFalse(BrowserPrivacy.isExcluded(host: "example.com.evil.net", excludedDomains: excluded))
+  }
+
+  func testIncognitoIsRedactedOnlyWhenTheSettingIsOn() {
+    XCTAssertEqual(
+      BrowserPrivacy.redactionReason(isIncognito: true, url: nil, hidesIncognito: true, excludedDomains: []),
+      .privateWindow)
+    XCTAssertNil(
+      BrowserPrivacy.redactionReason(isIncognito: true, url: nil, hidesIncognito: false, excludedDomains: []))
+  }
+
+  func testExcludedSiteIsRedacted() {
+    XCTAssertEqual(
+      BrowserPrivacy.redactionReason(
+        isIncognito: false, url: "https://video.example.com/x", hidesIncognito: true,
+        excludedDomains: ["example.com"]),
+      .excludedSite)
+    XCTAssertNil(
+      BrowserPrivacy.redactionReason(
+        isIncognito: false, url: "https://news.org/x", hidesIncognito: true,
+        excludedDomains: ["example.com"]))
+  }
+}
