@@ -303,9 +303,10 @@ final class TimelineHourAndMonthBehaviorTests: XCTestCase {
   }
 
   func testScrollTargetHandlesHoursAfterMidnight() {
+    // 02:00 is 22 hours after the 4 AM start; two hours before that is index 20.
     XCTAssertEqual(
       CanvasTimelineDataView.nowTargetHourIndex(
-        currentHour: 2, hourHeight: TimelineScale.hourHeight), 18)
+        currentHour: 2, hourHeight: TimelineScale.hourHeight), 20)
   }
 
   func testMonthCellsAfterTodayAreFuture() {
