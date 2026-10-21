@@ -318,3 +318,12 @@ final class TimelineHourAndMonthBehaviorTests: XCTestCase {
     XCTAssertTrue(MonthTimelineSummary.isFutureDay(tomorrowNoon, now: now, calendar: calendar))
   }
 }
+
+final class SettingsTabOrderTests: XCTestCase {
+  func testAccountIsSecondToLastAndStorageIsTheDefault() {
+    XCTAssertEqual(
+      SettingsView.SettingsTab.allCases.map(\.rawValue),
+      ["storage", "privacy", "providers", "aiTools", "data", "account", "other"])
+    XCTAssertEqual(SettingsView.SettingsTab.defaultTab, .storage)
+  }
+}
