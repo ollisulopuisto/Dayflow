@@ -62,6 +62,31 @@ enum WeeklyPalette {
     NSColor.black.withAlphaComponent(0.05), NSColor.black.withAlphaComponent(0.25))
 }
 
+/// Finds the week the Weekly tab should open on. Pure so it can run off the main thread
+/// and be tested without a database.
+enum WeeklyDefaultWeek {
+  static func search(
+    from start: WeeklyDateRange,
+    searchLimit: Int,
+    requirementMinutes: Int,
+    minutesTracked: (WeeklyDateRange) -> Int
+  ) -> WeeklyDateRange {
+    var fallbackRangeWithData: WeeklyDateRange?
+    var range = start
+    for _ in 0..<searchLimit {
+      let recordedMinutes = minutesTracked(range)
+      if recordedMinutes >= requirementMinutes {
+        return range
+      }
+      if fallbackRangeWithData == nil, recordedMinutes > 0 {
+        fallbackRangeWithData = range
+      }
+      range = range.shifted(byWeeks: -1)
+    }
+    return fallbackRangeWithData ?? start
+  }
+}
+
 struct WeeklyView: View {
   @EnvironmentObject private var categoryStore: CategoryStore
   @Environment(\.scenePhase) private var scenePhase
@@ -77,11 +102,17 @@ struct WeeklyView: View {
   @State private var notificationState: WeeklyAccessNotificationState = .idle
   @State private var weeklyLoadGeneration = 0
 
+  /// Last known count, so rebuilding this view (which happens on every parent render)
+  /// does not query the database on the main thread again.
+  @MainActor private static var lastCompletedBatchCount: Int?
+
   init() {
     let initialWeekRange = WeeklyDateRange.containing(Date())
-    let initialAccessProgress = WeeklyAccessProgressSnapshot(
-      completedBatchCount: StorageManager.shared.countCompletedAnalysisBatchesForWeeklyAccess()
-    )
+    let completedCount =
+      Self.lastCompletedBatchCount
+      ?? StorageManager.shared.countCompletedAnalysisBatchesForWeeklyAccess()
+    Self.lastCompletedBatchCount = completedCount
+    let initialAccessProgress = WeeklyAccessProgressSnapshot(completedBatchCount: completedCount)
 
     _weekRange = State(initialValue: initialWeekRange)
     _dashboardSnapshot = State(
@@ -322,48 +353,42 @@ struct WeeklyView: View {
   }
 
   private func refreshWeeklyAccessState() {
-    weeklyAccessProgress = WeeklyAccessProgressSnapshot(
-      completedBatchCount: StorageManager.shared.countCompletedAnalysisBatchesForWeeklyAccess()
-    )
+    Task {
+      let count = await Task.detached(priority: .userInitiated) {
+        StorageManager.shared.countCompletedAnalysisBatchesForWeeklyAccess()
+      }.value
+      Self.lastCompletedBatchCount = count
+      weeklyAccessProgress = WeeklyAccessProgressSnapshot(completedBatchCount: count)
 
-    guard weeklyAccessProgress.isComplete, !isManuallyLocked else { return }
+      guard weeklyAccessProgress.isComplete, !isManuallyLocked else { return }
 
-    NotificationService.shared.cancelWeeklyUnlockNotification()
+      NotificationService.shared.cancelWeeklyUnlockNotification()
+    }
   }
 
+  /// Up to 52 weekly totals are read to pick the opening week; that happens off the main thread.
   private func selectDefaultWeekOnEntry() {
     guard isWeeklyAccessUnlocked else { return }
 
-    let defaultRange = defaultWeekRangeOnEntry()
-    guard defaultRange != weekRange else { return }
-
-    weekRange = defaultRange
-  }
-
-  private func defaultWeekRangeOnEntry() -> WeeklyDateRange {
-    var fallbackRangeWithData: WeeklyDateRange?
-    var range = WeeklyDateRange.containing(Date())
-
-    for _ in 0..<Self.defaultWeekSearchLimit {
-      let recordedMinutes = Int(
-        StorageManager.shared.fetchTotalMinutesTracked(
-          from: range.weekStart,
-          to: range.weekEnd
-        ).rounded(.down)
-      )
-
-      if recordedMinutes >= Self.weeklyDataRequirementMinutes {
-        return range
-      }
-
-      if fallbackRangeWithData == nil, recordedMinutes > 0 {
-        fallbackRangeWithData = range
-      }
-
-      range = range.shifted(byWeeks: -1)
+    let startRange = weekRange
+    let searchLimit = Self.defaultWeekSearchLimit
+    let requirementMinutes = Self.weeklyDataRequirementMinutes
+    Task {
+      let defaultRange = await Task.detached(priority: .userInitiated) {
+        WeeklyDefaultWeek.search(
+          from: WeeklyDateRange.containing(Date()),
+          searchLimit: searchLimit,
+          requirementMinutes: requirementMinutes
+        ) { range in
+          Int(
+            StorageManager.shared.fetchTotalMinutesTracked(from: range.weekStart, to: range.weekEnd)
+              .rounded(.down))
+        }
+      }.value
+      // Leave the week alone if the user already moved to another one.
+      guard weekRange == startRange, defaultRange != weekRange else { return }
+      weekRange = defaultRange
     }
-
-    return fallbackRangeWithData ?? WeeklyDateRange.containing(Date())
   }
 
   private func handleWeeklyNotifyAction() {
