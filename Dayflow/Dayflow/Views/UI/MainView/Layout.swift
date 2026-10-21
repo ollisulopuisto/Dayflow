@@ -83,6 +83,19 @@ extension MainView {
           selectedIcon = .weekly
         }
       }
+      .onReceive(NotificationCenter.default.publisher(for: .navigateToSettings)) { _ in
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+          selectedIcon = .settings
+        }
+      }
+      .onReceive(NotificationCenter.default.publisher(for: .navigateToSection)) { notification in
+        guard let number = notification.userInfo?["number"] as? Int,
+          let icon = SidebarIcon.forCommandNumber(number)
+        else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+          selectedIcon = icon
+        }
+      }
       .onReceive(NotificationCenter.default.publisher(for: .showTimelineFailureToast)) {
         handleShowTimelineFailureToastNotification($0)
       }

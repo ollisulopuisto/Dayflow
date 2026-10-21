@@ -16,6 +16,21 @@ private enum SidebarMetrics {
   static let labelFontSize: CGFloat = 11 * scale
 }
 
+extension SidebarIcon {
+  /// Sections reachable with Cmd+1 ... Cmd+6, in sidebar order.
+  static func forCommandNumber(_ number: Int) -> SidebarIcon? {
+    switch number {
+    case 1: return .timeline
+    case 2: return .daily
+    case 3: return .weekly
+    case 4: return .chat
+    case 5: return .flow
+    case 6: return .agents
+    default: return nil
+    }
+  }
+}
+
 enum SidebarIcon: CaseIterable {
   case timeline
   case daily

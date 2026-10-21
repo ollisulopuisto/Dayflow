@@ -443,6 +443,28 @@ struct DayflowApp: App {
         .keyboardShortcut("R", modifiers: [.command, .shift])
       }
 
+      // Standard Mac shortcuts: Cmd+, opens Settings, Cmd+1...6 switch sidebar sections.
+      CommandGroup(replacing: .appSettings) {
+        Button("Settings…") {
+          NSApp.activate(ignoringOtherApps: true)
+          NotificationCenter.default.post(name: .navigateToSettings, object: nil)
+        }
+        .keyboardShortcut(",", modifiers: .command)
+      }
+
+      CommandGroup(after: .sidebar) {
+        ForEach(1...6, id: \.self) { number in
+          if let icon = SidebarIcon.forCommandNumber(number) {
+            Button(icon.displayName) {
+              NSApp.activate(ignoringOtherApps: true)
+              NotificationCenter.default.post(
+                name: .navigateToSection, object: nil, userInfo: ["number": number])
+            }
+            .keyboardShortcut(KeyEquivalent(Character(String(number))), modifiers: .command)
+          }
+        }
+      }
+
       // Add Sparkle's update menu item
       CommandGroup(after: .appInfo) {
         Button("Check for Updates…") {
@@ -552,6 +574,8 @@ extension Notification.Name {
   static let navigateToDaily = Notification.Name("navigateToDaily")
   static let navigateToSupport = Notification.Name("navigateToSupport")
   static let navigateToWeekly = Notification.Name("navigateToWeekly")
+  static let navigateToSettings = Notification.Name("navigateToSettings")
+  static let navigateToSection = Notification.Name("navigateToSection")
   static let timelineDataUpdated = Notification.Name("timelineDataUpdated")
   static let showTimelineFailureToast = Notification.Name("showTimelineFailureToast")
   static let hideTimelineFailureToast = Notification.Name("hideTimelineFailureToast")

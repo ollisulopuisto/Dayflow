@@ -128,3 +128,20 @@ final class TimelineActivityLoaderTests: XCTestCase {
     Date(timeIntervalSinceReferenceDate: TimeInterval(minute * 60))
   }
 }
+
+final class SidebarShortcutTests: XCTestCase {
+  func testCommandNumbersSelectTheMainSectionsInSidebarOrder() {
+    XCTAssertEqual(SidebarIcon.forCommandNumber(1), .timeline)
+    XCTAssertEqual(SidebarIcon.forCommandNumber(2), .daily)
+    XCTAssertEqual(SidebarIcon.forCommandNumber(3), .weekly)
+    XCTAssertEqual(SidebarIcon.forCommandNumber(4), .chat)
+    XCTAssertEqual(SidebarIcon.forCommandNumber(5), .flow)
+    XCTAssertEqual(SidebarIcon.forCommandNumber(6), .agents)
+  }
+
+  func testCommandNumbersOutsideTheMainSectionsSelectNothing() {
+    XCTAssertNil(SidebarIcon.forCommandNumber(0))
+    XCTAssertNil(SidebarIcon.forCommandNumber(7))
+    XCTAssertNil(SidebarIcon.forCommandNumber(9))
+  }
+}
