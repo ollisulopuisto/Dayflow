@@ -453,6 +453,24 @@ struct DayflowApp: App {
       }
 
       CommandGroup(after: .sidebar) {
+        Button("Zoom In Timeline") {
+          NSApp.activate(ignoringOtherApps: true)
+          NotificationCenter.default.post(
+            name: .timelineZoomStep, object: nil, userInfo: ["delta": 1])
+        }
+        .keyboardShortcut("+", modifiers: .command)
+
+        Button("Zoom Out Timeline") {
+          NSApp.activate(ignoringOtherApps: true)
+          NotificationCenter.default.post(
+            name: .timelineZoomStep, object: nil, userInfo: ["delta": -1])
+        }
+        .keyboardShortcut("-", modifiers: .command)
+
+        Divider()
+      }
+
+      CommandGroup(after: .sidebar) {
         ForEach(1...6, id: \.self) { number in
           if let icon = SidebarIcon.forCommandNumber(number) {
             Button(icon.displayName) {
@@ -575,6 +593,7 @@ extension Notification.Name {
   static let navigateToSupport = Notification.Name("navigateToSupport")
   static let navigateToWeekly = Notification.Name("navigateToWeekly")
   static let navigateToSettings = Notification.Name("navigateToSettings")
+  static let timelineZoomStep = Notification.Name("timelineZoomStep")
   static let navigateToSection = Notification.Name("navigateToSection")
   static let timelineDataUpdated = Notification.Name("timelineDataUpdated")
   static let showTimelineFailureToast = Notification.Name("showTimelineFailureToast")

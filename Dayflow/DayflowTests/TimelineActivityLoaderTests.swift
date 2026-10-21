@@ -159,3 +159,21 @@ final class SidebarFlowVisibilityTests: XCTestCase {
     XCTAssertEqual(SidebarIcon.visibleIcons(hideFlow: false), SidebarIcon.allCases)
   }
 }
+
+final class TimelineZoomAndHintTests: XCTestCase {
+  func testZoomInMovesFromWeekToDayAndStopsAtDay() {
+    XCTAssertEqual(TimelineMode.week.zoomed(by: 1), .day)
+    XCTAssertEqual(TimelineMode.day.zoomed(by: 1), .day)
+  }
+
+  func testZoomOutMovesFromDayToWeekAndStopsAtWeek() {
+    XCTAssertEqual(TimelineMode.day.zoomed(by: -1), .week)
+    XCTAssertEqual(TimelineMode.week.zoomed(by: -1), .week)
+  }
+
+  func testSidebarHintsShowCommandNumbers() {
+    XCTAssertEqual(SidebarIcon.timeline.shortcutHint, "Timeline (⌘1)")
+    XCTAssertEqual(SidebarIcon.agents.shortcutHint, "Agents (⌘6)")
+    XCTAssertEqual(SidebarIcon.settings.shortcutHint, "Settings (⌘,)")
+  }
+}

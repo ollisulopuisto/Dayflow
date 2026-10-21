@@ -6,6 +6,13 @@ enum TimelineMode: String, CaseIterable, Identifiable {
 
   var id: String { rawValue }
 
+  /// Cmd+plus zooms in (week to day); Cmd+minus zooms out (day to week).
+  func zoomed(by delta: Int) -> TimelineMode {
+    if delta > 0 { return self == .week ? .day : self }
+    if delta < 0 { return self == .day ? .week : self }
+    return self
+  }
+
   var title: String {
     switch self {
     case .day:

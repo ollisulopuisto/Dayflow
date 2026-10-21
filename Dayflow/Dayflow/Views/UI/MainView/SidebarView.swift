@@ -108,6 +108,26 @@ extension SidebarIcon {
   static func visibleIcons(hideFlow: Bool) -> [SidebarIcon] {
     allCases.filter { !(hideFlow && $0 == .flow) }
   }
+
+  /// The Cmd+number that selects this section, if it has one.
+  var commandNumber: Int? {
+    switch self {
+    case .timeline: return 1
+    case .daily: return 2
+    case .weekly: return 3
+    case .chat: return 4
+    case .flow: return 5
+    case .agents: return 6
+    default: return nil
+    }
+  }
+
+  /// Tooltip text that also shows the keyboard shortcut.
+  var shortcutHint: String {
+    if self == .settings { return "\(displayName) (⌘,)" }
+    guard let number = commandNumber else { return displayName }
+    return "\(displayName) (⌘\(number))"
+  }
 }
 
 struct SidebarView: View {
@@ -125,6 +145,7 @@ struct SidebarView: View {
           action: { selectedIcon = icon }
         )
         .frame(width: SidebarMetrics.itemSize, height: SidebarMetrics.itemSize)
+        .help(icon.shortcutHint)
       }
     }
   }

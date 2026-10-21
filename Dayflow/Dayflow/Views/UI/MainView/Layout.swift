@@ -88,6 +88,11 @@ extension MainView {
           selectedIcon = .settings
         }
       }
+      .onReceive(NotificationCenter.default.publisher(for: .timelineZoomStep)) { notification in
+        guard selectedIcon == .timeline else { return }
+        let delta = notification.userInfo?["delta"] as? Int ?? 0
+        setTimelineMode(timelineMode.zoomed(by: delta))
+      }
       .onReceive(NotificationCenter.default.publisher(for: .navigateToSection)) { notification in
         guard let number = notification.userInfo?["number"] as? Int,
           let icon = SidebarIcon.forCommandNumber(number),
