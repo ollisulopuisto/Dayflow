@@ -183,3 +183,28 @@ final class TimelineZoomAndHintTests: XCTestCase {
     XCTAssertEqual(SidebarIcon.settings.shortcutHint, "Settings (⌘,)")
   }
 }
+
+final class WeeklyTreemapOtherDrillDownTests: XCTestCase {
+  private func app(_ name: String, minutes: Int) -> WeeklyTreemapApp {
+    WeeklyTreemapApp(
+      id: name, name: name, duration: TimeInterval(minutes * 60), change: nil)
+  }
+
+  func testOtherTileKeepsTheAppsItContains() {
+    let other = WeeklyTreemapApp.aggregate(containing: [app("Slack", minutes: 30), app("Mail", minutes: 10)])
+    XCTAssertEqual(other.containedApps.map(\.name), ["Slack", "Mail"])
+  }
+
+  func testMergingAddsAppsWithoutLosingTheOnesAlreadyInside() {
+    let other = WeeklyTreemapApp.aggregate(containing: [app("Slack", minutes: 30)])
+    let merged = other.merging(app("Mail", minutes: 10))
+    XCTAssertEqual(merged.containedApps.map(\.name), ["Slack", "Mail"])
+    XCTAssertEqual(merged.duration, TimeInterval(40 * 60))
+  }
+
+  func testNestedOtherTilesAreFlattened() {
+    let inner = WeeklyTreemapApp.aggregate(containing: [app("Slack", minutes: 30)])
+    let outer = WeeklyTreemapApp.aggregate(containing: [inner, app("Mail", minutes: 10)])
+    XCTAssertEqual(outer.containedApps.map(\.name), ["Slack", "Mail"])
+  }
+}

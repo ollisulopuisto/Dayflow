@@ -107,6 +107,7 @@ struct WeeklyTreemapLeafTile: View {
   let app: WeeklyTreemapApp
   let palette: WeeklyTreemapPalette
   let onHoverChanged: (WeeklyTreemapHoverState?) -> Void
+  @State private var showsContents = false
 
   enum Design {
     static let cornerRadius: CGFloat = 4
@@ -127,6 +128,13 @@ struct WeeklyTreemapLeafTile: View {
           RoundedRectangle(cornerRadius: Design.cornerRadius, style: .continuous)
             .stroke(palette.tileBorder, lineWidth: 0.5)
         )
+        .contentShape(RoundedRectangle(cornerRadius: Design.cornerRadius, style: .continuous))
+        .onTapGesture {
+          if app.isAggregate { showsContents = true }
+        }
+        .popover(isPresented: $showsContents, arrowEdge: .bottom) {
+          WeeklyTreemapOtherContents(apps: app.containedApps)
+        }
         .overlay {
           if app.isPlaceholder {
             EmptyView()
@@ -408,5 +416,31 @@ enum WeeklyTreemapLeafPresentationMode {
     }
 
     return .labelOnly
+  }
+}
+
+/// Lists the apps behind an "Other" tile, largest first.
+struct WeeklyTreemapOtherContents: View {
+  let apps: [WeeklyTreemapApp]
+
+  var body: some View {
+    let sorted = apps.sorted(by: WeeklyTreemapApp.displayOrder)
+    VStack(alignment: .leading, spacing: 6) {
+      Text("Other")
+        .font(.custom("Figtree", size: 13).weight(.semibold))
+      ForEach(Array(sorted.enumerated()), id: \.offset) { _, app in
+        HStack(spacing: 12) {
+          Text(app.name)
+            .font(.custom("Figtree", size: 12))
+            .lineLimit(1)
+          Spacer(minLength: 8)
+          Text(app.formattedDuration)
+            .font(.custom("Figtree", size: 12).weight(.semibold))
+            .monospacedDigit()
+        }
+      }
+    }
+    .padding(12)
+    .frame(minWidth: 220, alignment: .leading)
   }
 }
