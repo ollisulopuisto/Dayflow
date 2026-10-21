@@ -55,29 +55,34 @@ extension MainView {
     guard pendingGoalPromptDay != promptDay else { return }
     guard goalFlowPresentation == nil else { return }
 
-    if StorageManager.shared.fetchDayGoalPlan(forDay: promptDay) != nil {
-      markDailyGoalPromptHandled(day: promptDay)
-      return
+    // Three database reads; they run off the main thread because this is called from onAppear.
+    let requiredActiveDays = FeatureAccessRequirements.dayGoalRequiredActiveDays
+    let maxSkips = FeatureAccessRequirements.dayGoalMaxConsecutiveSkips
+    Task {
+      let decision = await Task.detached(priority: .userInitiated) {
+        let store = StorageManager.shared
+        return DailyGoalPromptDecision.evaluate(
+          hasPlan: store.fetchDayGoalPlan(forDay: promptDay) != nil,
+          activeDays: store.countDistinctTimelineDays(excludingDay: promptDay),
+          skipStreak: store.consecutiveSkippedDayGoalCount(before: promptDay, limit: maxSkips),
+          requiredActiveDays: requiredActiveDays,
+          maxSkips: maxSkips
+        )
+      }.value
+      // State may have moved on while the reads ran.
+      guard pendingGoalPromptDay != promptDay, goalFlowPresentation == nil else { return }
+      switch decision {
+      case .alreadyPlanned:
+        markDailyGoalPromptHandled(day: promptDay)
+      case .notYet:
+        return
+      case .prompt:
+        presentDailyGoalPrompt(promptDay: promptDay, today: today)
+      }
     }
+  }
 
-    // New users: wait until Dayflow has real data (3 prior days of activity)
-    // before asking them to set targets. Not marked handled, so the prompt
-    // starts appearing the day the threshold is crossed.
-    let activeDays = StorageManager.shared.countDistinctTimelineDays(excludingDay: promptDay)
-    guard activeDays >= FeatureAccessRequirements.dayGoalRequiredActiveDays else {
-      return
-    }
-
-    // Prompt fatigue: if the last 5 answers were all skips, stop auto-prompting.
-    // Confirming a goal later (via "Set goals") breaks the streak and resumes.
-    let skipStreak = StorageManager.shared.consecutiveSkippedDayGoalCount(
-      before: promptDay,
-      limit: FeatureAccessRequirements.dayGoalMaxConsecutiveSkips
-    )
-    guard skipStreak < FeatureAccessRequirements.dayGoalMaxConsecutiveSkips else {
-      return
-    }
-
+  private func presentDailyGoalPrompt(promptDay: String, today: Date) {
     selectedActivity = nil
     setSelectedDate(today)
     setTimelineMode(.day)
@@ -142,5 +147,22 @@ extension MainView {
         scrollToNowTick &+= 1
       }
     }
+  }
+}
+
+enum DailyGoalPromptDecision: Equatable {
+  case alreadyPlanned
+  case notYet
+  case prompt
+
+  /// New users wait until Dayflow has real data (a few prior days of activity), and five skips in
+  /// a row stop auto-prompting. Neither marks the day handled, so prompting resumes later.
+  static func evaluate(
+    hasPlan: Bool, activeDays: Int, skipStreak: Int, requiredActiveDays: Int, maxSkips: Int
+  ) -> DailyGoalPromptDecision {
+    if hasPlan { return .alreadyPlanned }
+    guard activeDays >= requiredActiveDays else { return .notYet }
+    guard skipStreak < maxSkips else { return .notYet }
+    return .prompt
   }
 }
