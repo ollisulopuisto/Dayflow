@@ -396,6 +396,9 @@ struct WeekTimelineGridView: View {
 
   private func cardsLayer(dayWidth: CGFloat) -> some View {
     let cardWidth = weekCardWidth(for: dayWidth)
+    // Built once per render: hover re-evaluates every card, and each lookup used to
+    // search the categories and parse a hex colour per card.
+    let paletteFor = paletteLookup()
 
     return ZStack(alignment: .topLeading) {
       ForEach(positionedActivities) { item in
@@ -410,7 +413,7 @@ struct WeekTimelineGridView: View {
           height: item.height,
           effectiveHeight: cardEffectiveHeight,
           durationMinutes: item.durationMinutes,
-          palette: palette(for: item.categoryName),
+          palette: paletteFor(item.categoryName),
           isSelected: selectedActivity?.id == item.id,
           isHovered: isHov,
           showTimelineAppIcons: showTimelineAppIcons,
@@ -886,14 +889,20 @@ struct WeekTimelineGridView: View {
       for: dayWidth) / 2
   }
 
-  private func palette(for rawCategory: String) -> WeekTimelineCardPalette {
-    let normalizedCategory = rawCategory.trimmingCharacters(in: .whitespacesAndNewlines)
-      .lowercased()
-    let matched = categoryStore.categories.first {
-      $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalizedCategory
+  private func paletteLookup() -> (String) -> WeekTimelineCardPalette {
+    func normalized(_ name: String) -> String {
+      name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
-    let fallback = categoryStore.categories.first ?? CategoryPersistence.defaultCategories.first!
-    let category = matched ?? fallback
+    let categories = categoryStore.categories
+    let byName = Dictionary(
+      categories.map { (normalized($0.name), palette(from: $0)) },
+      uniquingKeysWith: { first, _ in first })
+    let fallback = palette(
+      from: categories.first ?? CategoryPersistence.defaultCategories.first!)
+    return { rawCategory in byName[normalized(rawCategory)] ?? fallback }
+  }
+
+  private func palette(from category: TimelineCategory) -> WeekTimelineCardPalette {
     let accent = Color(nsColor: NSColor(hex: category.colorHex) ?? .systemBlue)
 
     return WeekTimelineCardPalette(

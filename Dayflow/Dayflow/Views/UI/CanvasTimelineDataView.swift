@@ -353,6 +353,8 @@ struct CanvasTimelineDataView: View {
 
   private var cardsLayer: some View {
     GeometryReader { geo in
+      // Built once per render instead of a category search and hex parse per card.
+      let styleFor = styleLookup()
       ZStack(alignment: .topLeading) {
         Color.clear
           .contentShape(Rectangle())
@@ -367,7 +369,7 @@ struct CanvasTimelineDataView: View {
             time: item.timeLabel,
             height: item.height,
             durationMinutes: item.durationMinutes,
-            style: style(for: item.categoryName),
+            style: styleFor(item.categoryName),
             isSelected: selectedCardId == item.id,
             isSystemCategory: item.categoryName.trimmingCharacters(in: .whitespacesAndNewlines)
               .caseInsensitiveCompare("System") == .orderedSame,
@@ -866,15 +868,19 @@ struct CanvasTimelineDataView: View {
     return "\(s) - \(e)"
   }
 
-  private func style(for rawCategory: String) -> CanvasActivityCardStyle {
-    let normalized = rawCategory.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    let categories = categoryStore.categories
-    let matched = categories.first {
-      $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
+  private func styleLookup() -> (String) -> CanvasActivityCardStyle {
+    func normalized(_ name: String) -> String {
+      name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
-    let fallback = categories.first ?? CategoryPersistence.defaultCategories.first!
-    let category = matched ?? fallback
+    let categories = categoryStore.categories
+    let byName = Dictionary(
+      categories.map { (normalized($0.name), style(from: $0)) },
+      uniquingKeysWith: { first, _ in first })
+    let fallback = style(from: categories.first ?? CategoryPersistence.defaultCategories.first!)
+    return { rawCategory in byName[normalized(rawCategory)] ?? fallback }
+  }
 
+  private func style(from category: TimelineCategory) -> CanvasActivityCardStyle {
     let baseNSColor = NSColor(hex: category.colorHex) ?? NSColor(hex: "#4F80EB") ?? .systemBlue
 
     return CanvasActivityCardStyle(
