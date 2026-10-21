@@ -23,6 +23,12 @@ jobs:
           -derivedDataPath build
           CODE_SIGNING_ALLOWED=NO
           build
+      - name: Show compile errors
+        if: failure()
+        run: |
+          for log in $(find build/Logs -name "*.xcactivitylog" 2>/dev/null); do
+            gunzip -c "$log" 2>/dev/null | strings | grep -E "error:" | head -20
+          done
       - name: Package app
         run: ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip
       - name: Build DMG
