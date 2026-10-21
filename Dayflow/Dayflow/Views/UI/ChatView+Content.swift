@@ -780,6 +780,13 @@ extension ChatView {
       ) {
         handleProviderSelection(.agy)
       }
+      ProviderTogglePill(
+        title: String(localized: "Local"),
+        isSelected: selectedProvider == .local,
+        isEnabled: isProviderAvailable(.local)
+      ) {
+        handleProviderSelection(.local)
+      }
     }
     .padding(4)
     .background(

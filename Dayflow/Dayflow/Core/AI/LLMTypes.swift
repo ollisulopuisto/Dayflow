@@ -18,6 +18,7 @@ enum DashboardChatProvider: String, Codable, CaseIterable {
   case codex
   case claude
   case agy
+  case local
 
   static func fromStoredValue(_ value: String?) -> DashboardChatProvider {
     guard let value else { return .gemini }
@@ -34,6 +35,8 @@ enum DashboardChatProvider: String, Codable, CaseIterable {
       return "gemini_function_calling"
     case .codex, .claude, .agy:
       return "chat_cli"
+    case .local:
+      return "local_chat"
     }
   }
 }

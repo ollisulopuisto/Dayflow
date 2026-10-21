@@ -314,6 +314,7 @@ extension ChatView {
       claudeDetected = detection.1
       agyDetected = detection.2
       geminiConfigured = isGeminiConfigured()
+      localConfigured = isLocalConfigured()
       normalizeSelectedProviderIfNeeded()
     }
   }
@@ -354,6 +355,8 @@ extension ChatView {
       return claudeDetected
     case .agy:
       return agyDetected
+    case .local:
+      return localConfigured
     }
   }
 
@@ -367,7 +370,13 @@ extension ChatView {
       applySelectedProvider(.claude)
     } else if agyDetected {
       applySelectedProvider(.agy)
+    } else if localConfigured {
+      applySelectedProvider(.local)
     }
+  }
+
+  func isLocalConfigured() -> Bool {
+    OpenAICompatiblePreferences.load()?.isComplete ?? false
   }
 
   func isGeminiConfigured() -> Bool {
@@ -387,6 +396,8 @@ extension ChatView {
       return String(localized: "Codex")
     case .agy:
       return String(localized: "Antigravity")
+    case .local:
+      return String(localized: "Local")
     case .none:
       return String(localized: "selected provider")
     }

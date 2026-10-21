@@ -1214,6 +1214,21 @@ final class LLMService: LLMServicing {
         prompt: request.prompt,
         sessionId: request.sessionId
       )
+    case .local:
+      guard let provider = makeOpenAICompatibleProvider() else {
+        return AsyncThrowingStream { continuation in
+          let message = "Local LLM is not configured. Set it up in Settings > Providers."
+          continuation.yield(.error(message))
+          continuation.finish(
+            throwing: NSError(
+              domain: "LLMService", code: 1102,
+              userInfo: [NSLocalizedDescriptionKey: message]))
+        }
+      }
+      return provider.generateChatStreaming(
+        systemInstruction: request.systemInstruction ?? "",
+        history: request.history
+      )
     }
   }
 }
