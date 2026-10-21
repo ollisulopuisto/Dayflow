@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build Dayflow
         run: >-
           xcodebuild
@@ -48,7 +48,7 @@ jobs:
           cp -R build/Build/Products/Release/Dayflow.app dmg-root/
           ln -s /Applications dmg-root/Applications
           hdiutil create -volname Dayflow -srcfolder dmg-root -ov -format UDZO Dayflow.dmg
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Dayflow-macos-${{ github.sha }}
           path: |
