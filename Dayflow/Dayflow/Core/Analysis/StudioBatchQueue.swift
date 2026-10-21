@@ -1,5 +1,58 @@
 import Foundation
 
+/// Upload bookkeeping for Studio batches: one upload per batch at a time, and an
+/// exponential wait after each failure so an unreachable Studio does not cost CPU every minute.
+struct StudioUploadBackoff {
+  static let delays: [TimeInterval] = [60, 120, 300, 900, 3600]
+
+  private var inFlight: Set<Int64> = []
+  private var failures: [Int64: Int] = [:]
+  private var nextAttempt: [Int64: Date] = [:]
+
+  func shouldAttempt(_ batchId: Int64, now: Date) -> Bool {
+    if inFlight.contains(batchId) { return false }
+    if let next = nextAttempt[batchId], now < next { return false }
+    return true
+  }
+
+  /// Marks the batch as uploading if it may be attempted now.
+  mutating func tryBegin(_ batchId: Int64, now: Date) -> Bool {
+    guard shouldAttempt(batchId, now: now) else { return false }
+    inFlight.insert(batchId)
+    return true
+  }
+
+  mutating func finish(_ batchId: Int64, succeeded: Bool, now: Date) {
+    inFlight.remove(batchId)
+    guard !succeeded else {
+      failures[batchId] = nil
+      nextAttempt[batchId] = nil
+      return
+    }
+    let count = (failures[batchId] ?? 0) + 1
+    failures[batchId] = count
+    nextAttempt[batchId] = now.addingTimeInterval(Self.delays[min(count, Self.delays.count) - 1])
+  }
+}
+
+/// Thread-safe holder for the upload schedule shared by every caller.
+final class StudioUploadScheduler: @unchecked Sendable {
+  private let lock = NSLock()
+  private var backoff = StudioUploadBackoff()
+
+  func shouldAttempt(_ batchId: Int64) -> Bool {
+    lock.withLock { backoff.shouldAttempt(batchId, now: Date()) }
+  }
+
+  func tryBegin(_ batchId: Int64) -> Bool {
+    lock.withLock { backoff.tryBegin(batchId, now: Date()) }
+  }
+
+  func finish(_ batchId: Int64, succeeded: Bool) {
+    lock.withLock { backoff.finish(batchId, succeeded: succeeded, now: Date()) }
+  }
+}
+
 /// Transfers screenshot batches to an always-on Dayflow queue service on the Studio.
 /// Analysis remains on the Studio; this client sends only resized JPEG copies.
 enum StudioBatchQueue {
@@ -8,8 +61,15 @@ enum StudioBatchQueue {
   private static let deviceKey = "studioBatchQueueDeviceID"
   private static let maxImagesPerBatch = 15
 
+  static let scheduler = StudioUploadScheduler()
+
   static var isEnabled: Bool {
     endpoint != nil
+  }
+
+  /// False while the batch is uploading or waiting out a failure backoff.
+  static func shouldAttempt(batchId: Int64) -> Bool {
+    scheduler.shouldAttempt(batchId)
   }
 
   static func pollResults(store: any StorageManaging) {
@@ -31,16 +91,18 @@ enum StudioBatchQueue {
     return value
   }
 
-  /// Queue the batch once and import any results the Studio has finished.
+  /// Queue the batch once. Results are imported by the per-minute poll, not per upload.
   static func submitAndImport(batchId: Int64, store: any StorageManaging) {
-    guard let endpoint else { return }
+    guard endpoint != nil, scheduler.shouldAttempt(batchId) else { return }
     let batch = store.allBatches().first { $0.id == batchId }
-    guard let batch else { return }
+    guard let batch, let endpoint else { return }
     if batch.status != "studio_queued" && batch.status != "completed" {
+      guard scheduler.tryBegin(batchId) else { return }
       guard let payload = makePayload(batchId: batchId, start: batch.start, end: batch.end, store: store),
         let body = try? JSONSerialization.data(withJSONObject: payload)
       else {
         store.markBatchFailed(batchId: batchId, reason: "Could not prepare screenshots for Studio queue")
+        scheduler.finish(batchId, succeeded: true)
         return
       }
       var request = URLRequest(url: endpoint.appendingPathComponent("v1/jobs"))
@@ -57,13 +119,12 @@ enum StudioBatchQueue {
           (200..<300).contains(response.statusCode)
         else {
           print("Studio queue upload failed for batch \(batchId): \(error?.localizedDescription ?? "HTTP error")")
+          scheduler.finish(batchId, succeeded: false)
           return
         }
         store.updateBatchStatus(batchId: batchId, status: "studio_queued")
-        importAvailableResults(from: endpoint, store: store)
+        scheduler.finish(batchId, succeeded: true)
       }.resume()
-    } else {
-      importAvailableResults(from: endpoint, store: store)
     }
   }
 

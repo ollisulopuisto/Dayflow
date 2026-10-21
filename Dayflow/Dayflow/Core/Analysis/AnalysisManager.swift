@@ -529,8 +529,11 @@ final class AnalysisManager: AnalysisManaging {
     if StudioBatchQueue.isEnabled {
       StudioBatchQueue.pollResults(store: store)
       // Include batches whose upload was interrupted before the laptop slept.
+      // Batches that are uploading or backing off after a failure are skipped before any work.
       let pendingIDs = store.allBatches().filter { $0.status == "pending" }.map(\.id)
-      for id in pendingIDs { queueLLMRequest(batchId: id) }
+      for id in pendingIDs where StudioBatchQueue.shouldAttempt(batchId: id) {
+        queueLLMRequest(batchId: id)
+      }
       return
     }
     // 4. Fire LLM for each batch
