@@ -255,6 +255,18 @@ struct AppRootView: View {
   }
 }
 
+/// The intro video is part of first-run onboarding. After that, launch goes straight to the app
+/// instead of keeping it hidden behind about four seconds of video.
+enum LaunchIntro {
+  static func shouldPlay(didOnboard: Bool) -> Bool {
+    !didOnboard
+  }
+
+  static var shouldPlayAtLaunch: Bool {
+    shouldPlay(didOnboard: UserDefaults.standard.bool(forKey: "didOnboard"))
+  }
+}
+
 @main
 struct DayflowApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
@@ -265,9 +277,9 @@ struct DayflowApp: App {
   /// Mirrors FlowNudgeVariant.current so the menu title re-renders on toggle.
   @AppStorage(FlowNudgeVariant.defaultsKey) private var flowNudgeVariant = FlowNudgeVariant.side
     .rawValue
-  @State private var showVideoLaunch = true
-  @State private var contentOpacity = 0.0
-  @State private var contentScale = 0.98
+  @State private var showVideoLaunch = LaunchIntro.shouldPlayAtLaunch
+  @State private var contentOpacity = LaunchIntro.shouldPlayAtLaunch ? 0.0 : 1.0
+  @State private var contentScale = LaunchIntro.shouldPlayAtLaunch ? 0.98 : 1.0
   @State private var isShowingGitHubStarPrompt = false
   @State private var gitHubStarCount: Int? = nil
   @State private var gitHubStarPromptUsesBrowser = false
