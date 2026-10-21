@@ -298,6 +298,7 @@ private struct WeeklyAccessCountdownPill: View {
 
 private struct WeeklyAccessProgressBar: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.controlActiveState) private var controlActiveState
   @State private var logoRotation = 0.0
 
   let progress: Double
@@ -351,10 +352,18 @@ private struct WeeklyAccessProgressBar: View {
         startLogoRotationIfNeeded()
       }
     }
+    // An endless animation redraws at display rate; stop it while the window is in the background.
+    .onChange(of: controlActiveState) { _, state in
+      if state == .inactive {
+        withTransaction(Transaction(animation: nil)) { logoRotation = 0 }
+      } else {
+        startLogoRotationIfNeeded()
+      }
+    }
   }
 
   private func startLogoRotationIfNeeded() {
-    guard !reduceMotion, logoRotation == 0 else { return }
+    guard !reduceMotion, controlActiveState != .inactive, logoRotation == 0 else { return }
 
     withAnimation(.linear(duration: 22).repeatForever(autoreverses: false)) {
       logoRotation = 360
@@ -388,6 +397,7 @@ private struct WeeklyAccessLockedBackground: View {
 
 private struct WeeklyAccessPreviewBackground: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.controlActiveState) private var controlActiveState
   @State private var isScrolledDown = false
 
   private static let designWidth: CGFloat = 958
@@ -439,6 +449,13 @@ private struct WeeklyAccessPreviewBackground: View {
             startScrollingIfNeeded()
           }
         }
+        .onChange(of: controlActiveState) { _, state in
+          if state == .inactive {
+            withTransaction(Transaction(animation: nil)) { isScrolledDown = false }
+          } else {
+            startScrollingIfNeeded()
+          }
+        }
     }
     .clipped()
     .allowsHitTesting(false)
@@ -478,7 +495,7 @@ private struct WeeklyAccessPreviewBackground: View {
   }
 
   private func startScrollingIfNeeded() {
-    guard !reduceMotion, !isScrolledDown else { return }
+    guard !reduceMotion, controlActiveState != .inactive, !isScrolledDown else { return }
 
     withAnimation(.linear(duration: 26).repeatForever(autoreverses: true)) {
       isScrolledDown = true
