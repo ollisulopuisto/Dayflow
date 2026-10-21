@@ -29,6 +29,12 @@ private struct TimelineCardsLayerFramePreferenceKey: PreferenceKey {
 
 // Positioned activity for Canvas rendering
 private struct CanvasPositionedActivity: Identifiable {
+  /// Everything the card draws, used to skip reloads that change nothing visible.
+  var renderSignature: String {
+    "\(id)|\(yPosition)|\(height)|\(title)|\(timeLabel)|\(categoryName)|\(failureCount)|\(batchIds)"
+      + "|\(activity.summary.hashValue)|\(faviconPrimaryRaw ?? "")|\(faviconSecondaryRaw ?? "")"
+  }
+
   let id: String
   let activity: TimelineActivity
   let yPosition: CGFloat
@@ -78,7 +84,10 @@ struct CanvasTimelineDataView: View {
   @State private var selectedCardId: String? = nil
   @State private var positionedActivities: [CanvasPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
-  @State private var cardsLayerFrame: CGRect = .zero
+  /// Changes on every scroll frame and is only read when checking the footer overlap,
+  /// so it lives outside SwiftUI state.
+  @State private var cardsLayerFrameBox = TimelineFrameBox()
+  private var cardsLayerFrame: CGRect { cardsLayerFrameBox.frame }
   @State private var refreshTimer: Timer?
   @State private var didInitialScrollInView: Bool = false
   // Gate the ScrollView's visibility on whether the initial auto-scroll has
@@ -167,7 +176,7 @@ struct CanvasTimelineDataView: View {
         // Preference callbacks fire mid-layout; writing state that feeds the
         // card ForEach from here can trip AttributeGraph. Defer one turn.
         DispatchQueue.main.async {
-          cardsLayerFrame = frame
+          cardsLayerFrameBox.frame = frame
           updateWeeklyHoursIntersection()
         }
       }
@@ -400,7 +409,7 @@ struct CanvasTimelineDataView: View {
           .offset(x: isVisible ? 0 : 12)
           .animation(
             .spring(response: 0.35, dampingFraction: 0.8)
-              .delay(Double(index) * 0.03),  // 30ms stagger between cards
+              .delay(TimelineReloadGate.entranceDelay(index: index)),  // 30ms stagger, capped
             value: isVisible
           )
         }
@@ -718,6 +727,16 @@ struct CanvasTimelineDataView: View {
       }
 
       await MainActor.run {
+        self.recordingProjection = recordingProjection
+        guard
+          TimelineReloadGate.shouldCommit(
+            animate: animate,
+            old: self.positionedActivities.map(\.renderSignature),
+            new: positioned.map(\.renderSignature))
+        else {
+          // Nothing visible changed (the usual 60 s refresh): no re-render, no broadcast.
+          return
+        }
         if animate {
           // Clear entrance progress for new activities (triggers stagger animation)
           self.cardEntranceProgress = [:]

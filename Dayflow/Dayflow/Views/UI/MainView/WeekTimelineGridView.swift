@@ -44,6 +44,12 @@ struct WeekPositionedActivity: Identifiable {
   let faviconSecondaryHost: String?
   let failureCount: Int
   let batchIds: [Int64]
+
+  /// Everything the card draws, used to skip reloads that change nothing visible.
+  var renderSignature: String {
+    "\(id)|\(columnIndex)|\(yPosition)|\(height)|\(title)|\(hoverTimeLabel)|\(categoryName)"
+      + "|\(failureCount)|\(batchIds)|\(faviconPrimaryRaw ?? "")|\(faviconSecondaryRaw ?? "")"
+  }
 }
 
 // Published by the week view's cards layer; consumed locally to drive the
@@ -82,7 +88,10 @@ struct WeekTimelineGridView: View {
 
   @State private var positionedActivities: [WeekPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
-  @State private var cardsLayerFrame: CGRect = .zero
+  /// Changes on every scroll frame and is only read when checking the footer overlap,
+  /// so it lives outside SwiftUI state.
+  @State private var cardsLayerFrameBox = TimelineFrameBox()
+  private var cardsLayerFrame: CGRect { cardsLayerFrameBox.frame }
   @State private var refreshTimer: Timer?
   @State private var loadTask: Task<Void, Never>?
   @State private var autoScrollWeekKey: String?
@@ -241,7 +250,7 @@ struct WeekTimelineGridView: View {
       }
     }
     .onPreferenceChange(WeekCardsLayerFramePreferenceKey.self) { frame in
-      cardsLayerFrame = frame
+      cardsLayerFrameBox.frame = frame
       updateWeeklyHoursIntersection()
     }
     .onChange(of: weeklyHoursFrame) {
@@ -621,7 +630,14 @@ struct WeekTimelineGridView: View {
 
       await MainActor.run {
         let commitStart = CFAbsoluteTimeGetCurrent()
-        positionedActivities = positioned
+        // The 60 s refresh usually finds the same cards; leave the grid alone then.
+        if TimelineReloadGate.shouldCommit(
+          animate: false,
+          old: positionedActivities.map(\.renderSignature),
+          new: positioned.map(\.renderSignature))
+        {
+          positionedActivities = positioned
+        }
         recordingProjection = projection
         hasAnyActivities = !positioned.isEmpty
         if let selectedActivity,

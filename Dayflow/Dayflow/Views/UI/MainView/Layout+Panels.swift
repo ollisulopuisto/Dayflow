@@ -149,13 +149,15 @@ extension MainView {
     }
     .coordinateSpace(name: "TimelinePane")
     .onPreferenceChange(TimelineTimeLabelFramesPreferenceKey.self) { frames in
-      timelineTimeLabelFrames = frames
+      timelineTimeLabelFramesBox.frames = frames
+      updateWeeklyHoursFadeLevel(hoursFrame: weeklyHoursFrame)
     }
     .onPreferenceChange(WeeklyHoursFramePreferenceKey.self) { frame in
       // Deferred for the same reason as the cards-layer frame in
       // CanvasTimelineDataView: avoid state writes during the layout pass.
       DispatchQueue.main.async {
-        weeklyHoursFrame = frame
+        if weeklyHoursFrame != frame { weeklyHoursFrame = frame }
+        updateWeeklyHoursFadeLevel(hoursFrame: frame)
       }
     }
   }
@@ -455,17 +457,37 @@ extension MainView {
   }
 
   private var weeklyHoursFadeOpacity: Double {
-    guard weeklyHoursFrame != .zero, !timelineTimeLabelFrames.isEmpty else { return 1 }
+    weeklyHoursFadeOpacityLevel
+  }
+
+  private func updateWeeklyHoursFadeLevel(hoursFrame: CGRect) {
+    let level = Self.weeklyHoursFadeLevel(
+      labelFrames: timelineTimeLabelFramesBox.frames,
+      hoursFrame: hoursFrame,
+      fadeDistance: weeklyHoursFadeDistance
+    )
+    if level != weeklyHoursFadeOpacityLevel {
+      weeklyHoursFadeOpacityLevel = level
+    }
+  }
+
+  /// How visible the weekly-hours footer is, given the hour labels scrolling under it.
+  /// Rounded to 5% steps so most scroll frames leave the value, and the view, unchanged.
+  static func weeklyHoursFadeLevel(
+    labelFrames: [CGRect], hoursFrame: CGRect, fadeDistance: CGFloat
+  ) -> Double {
+    guard hoursFrame != .zero, !labelFrames.isEmpty else { return 1 }
     var maxOverlap: CGFloat = 0
-    for frame in timelineTimeLabelFrames {
-      let intersection = weeklyHoursFrame.intersection(frame)
+    for frame in labelFrames {
+      let intersection = hoursFrame.intersection(frame)
       if !intersection.isNull {
         maxOverlap = max(maxOverlap, intersection.height)
       }
     }
     guard maxOverlap > 0 else { return 1 }
-    let clamped = min(maxOverlap, weeklyHoursFadeDistance)
-    return Double(1 - (clamped / weeklyHoursFadeDistance))
+    let clamped = min(maxOverlap, fadeDistance)
+    let opacity = Double(1 - (clamped / fadeDistance))
+    return (opacity * 20).rounded() / 20
   }
 
   private var weeklyHoursText: some View {
