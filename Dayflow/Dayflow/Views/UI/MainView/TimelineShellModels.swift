@@ -1,24 +1,32 @@
 import Foundation
 
 enum TimelineMode: String, CaseIterable, Identifiable {
+  case hour
   case day
   case week
+  case month
 
   var id: String { rawValue }
 
-  /// Cmd+plus zooms in (week to day); Cmd+minus zooms out (day to week).
+  /// Cmd+plus zooms in (month to week to day to hour); Cmd+minus zooms out. Clamped at both ends.
   func zoomed(by delta: Int) -> TimelineMode {
-    if delta > 0 { return self == .week ? .day : self }
-    if delta < 0 { return self == .day ? .week : self }
+    let all = TimelineMode.allCases
+    guard let index = all.firstIndex(of: self) else { return self }
+    if delta > 0 { return all[max(index - 1, 0)] }
+    if delta < 0 { return all[min(index + 1, all.count - 1)] }
     return self
   }
 
   var title: String {
     switch self {
+    case .hour:
+      return String(localized: "Hour")
     case .day:
       return String(localized: "Day")
     case .week:
       return String(localized: "Week")
+    case .month:
+      return String(localized: "Month")
     }
   }
 }
@@ -125,5 +133,45 @@ struct TimelineWeekRange: Equatable, Sendable {
     let timelineDate = timelineDisplayDate(from: date, now: date)
     let dayStart = timelineDate.getDayInfoFor4AMBoundary().startOfDay
     return dayStart >= weekStart && dayStart < weekEnd
+  }
+}
+
+/// The calendar month containing a date, bounded at 4 AM like the week range.
+struct TimelineMonthRange: Equatable, Sendable {
+  let monthStart: Date
+  let monthEnd: Date
+
+  private static let calendar: Calendar = {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = .autoupdatingCurrent
+    calendar.firstWeekday = 2
+    return calendar
+  }()
+
+  private static let titleFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.setLocalizedDateFormatFromTemplate("MMMMyyyy")
+    return formatter
+  }()
+
+  static func containing(_ date: Date, calendar: Calendar = Self.calendar) -> TimelineMonthRange {
+    let timelineDate = timelineDisplayDate(from: date, now: date)
+    let components = calendar.dateComponents([.year, .month], from: timelineDate)
+    let firstDay = calendar.date(from: components) ?? calendar.startOfDay(for: timelineDate)
+    let start = calendar.date(bySettingHour: 4, minute: 0, second: 0, of: firstDay) ?? firstDay
+    let nextFirst = calendar.date(byAdding: .month, value: 1, to: firstDay) ?? firstDay
+    let end = calendar.date(bySettingHour: 4, minute: 0, second: 0, of: nextFirst) ?? nextFirst
+    return TimelineMonthRange(monthStart: start, monthEnd: end)
+  }
+
+  var title: String { Self.titleFormatter.string(from: monthStart) }
+
+  var containsToday: Bool {
+    let now = Date()
+    return now >= monthStart && now < monthEnd
+  }
+
+  var canNavigateForward: Bool {
+    monthStart < Self.containing(Date()).monthStart
   }
 }

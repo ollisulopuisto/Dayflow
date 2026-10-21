@@ -161,14 +161,43 @@ final class SidebarFlowVisibilityTests: XCTestCase {
 }
 
 final class TimelineZoomAndHintTests: XCTestCase {
-  func testZoomInMovesFromWeekToDayAndStopsAtDay() {
+  func testZoomInMovesFromMonthDownToHourAndStopsAtHour() {
+    XCTAssertEqual(TimelineMode.month.zoomed(by: 1), .week)
     XCTAssertEqual(TimelineMode.week.zoomed(by: 1), .day)
-    XCTAssertEqual(TimelineMode.day.zoomed(by: 1), .day)
+    XCTAssertEqual(TimelineMode.day.zoomed(by: 1), .hour)
+    XCTAssertEqual(TimelineMode.hour.zoomed(by: 1), .hour)
   }
 
-  func testZoomOutMovesFromDayToWeekAndStopsAtWeek() {
+  func testZoomOutMovesFromHourUpToMonthAndStopsAtMonth() {
+    XCTAssertEqual(TimelineMode.hour.zoomed(by: -1), .day)
     XCTAssertEqual(TimelineMode.day.zoomed(by: -1), .week)
-    XCTAssertEqual(TimelineMode.week.zoomed(by: -1), .week)
+    XCTAssertEqual(TimelineMode.week.zoomed(by: -1), .month)
+    XCTAssertEqual(TimelineMode.month.zoomed(by: -1), .month)
+  }
+
+  func testZoomByZeroKeepsMode() {
+    for mode in TimelineMode.allCases {
+      XCTAssertEqual(mode.zoomed(by: 0), mode)
+    }
+  }
+
+  func testModeOrderIsHourDayWeekMonth() {
+    XCTAssertEqual(TimelineMode.allCases, [.hour, .day, .week, .month])
+    XCTAssertEqual(TimelineMode.hour.title, "Hour")
+    XCTAssertEqual(TimelineMode.month.title, "Month")
+  }
+
+  func testMonthRangeRunsFromFirstDayToNextFirstAtFourAM() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = .autoupdatingCurrent
+    let date = calendar.date(from: DateComponents(year: 2026, month: 2, day: 14, hour: 12))!
+    let range = TimelineMonthRange.containing(date, calendar: calendar)
+    XCTAssertEqual(
+      calendar.dateComponents([.year, .month, .day, .hour], from: range.monthStart),
+      DateComponents(year: 2026, month: 2, day: 1, hour: 4))
+    XCTAssertEqual(
+      calendar.dateComponents([.year, .month, .day, .hour], from: range.monthEnd),
+      DateComponents(year: 2026, month: 3, day: 1, hour: 4))
   }
 
   func testSidebarShortcutLabelsAreVisibleText() {

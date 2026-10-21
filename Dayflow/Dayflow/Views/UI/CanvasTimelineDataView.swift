@@ -71,6 +71,8 @@ struct CanvasTimelineDataView: View {
   let cardPressedScale: CGFloat
   // Categories turned off in the chip row; their cards render dimmed.
   var mutedCategoryKeys: Set<String> = []
+  // false shows the raw cards (Hour zoom) instead of ~10 minute blocks.
+  var mergeSegments: Bool = true
 
   @Environment(\.dayflowTheme) private var theme
   @State private var selectedCardId: String? = nil
@@ -644,8 +646,12 @@ struct CanvasTimelineDataView: View {
       // upstream card-generation overlap bugs without touching stored data.
       // Group fine-grained cards into blocks of about 10 minutes for display. The stored cards
       // are unchanged; hovering a block still lists the underlying activities.
-      let segments = TimelineActivityLoader.resolveMacroblocks(
-        from: TimelineActivityLoader.resolveDisplaySegments(from: payload.activities))
+      let resolvedSegments = TimelineActivityLoader.resolveDisplaySegments(
+        from: payload.activities)
+      let shouldMerge = self.mergeSegments
+      let segments =
+        shouldMerge
+        ? TimelineActivityLoader.resolveMacroblocks(from: resolvedSegments) : resolvedSegments
       let recordingProjection = TimelineActivityLoader.recordingProjectionWindow(
         for: payload.timelineDate,
         displaySegments: segments,

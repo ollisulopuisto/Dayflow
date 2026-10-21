@@ -70,8 +70,22 @@ enum TimelineActivityLoader {
     in weekRange: TimelineWeekRange,
     storageManager: StorageManaging = StorageManager.shared
   ) -> [TimelineActivity] {
-    let cards = storageManager.fetchTimelineCardsByTimeRange(
-      from: weekRange.weekStart, to: weekRange.weekEnd)
+    activities(from: weekRange.weekStart, to: weekRange.weekEnd, storageManager: storageManager)
+  }
+
+  static func activities(
+    in monthRange: TimelineMonthRange,
+    storageManager: StorageManaging = StorageManager.shared
+  ) -> [TimelineActivity] {
+    activities(from: monthRange.monthStart, to: monthRange.monthEnd, storageManager: storageManager)
+  }
+
+  static func activities(
+    from start: Date,
+    to end: Date,
+    storageManager: StorageManaging = StorageManager.shared
+  ) -> [TimelineActivity] {
+    let cards = storageManager.fetchTimelineCardsByTimeRange(from: start, to: end)
     return buildActivities(from: displayableCards(cards, storageManager: storageManager))
   }
 
