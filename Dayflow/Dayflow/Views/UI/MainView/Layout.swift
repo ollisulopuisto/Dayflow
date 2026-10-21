@@ -34,7 +34,7 @@ extension MainView {
   }
 
   // Layer 2: sheet + lifecycle + notifications + state-change reactions.
-  private var mainLayoutCore: some View {
+  private var mainLayoutLifecycle: some View {
     mainLayoutWithOverlays
       .sheet(isPresented: $showDatePicker) {
         DatePickerSheet(
@@ -78,6 +78,11 @@ extension MainView {
           InactivityMonitor.shared.markHandledIfPending()
         }
       }
+  }
+
+  // Split from the lifecycle chain so the type checker can handle each part.
+  private var mainLayoutCore: some View {
+    mainLayoutLifecycle
       .onReceive(NotificationCenter.default.publisher(for: .navigateToWeekly)) { _ in
         withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
           selectedIcon = .weekly
