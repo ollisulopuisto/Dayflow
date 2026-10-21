@@ -25,9 +25,17 @@ jobs:
           build
       - name: Package app
         run: ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip
+      - name: Build DMG
+        run: |
+          mkdir -p dmg-root
+          cp -R build/Build/Products/Release/Dayflow.app dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create -volname Dayflow -srcfolder dmg-root -ov -format UDZO Dayflow.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: Dayflow-macos-${{ github.sha }}
-          path: Dayflow-macos.zip
+          path: |
+            Dayflow-macos.zip
+            Dayflow.dmg
           if-no-files-found: error
           retention-days: 14
