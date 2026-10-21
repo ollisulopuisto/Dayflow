@@ -73,10 +73,12 @@ struct DailyView: View {
       checkNotificationAuthorizationForUnlock()
     }
     .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
+      guard AppVisibility.isOnScreen else { return }
       refreshDailyAccessProgress()
     }
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification))
     { _ in
+      refreshDailyAccessProgress()
       checkNotificationAuthorizationForUnlock()
     }
     .onChange(of: isUnlocked) { _, newValue in

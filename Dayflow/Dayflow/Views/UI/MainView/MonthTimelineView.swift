@@ -115,7 +115,10 @@ struct MonthTimelineView: View {
     .onChange(of: refreshTrigger) { load() }
     .onChange(of: mutedCategoryKeys) { load() }
     // New cards arrive while the view is open, so refresh like the day and week views do.
-    .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in load() }
+    .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+      guard AppVisibility.isOnScreen else { return }
+      load()
+    }
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) {
       _ in load()
     }

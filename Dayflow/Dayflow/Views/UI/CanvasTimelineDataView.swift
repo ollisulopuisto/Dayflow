@@ -826,6 +826,7 @@ struct CanvasTimelineDataView: View {
   private func startRefreshTimer() {
     stopRefreshTimer()
     refreshTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { _ in
+      guard AppVisibility.isOnScreen else { return }
       loadActivities(animate: false)
     }
   }
