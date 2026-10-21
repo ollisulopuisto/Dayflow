@@ -94,7 +94,7 @@ enum StudioBatchQueue {
   /// Queue the batch once. Results are imported by the per-minute poll, not per upload.
   static func submitAndImport(batchId: Int64, store: any StorageManaging) {
     guard endpoint != nil, scheduler.shouldAttempt(batchId) else { return }
-    let batch = store.allBatches().first { $0.id == batchId }
+    let batch = store.batch(id: batchId)
     guard let batch, let endpoint else { return }
     if batch.status != "studio_queued" && batch.status != "completed" {
       guard scheduler.tryBegin(batchId) else { return }
