@@ -30,6 +30,7 @@ jobs:
           -scheme Dayflow
           -configuration Debug
           -destination 'platform=macOS'
+          -only-testing:DayflowTests
           -derivedDataPath build
           CODE_SIGNING_ALLOWED=NO
           test
