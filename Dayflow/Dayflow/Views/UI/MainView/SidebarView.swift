@@ -122,6 +122,12 @@ extension SidebarIcon {
     }
   }
 
+  /// Short label drawn on the icon, e.g. "⌘1".
+  var shortcutLabel: String? {
+    if self == .settings { return "⌘," }
+    return commandNumber.map { "⌘\($0)" }
+  }
+
   /// Tooltip text that also shows the keyboard shortcut.
   var shortcutHint: String {
     if self == .settings { return "\(displayName) (⌘,)" }
@@ -219,6 +225,15 @@ struct SidebarIconButton: View {
 
       iconImage
         .frame(width: SidebarMetrics.iconSize, height: SidebarMetrics.iconSize)
+
+      if let shortcut = icon.shortcutLabel {
+        Text(shortcut)
+          .font(.custom("Figtree", size: 8).weight(.semibold))
+          .foregroundColor(labelColor.opacity(0.75))
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+          .padding(.trailing, 1)
+          .allowsHitTesting(false)
+      }
 
       if showBadge {
         Circle()
