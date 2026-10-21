@@ -251,8 +251,11 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
       }
     #endif
 
-    // Run integrity check on launch (logs warning if issues found)
-    performIntegrityCheck()
+    // The integrity check reads every page, so it runs in the background instead of
+    // blocking whoever touches the store first (it only logs).
+    purgeQ.async { [weak self] in
+      self?.performIntegrityCheck()
+    }
 
     migrate()
     migrateLegacyChunkPathsIfNeeded()
