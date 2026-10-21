@@ -186,7 +186,8 @@ extension MainView {
           .zIndex(timelineMode == .day ? 1 : 0)
 
         case .hour:
-          canvasTimeline(hourHeight: TimelineScale.hourHeight * 3, mergeSegments: false)
+          canvasTimeline(
+            hourHeight: TimelineScale.hourHeight * TimelineMode.hourZoom, mergeSegments: false)
             .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
             .zIndex(timelineMode == .hour ? 1 : 0)
 

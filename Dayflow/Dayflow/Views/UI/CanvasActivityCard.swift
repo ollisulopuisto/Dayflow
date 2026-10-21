@@ -40,6 +40,12 @@ struct CanvasActivityCard: View {
   let normalVerticalPadding: CGFloat
   let hoverScale: CGFloat
   let pressedScale: CGFloat
+  /// Hour view shows raw cards, most of them under 10 minutes, so it asks for their text too.
+  var showsShortCardText: Bool = false
+
+  static func showsText(durationMinutes: Double, showsShortCardText: Bool) -> Bool {
+    durationMinutes >= 10 || showsShortCardText
+  }
 
   private var isFailedCard: Bool {
     title == "Processing failed"
@@ -97,7 +103,9 @@ struct CanvasActivityCard: View {
       }
     }) {
       HStack(alignment: .top, spacing: isFailedCard ? 10 : iconTextSpacing) {
-        if durationMinutes >= 10 {
+        if Self.showsText(
+          durationMinutes: durationMinutes, showsShortCardText: showsShortCardText)
+        {
           if isFailedCard {
             VStack(alignment: .leading, spacing: 4) {
               HStack(alignment: .top, spacing: 8) {

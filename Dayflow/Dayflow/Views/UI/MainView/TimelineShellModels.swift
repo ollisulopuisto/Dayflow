@@ -35,6 +35,10 @@ extension TimelineMode {
   /// Width of one tab in the header's mode switch.
   static let segmentWidth: CGFloat = 48
 
+  /// How much taller an hour is in Hour view than in Day view. 6x gives one minute about 17pt,
+  /// enough for a one-line title, and roughly one hour per screen.
+  static let hourZoom: CGFloat = 6
+
   /// Total width of the mode switch, so the container grows with the number of modes.
   static var switchWidth: CGFloat {
     segmentWidth * CGFloat(allCases.count)

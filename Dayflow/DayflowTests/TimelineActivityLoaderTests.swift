@@ -327,3 +327,21 @@ final class SettingsTabOrderTests: XCTestCase {
     XCTAssertEqual(SettingsView.SettingsTab.defaultTab, .storage)
   }
 }
+
+final class HourViewReadabilityTests: XCTestCase {
+  func testShortCardsOnlyShowTextWhenAskedTo() {
+    XCTAssertFalse(CanvasActivityCard.showsText(durationMinutes: 5, showsShortCardText: false))
+    XCTAssertTrue(CanvasActivityCard.showsText(durationMinutes: 5, showsShortCardText: true))
+    XCTAssertTrue(CanvasActivityCard.showsText(durationMinutes: 12, showsShortCardText: false))
+  }
+
+  func testHourZoomGivesAOneMinuteCardRoomForItsTitle() {
+    let pointsPerMinute = TimelineScale.hourHeight * TimelineMode.hourZoom / 60
+    XCTAssertGreaterThanOrEqual(pointsPerMinute, 16)
+  }
+
+  func testHourCardFontIsSmallerThanTheDayFont() {
+    XCTAssertEqual(CanvasTimelineDataView.cardFontSize(base: 16, showsShortCardText: false), 16)
+    XCTAssertEqual(CanvasTimelineDataView.cardFontSize(base: 16, showsShortCardText: true), 13)
+  }
+}

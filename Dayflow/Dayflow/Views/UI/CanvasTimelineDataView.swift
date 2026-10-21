@@ -118,6 +118,11 @@ struct CanvasTimelineDataView: View {
       currentHour: Calendar.current.component(.hour, from: Date()), hourHeight: hourHeight)
   }
 
+  /// Short cards are only a few points tall in Hour view, so their text is drawn smaller.
+  static func cardFontSize(base: CGFloat, showsShortCardText: Bool) -> CGFloat {
+    showsShortCardText ? min(base, 13) : base
+  }
+
   static func nowTargetHourIndex(currentHour: Int, hourHeight: CGFloat) -> Int {
     let hoursSince4AM = currentHour >= 4 ? currentHour - 4 : (24 - 4) + currentHour
     // Day puts "now" two hours down from the top. At a larger scale a single hour already
@@ -372,7 +377,8 @@ struct CanvasTimelineDataView: View {
             faviconSecondaryHost: item.faviconSecondaryHost,
             statusLine: retryCoordinator.statusLine(for: item.batchIds),
             failureCount: item.failureCount,
-            fontSize: cardTextFontSize,
+            fontSize: Self.cardFontSize(
+              base: cardTextFontSize, showsShortCardText: !mergeSegments),
             fontWeight: cardTextFontWeight,
             iconLeadingInset: cardIconLeadingInset,
             iconTextSpacing: cardIconTextSpacing,
@@ -382,7 +388,8 @@ struct CanvasTimelineDataView: View {
             compactVerticalPadding: cardCompactVerticalPadding,
             normalVerticalPadding: cardNormalVerticalPadding,
             hoverScale: cardHoverScale,
-            pressedScale: cardPressedScale
+            pressedScale: cardPressedScale,
+            showsShortCardText: !mergeSegments
           )
           .frame(width: geo.size.width, height: item.height)
           .position(x: geo.size.width / 2, y: item.yPosition + (item.height / 2))
