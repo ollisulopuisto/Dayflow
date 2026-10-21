@@ -43,3 +43,16 @@ final class TimelineReloadGateTests: XCTestCase {
     XCTAssertEqual(TimelineReloadGate.entranceDelay(index: 100), 0.3, accuracy: 0.0001)
   }
 }
+
+final class TimelineActivateReloadTests: XCTestCase {
+  private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+  func testActivatingRightAfterALoadDoesNotLoadAgain() {
+    XCTAssertFalse(TimelineReloadGate.shouldReloadOnActivate(lastLoadStart: now.addingTimeInterval(-0.5), now: now))
+  }
+
+  func testActivatingLaterReloads() {
+    XCTAssertTrue(TimelineReloadGate.shouldReloadOnActivate(lastLoadStart: now.addingTimeInterval(-30), now: now))
+    XCTAssertTrue(TimelineReloadGate.shouldReloadOnActivate(lastLoadStart: nil, now: now))
+  }
+}

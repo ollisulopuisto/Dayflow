@@ -179,8 +179,20 @@ enum TimelineReloadGate {
     animate || old != new
   }
 
+  /// At launch onAppear and didBecomeActive both load the day; the database read cannot be
+  /// cancelled midway, so an activate right after a load started is skipped.
+  static func shouldReloadOnActivate(lastLoadStart: Date?, now: Date) -> Bool {
+    guard let lastLoadStart else { return true }
+    return now.timeIntervalSince(lastLoadStart) >= 2
+  }
+
   /// Cards fade in one after another, but never more than 0.3 s in total.
   static func entranceDelay(index: Int) -> Double {
     Double(min(index, 10)) * 0.03
   }
+}
+
+/// A timestamp that is read on demand but must not trigger re-renders when it changes.
+final class TimelineTimestampBox {
+  var date: Date?
 }

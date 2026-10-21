@@ -87,6 +87,7 @@ struct CanvasTimelineDataView: View {
   /// Changes on every scroll frame and is only read when checking the footer overlap,
   /// so it lives outside SwiftUI state.
   @State private var cardsLayerFrameBox = TimelineFrameBox()
+  @State private var lastLoadStart = TimelineTimestampBox()
   private var cardsLayerFrame: CGRect { cardsLayerFrameBox.frame }
   @State private var refreshTimer: Timer?
   @State private var didInitialScrollInView: Bool = false
@@ -253,7 +254,9 @@ struct CanvasTimelineDataView: View {
   }
 
   private func handleDayTimelineDidBecomeActive() {
-    loadActivities(animate: false)
+    if TimelineReloadGate.shouldReloadOnActivate(lastLoadStart: lastLoadStart.date, now: Date()) {
+      loadActivities(animate: false)
+    }
     if refreshTimer == nil {
       startRefreshTimer()
     }
@@ -645,6 +648,7 @@ struct CanvasTimelineDataView: View {
   private func loadActivities(animate: Bool = true) {
     // Cancel any in-flight database read to prevent query pileup
     loadTask?.cancel()
+    lastLoadStart.date = Date()
 
     loadTask = Task.detached(priority: .userInitiated) {
       let calendar = Calendar.current
