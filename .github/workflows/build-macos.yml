@@ -23,6 +23,16 @@ jobs:
           -derivedDataPath build
           CODE_SIGNING_ALLOWED=NO
           build
+      - name: Run unit tests
+        run: >-
+          xcodebuild
+          -project Dayflow/Dayflow.xcodeproj
+          -scheme Dayflow
+          -configuration Debug
+          -destination 'platform=macOS'
+          -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO
+          test
       - name: Show compile errors
         if: failure()
         run: |
