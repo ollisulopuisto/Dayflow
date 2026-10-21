@@ -6,6 +6,7 @@ struct WeeklyTreemapSection: View {
   let snapshot: WeeklyTreemapSnapshot
   let width: CGFloat
   @State var hoveredLeaf: WeeklyTreemapHoverState?
+  @State var drillPath: [WeeklyTreemapDrill] = []
 
   init(
     snapshot: WeeklyTreemapSnapshot,
@@ -55,7 +56,20 @@ struct WeeklyTreemapSection: View {
     )
   }
 
+  @ViewBuilder
   var contentLayer: some View {
+    if let drill = drillPath.last {
+      WeeklyTreemapDrillView(
+        drill: drill,
+        onOpen: { drillPath.append($0) },
+        onBack: { drillPath.removeLast() }
+      )
+    } else {
+      categoryTreemap
+    }
+  }
+
+  var categoryTreemap: some View {
     GeometryReader { proxy in
       let placements = SquarifiedTreemapLayout.place(
         snapshot.categories,
@@ -73,6 +87,10 @@ struct WeeklyTreemapSection: View {
               withAnimation(.easeOut(duration: 0.14)) {
                 hoveredLeaf = state
               }
+            },
+            onOpen: { drill in
+              hoveredLeaf = nil
+              drillPath.append(drill)
             }
           )
           .frame(width: placement.frame.width, height: placement.frame.height)

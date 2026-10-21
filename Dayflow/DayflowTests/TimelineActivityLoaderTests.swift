@@ -231,6 +231,11 @@ final class WeeklyTreemapOtherDrillDownTests: XCTestCase {
     XCTAssertEqual(merged.duration, TimeInterval(40 * 60))
   }
 
+  func testOnlyTilesWithContentsAreDrillable() {
+    XCTAssertFalse(app("Slack", minutes: 30).isDrillable)
+    XCTAssertTrue(WeeklyTreemapApp.aggregate(containing: [app("Slack", minutes: 30)]).isDrillable)
+  }
+
   func testNestedOtherTilesAreFlattened() {
     let inner = WeeklyTreemapApp.aggregate(containing: [app("Slack", minutes: 30)])
     let outer = WeeklyTreemapApp.aggregate(containing: [inner, app("Mail", minutes: 10)])

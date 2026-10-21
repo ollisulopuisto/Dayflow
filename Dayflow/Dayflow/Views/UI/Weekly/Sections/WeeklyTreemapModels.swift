@@ -77,6 +77,11 @@ struct WeeklyTreemapApp: Identifiable {
     duration.weeklyTreemapDurationString
   }
 
+  /// True when the tile can be opened to show what sits behind it.
+  var isDrillable: Bool {
+    !containedApps.isEmpty
+  }
+
   var hasFaviconSource: Bool {
     guard !isAggregate, !isPlaceholder else { return false }
     if hasNonEmpty(faviconPrimaryRaw) || hasNonEmpty(faviconSecondaryRaw)
@@ -127,6 +132,16 @@ struct WeeklyTreemapApp: Identifiable {
       containedApps: apps.flatMap { $0.isAggregate ? $0.containedApps : [$0] }
     )
   }
+}
+
+/// One open level of the treemap: the tile being looked into, its palette, and the path to it.
+struct WeeklyTreemapDrill: Identifiable {
+  let app: WeeklyTreemapApp
+  let palette: WeeklyTreemapPalette
+  /// Category name followed by each opened tile name, shown above the breakdown.
+  let trail: [String]
+
+  var id: String { app.id }
 }
 
 struct WeeklyTreemapChange {
