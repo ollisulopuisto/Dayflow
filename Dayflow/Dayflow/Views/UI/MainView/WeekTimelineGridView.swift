@@ -549,7 +549,7 @@ struct WeekTimelineGridView: View {
         let dayActivities = activities.filter {
           $0.startTime.getDayInfoFor4AMBoundary().dayString == day.dayString
         }
-        let segments = TimelineActivityLoader.resolveWeekMacroblocks(
+        let segments = TimelineActivityLoader.resolveMacroblocks(
           from: TimelineActivityLoader.resolveDisplaySegments(from: dayActivities))
 
         for segment in segments {

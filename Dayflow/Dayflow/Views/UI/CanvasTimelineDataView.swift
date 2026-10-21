@@ -642,7 +642,10 @@ struct CanvasTimelineDataView: View {
       // Mitigation transform: resolve visual overlaps by trimming larger cards
       // so that smaller cards "win". This is a display-only fix to handle
       // upstream card-generation overlap bugs without touching stored data.
-      let segments = TimelineActivityLoader.resolveDisplaySegments(from: payload.activities)
+      // Group fine-grained cards into blocks of about 10 minutes for display. The stored cards
+      // are unchanged; hovering a block still lists the underlying activities.
+      let segments = TimelineActivityLoader.resolveMacroblocks(
+        from: TimelineActivityLoader.resolveDisplaySegments(from: payload.activities))
       let recordingProjection = TimelineActivityLoader.recordingProjectionWindow(
         for: payload.timelineDate,
         displaySegments: segments,

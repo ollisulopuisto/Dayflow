@@ -220,9 +220,9 @@ extension DailyView {
 
     refreshProviderAvailability()
 
+    // Daily no longer depends on notification permission, so go straight to provider setup.
     withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
-      accessFlowStep =
-        canUnlockDaily(for: notificationAuthorizationStatus) ? .provider : .notifications
+      accessFlowStep = .provider
     }
   }
   func finishDailyProviderOnboarding() {

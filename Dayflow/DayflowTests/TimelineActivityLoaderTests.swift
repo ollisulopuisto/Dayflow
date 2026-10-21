@@ -59,7 +59,7 @@ final class TimelineActivityLoaderTests: XCTestCase {
       activity(id: "c", startMinute: 14, endMinute: 20, title: "Idle", category: "Idle"),
     ])
 
-    let blocks = TimelineActivityLoader.resolveWeekMacroblocks(from: segments)
+    let blocks = TimelineActivityLoader.resolveMacroblocks(from: segments)
 
     XCTAssertEqual(blocks.count, 2)
     XCTAssertEqual(blocks[0].start, date(minute: 0))
@@ -77,7 +77,7 @@ final class TimelineActivityLoaderTests: XCTestCase {
       activity(id: "e", startMinute: 10, endMinute: 12, title: "Coding last", category: "Engineering"),
     ])
 
-    let blocks = TimelineActivityLoader.resolveWeekMacroblocks(from: segments)
+    let blocks = TimelineActivityLoader.resolveMacroblocks(from: segments)
 
     XCTAssertEqual(blocks.count, 2)
     XCTAssertEqual(blocks[0].start, date(minute: 0))
@@ -92,7 +92,7 @@ final class TimelineActivityLoaderTests: XCTestCase {
       activity(id: "b", startMinute: 7, endMinute: 10, title: "Task", category: "Engineering"),
     ])
 
-    let blocks = TimelineActivityLoader.resolveWeekMacroblocks(from: segments)
+    let blocks = TimelineActivityLoader.resolveMacroblocks(from: segments)
 
     XCTAssertEqual(blocks.count, 2)
   }

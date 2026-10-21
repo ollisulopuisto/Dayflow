@@ -193,7 +193,7 @@ enum TimelineActivityLoader {
   /// reads as a few blocks instead of a stack of minute-long slivers. A block takes the category
   /// with the most time in it. A gap longer than `maxGap` always starts a new block. The day
   /// view keeps the unmerged segments.
-  static func resolveWeekMacroblocks(
+  static func resolveMacroblocks(
     from segments: [TimelineDisplaySegment],
     maxGap: TimeInterval = 60,
     targetDuration: TimeInterval = 600
