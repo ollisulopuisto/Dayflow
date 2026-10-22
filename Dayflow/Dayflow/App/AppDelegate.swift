@@ -37,6 +37,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private static let lastRunCleanExitKey = "lastRunCleanExit"
   private static let lastRunExitReasonKey = "lastRunExitReason"
   private static let lastRunSeenAtKey = "lastRunSeenAt"
+  // True after a soft-quit so the intro animation replays on reopen
+  static var didSoftQuit: Bool = false
 
   // Flag set when app is opened via notification tap - skips video intro
   static var pendingNotificationNavigationDestination: PendingNotificationNavigationDestination? =
@@ -248,6 +250,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       return .terminateNow
     }
     // Soft-quit: hide windows and remove Dock icon, but keep status item + background tasks
+    Self.didSoftQuit = true
     NSApp.hide(nil)
     NSApp.setActivationPolicy(.accessory)
     return .terminateCancel
