@@ -13,6 +13,13 @@ struct TimelineDisplaySegment {
     self.end = end
   }
 
+  init(activity: TimelineActivity, activities: [TimelineActivity], start: Date, end: Date) {
+    self.activity = activity
+    self.activities = activities
+    self.start = start
+    self.end = end
+  }
+
   var failureCount: Int {
     guard activity.title == "Processing failed" else { return 0 }
     return activities.count
