@@ -1,0 +1,127 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Daily at 00:00 UTC
+  workflow_dispatch: # Manual run from the Actions tab
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  UPSTREAM_URL: https://github.com/JerryZLiu/Dayflow.git
+  SYNC_BRANCH: sync/upstream-main
+
+jobs:
+  sync:
+    name: Sync with upstream JerryZLiu/Dayflow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          # A GitHub App / GITHUB_TOKEN cannot push changes under .github/workflows/.
+          # Upstream syncs can carry workflow changes, so a PAT with the `workflow`
+          # scope is needed for those. SYNC_TOKEN is that PAT. Without it, syncs that
+          # touch no workflow file still work.
+          token: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream and check for updates
+        id: check
+        run: |
+          set -euo pipefail
+          git remote add upstream "$UPSTREAM_URL" 2>/dev/null || git remote set-url upstream "$UPSTREAM_URL"
+          git fetch upstream main
+          # Ancestry proves content: if every upstream commit is reachable from main,
+          # there is nothing to merge.
+          if git merge-base --is-ancestor upstream/main main; then
+            echo "Upstream is already merged into main."
+            echo "has_updates=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New upstream commits found."
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Dayflow's fork carries its own work on main, so a conflicting upstream commit
+      # must NOT be resolved by resetting to upstream/main (that would drop the fork's
+      # changes if the PR were merged). On conflict, nothing is pushed and the run fails
+      # with the list of files, for a human to merge locally.
+      - name: Merge upstream into a sync branch
+        id: prepare
+        if: steps.check.outputs.has_updates == 'true'
+        run: |
+          set -euo pipefail
+          git checkout -B "$SYNC_BRANCH" main
+          if git merge upstream/main --no-edit -m "chore: sync with upstream JerryZLiu/Dayflow"; then
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+          else
+            conflicted="$(git diff --name-only --diff-filter=U)"
+            git merge --abort
+            {
+              echo "### Upstream sync blocked by merge conflicts"
+              echo
+              echo "Files that conflict between main and upstream/main:"
+              echo
+              echo "$conflicted" | sed 's/^/- /'
+              echo
+              echo "Resolve locally: \`git fetch origin upstream && git checkout main && git merge upstream/main\`, then push main."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Upstream merge conflicts. Nothing was pushed. See the job summary."
+            exit 1
+          fi
+
+      - name: Push sync branch
+        id: push
+        if: steps.check.outputs.has_updates == 'true'
+        run: |
+          set -euo pipefail
+          if ! git push origin "$SYNC_BRANCH" --force; then
+            echo "::error::Could not push $SYNC_BRANCH. If the rejection names the workflow permission, add a SYNC_TOKEN repository secret (classic PAT with 'workflow' scope, or a fine-grained PAT with Contents and Workflows write)."
+            exit 1
+          fi
+
+      - name: Create or update pull request
+        if: steps.check.outputs.has_updates == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="chore: sync upstream updates from JerryZLiu/Dayflow"
+          body='Automated upstream sync from JerryZLiu/Dayflow. Merged cleanly into main. Review, then merge. CI runs on this branch via workflow_dispatch.'
+          # REST, not `gh pr` subcommands: those need GraphQL org fields that a
+          # repo-scoped PAT may not read.
+          owner="${GH_REPO%%/*}"
+          existing="$(gh api --method GET "repos/$GH_REPO/pulls" \
+            -f state=open -f base=main -f "head=$owner:$SYNC_BRANCH" \
+            --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$GH_REPO/pulls/$existing" \
+              -f title="$title" -f body="$body" >/dev/null
+            echo "Updated PR #$existing"
+          else
+            number="$(gh api --method POST "repos/$GH_REPO/pulls" \
+              -f title="$title" -f body="$body" -f base=main -f head="$SYNC_BRANCH" \
+              --jq '.number')"
+            echo "Created PR #$number"
+          fi
+
+      # Pushes made with GITHUB_TOKEN do not trigger workflows, so start the macOS
+      # build and unit tests on the sync branch explicitly.
+      - name: Run macOS build and tests on the sync branch
+        if: steps.check.outputs.has_updates == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh workflow run build-macos.yml --ref "$SYNC_BRANCH"
