@@ -354,12 +354,14 @@ struct DayflowApp: App {
             .scaleEffect(showVideoLaunch ? 1 : 1.02)
             .animation(.easeIn(duration: 0.2), value: showVideoLaunch)
             .onAppear {
-              // Skip video if opening via notification tap
-              if hasPendingNotificationNavigation {
+              // Skip the splash on relaunches (it costs ~3.6 s) and on notification taps
+              if didOnboard || hasPendingNotificationNavigation {
                 showVideoLaunch = false
                 contentOpacity = 1.0
                 contentScale = 1.0
-                dispatchPendingNotificationNavigation(after: 0.1)
+                if hasPendingNotificationNavigation {
+                  dispatchPendingNotificationNavigation(after: 0.1)
+                }
               }
             }
         }

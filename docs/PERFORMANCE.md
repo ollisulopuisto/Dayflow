@@ -1,30 +1,57 @@
-# Performance work (2026-10-21)
+# Performance findings (koti-batching-2.7.1, 2026-10-22)
 
-Found by static review; nothing was profiled. Confirm with Instruments on a Mac with Xcode.
+M = measured with xctrace, C = confirmed by reading the code, S = speculative.
+Profiling build: Release with a `.perf` bundle ID and `CFFIXED_USER_HOME` pointing to
+a copy of the real data (13 MB DB, 1818 cards, 29k screenshots).
 
-## Done (branch koti-batching-2.7.1, not yet run on a Mac)
-- Studio queue: in-flight guard and 1/2/5/15/60 min backoff; no per-upload results fetch (likely cause of ~40% CPU).
-- Launch: intro video only before onboarding; DB quick_check off init; legacy path migration once; support chat WKWebView +5 s; agent config repair +3 s.
-- Timeline: scroll frames no longer stored as state; 60 s refresh skips unchanged cards; entrance stagger capped at 0.3 s.
-- Weekly: 52-week search and access count off the main thread.
-- Browser privacy: skip unneeded checks, cache compiled AppleScript, 2 s timeout.
-- View refresh timers skip their tick while no Dayflow window is on screen (Cmd-Q only hides).
-- Day and Week cards: category colour lookup built once per render, not per card.
-- Chat: chart regex compiled once; replies without a chart skip it.
-- Day cards load once at launch (onAppear and didBecomeActive no longer both read the database).
-- Daily goal prompt check: its three database reads run off the main thread.
-- Weekly treemap hover re-renders only the hover card; Sankey hover uses prebuilt hit paths.
-- Locked Weekly screen: endless animations pause while the window is inactive.
-- Studio tick and uploads query batches by status and id instead of reading every batch.
+## Startup (App Launch trace)
+First frame at 1.43 s: process creation 284 ms, scene creation 471 ms,
+`applicationDidFinishLaunching` 179 ms, first frame 192 ms.
+After that, the splash video (about 3.6 s) and a fixed 1.5 s scroll delay (Lifecycle.swift:137).
 
-## Left, in impact order
-1. InnerGlow blur and two always-present shadows on every card (CanvasActivityCard ~192, ~231;
-   WeekTimelineActivityCard ~203). Profile first: replacing them changes the look, and an `if`
-   around the shadows would change view identity on hover.
-2. Week hover state lives in the grid, so every card re-evaluates on hover (WeekTimelineGridView ~427).
-3. Hour view card label size: 6x zoom, 13 pt text; check readability on screen.
-4. RetryCoordinator dotTick re-renders MainView every 0.6 s while a retry runs (dots are baked
-   into the status string the cards draw).
-5. Chat transcript is a non-lazy VStack; switching to LazyVStack needs checking against
-   scroll-to-bottom.
-6. Sentry and PostHog setup run before the first frame (kept: crash reporting should start early).
+1. C: The splash video plays on every launch (DayflowApp.swift:322-353, VideoLaunchView.swift:104), and the
+   1.5 s timer delays scroll-to-now. Fix: skip the video when `didOnboard`, and scroll once cards are loaded.
+2. M 75 ms main: `StorageManager.init` → `performIntegrityCheck` (`PRAGMA quick_check`), first
+   touched from main via `MainView.daySummary`. Fix: warm `.shared` off main early, and run quick_check weekly.
+3. M 48 ms main: `timelineDisplayDate` / `normalizedTimelineDate` (Support.swift:432-452) call
+   `Calendar.date(bySettingHour:)` thousands of times from view bodies. Fix: a cheaper
+   noon computation (startOfDay + 12h) and computing the value once per body.
+4. M 53 ms main: `DayflowWindowBackground` decodes the 415 KB dark-window@2x.png.
+5. M 30 ms main: `CanvasTimelineDataView.hourLabelColor` (Calendar work for each of the 24 labels).
+6. M 23 ms main: the SupportChat WKWebView is created at launch (AppDelegate.swift:158). Fix: create it lazily.
+7. C: Each launch runs a purge storm: screenshots read ×2, directory enumerations, a 1.1 GB timelapse size scan,
+   and llm_calls truncation UPDATEs (StorageManager+Maintenance.swift:329-545). Fix: delay 60 s plus done flags.
+8. C: Login-shell CLI probes at launch (CLIVersionTelemetry, CodexMCPRegistration). Fix: persist with a TTL.
+
+## Idle recording (90 s Time Profiler attached to the installed app)
+Measured: 0.7 % CPU, 80 MB RSS, and about 360 ms of SwiftUI AttributeGraph work on main per 90 s.
+Background: vImage resample, JPEG encode, `_convertJSONString`.
+
+1. C: The Studio queue re-encodes every `pending` batch every minute with no backoff or in-flight guard
+   (StudioBatchQueue.swift:35-106). The DB had 0 pending and 215 `studio_queued` batches, so this
+   only applies while the Studio is unreachable. Unbounded while it is.
+2. C: An AppleScript privacy check runs synchronously on main at every capture (BrowserPrivacy.swift:86-156),
+   and the script is compiled each time.
+3. C: 60 s timeline refresh timers keep running when the window is hidden (soft quit = `NSApp.hide`).
+   They replace the whole non-Equatable `positionedActivities`, so every card re-renders
+   (CanvasTimelineDataView.swift:807, Week :701, Month :118). Likely source of the AG time.
+4. C: Every DB op adds a Sentry breadcrumb (`debugSlowQueries = true`, "TEMPORARY", StorageManager.swift:187).
+5. C: PauseManager sends `objectWillChange` at 1 Hz while paused, which redraws MainView.
+
+## Timeline scrolling (code audit, not yet measured)
+1. C: Preference keys inside the ScrollView write @State in MainView every scroll frame
+   (CanvasTimelineDataView.swift:166-173, :324-331, Layout+Panels.swift:150-153; Week grid :372-446).
+2. C: Per-card cost in body: category lookup, favicon pattern matching, and an InnerGlow blur pass per card
+   (CanvasActivityCard.swift:190-242, DayflowTheme.swift:712).
+3. C: Cards are not lazy and the stagger animation is uncapped. The Day↔Hour switch renders two scaled timelines.
+4. C: N+1 `screenshotsForBatch` for failed cards (TimelineActivityLoader.swift:92-114).
+
+## State
+- Cherry-picked a89a7640 (Release type-check timeout in FlowSessionTimeline.swift) so Release builds.
+- Fixed: startup items 1, 2, 3 and 6 (5 benefits from 3), idle items 3 (timers while hidden) and 4 (breadcrumbs). See CHANGELOG.md.
+- Open: startup 4, 7, 8; idle 1, 2, 5; all Timeline scrolling items (not yet measured with Animation Hitches).
+- Traces are in the session scratchpad and are not committed.
+- Caveat: the "after" launch traces did NOT measure the new build. `xctrace --launch` started
+  /Applications/Dayflow.app instead of the perf build (running the perf binary directly works). The
+  date-helper gain is from a micro-benchmark only (17.8 µs → 0.74 µs per call); the startup gains
+  (splash skip, deferred integrity check) are not yet re-measured end to end.

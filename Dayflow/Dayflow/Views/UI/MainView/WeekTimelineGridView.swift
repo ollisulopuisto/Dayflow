@@ -718,7 +718,7 @@ struct WeekTimelineGridView: View {
   private func startRefreshTimer() {
     stopRefreshTimer()
     refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
-      guard AppVisibility.isOnScreen else { return }
+      guard AppVisibility.isMainWindowOnScreen else { return }
       loadActivities(trigger: "refreshTimer")
     }
   }

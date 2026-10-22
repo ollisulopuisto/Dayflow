@@ -135,11 +135,11 @@ extension MainView {
     didInitialScroll = true
 
     // Wait for layout to settle after animations complete
-    // Increased delay to ensure ScrollView is fully ready on cold start
+    // The splash no longer gates relaunches, so a short delay is enough for the ScrollView
     #if DEBUG
-      print("[MainView] performInitialScrollIfNeeded scheduled with 1.5s delay")
+      print("[MainView] performInitialScrollIfNeeded scheduled with 0.4s delay")
     #endif
-    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
       #if DEBUG
         print("[MainView] performInitialScrollIfNeeded firing -> nudging scrollToNowTick")
       #endif
