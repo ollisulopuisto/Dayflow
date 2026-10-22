@@ -15,6 +15,17 @@ compiler and test runner.
 - Studio incomplete-import and card-save failure logging.
 - CI now runs DayflowTests (it previously only built the app).
 
+## Upstream sync
+- `.github/workflows/sync-upstream.yml` runs daily (00:00 UTC) and on demand.
+  Merges `JerryZLiu/Dayflow` main into `sync/upstream-main`, opens or updates a PR,
+  then dispatches the macOS build and tests on that branch.
+- Conflicts: nothing is pushed. The run fails and lists the files.
+- Verified: "up to date" path (run 39791719832, success, sync skipped). Dry run of the
+  conflict path in a scratch clone detected the conflicting file.
+- Not yet verified end to end: a real upstream commit producing a PR.
+- Needs a repository secret `SYNC_TOKEN` (PAT with `workflow` scope) for syncs that
+  touch `.github/workflows/`. Add it in GitHub settings, not in chat.
+
 ## In flight / to verify
 - Red check: `redcheck-mutant` branch (fallback removed) must fail
   `testFallsBackToActivityBoundsWhenCardBoundsHoldNoScreenshots`. Result pending;
