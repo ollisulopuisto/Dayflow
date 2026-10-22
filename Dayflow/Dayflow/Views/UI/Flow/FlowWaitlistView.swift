@@ -10,6 +10,10 @@
 import SwiftUI
 
 struct FlowWaitlistView: View {
+  /// Shown to accounts with Flow access whose provider can't run the agent:
+  /// the same page, explaining which providers Flow works with for now.
+  var providerLimited = false
+
   @ObservedObject private var authManager = DayflowAuthManager.shared
 
   /// Email that joined the waitlist from this Mac; empty until someone signs up.
@@ -31,7 +35,7 @@ struct FlowWaitlistView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      if !hasJoinedWaitlist {
+      if providerLimited || !hasJoinedWaitlist {
         ZStack(alignment: .top) {
           waitlistCard
             .padding(.top, 67)
@@ -44,8 +48,10 @@ struct FlowWaitlistView: View {
         .id(joinedAccountID + ":" + joinedEmail)
         .frame(maxWidth: 680, maxHeight: 580)
       }
-      accessCodeSection
-        .padding(.top, 20)
+      if !providerLimited {
+        accessCodeSection
+          .padding(.top, 20)
+      }
     }
     .padding(.horizontal, 32)
     .padding(.vertical, 32)
@@ -98,17 +104,24 @@ struct FlowWaitlistView: View {
   private var waitlistCard: some View {
     VStack(spacing: 0) {
       VStack(spacing: 4) {
-        Text("Join our waitlist")
+        Text(providerLimited ? "Flow is limited for now" : "Join our waitlist")
           .font(.custom("InstrumentSerif-Regular", size: 28))
-        Text("Get early access to Flow")
-          .font(.custom("Figtree", size: 16).weight(.semibold))
+        Text(
+          providerLimited
+            ? "For Claude, ChatGPT and Dayflow Pro users" : "Get early access to Flow"
+        )
+        .font(.custom("Figtree", size: 16).weight(.semibold))
       }
 
-      Text("Flow helps you plan your day and find your way back when you get distracted.")
-        .font(.custom("Figtree", size: 14))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(.top, 20)
+      Text(
+        providerLimited
+          ? "Flow watches your screen during a session to keep you on track, and that takes a level of intelligence Gemini and local models can't reach yet. Switch your provider to Claude, ChatGPT or Dayflow Pro in Settings to use Flow now, or sign up and we'll tell you when it works with yours."
+          : "Flow helps you plan your day and find your way back when you get distracted."
+      )
+      .font(.custom("Figtree", size: 14))
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .fixedSize(horizontal: false, vertical: true)
+      .padding(.top, 20)
 
       glassField(
         TextField(

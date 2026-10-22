@@ -70,7 +70,7 @@ extension MainView {
       case .chat:
         ChatPanelView()
       case .flow:
-        FlowView()
+        Color.clear
       case .agents:
         AgentPlaybackView()
       case .daily:
@@ -84,6 +84,14 @@ extension MainView {
         GeometryReader { geo in
           timelinePanel(geo: geo)
         }
+      }
+
+      // Outside the switch so it keeps its web view while another tab shows.
+      if flowAlive || selectedIcon == .flow {
+        FlowView()
+          .opacity(selectedIcon == .flow ? 1 : 0)
+          .allowsHitTesting(selectedIcon == .flow)
+          .accessibilityHidden(selectedIcon != .flow)
       }
     }
     .padding(0)

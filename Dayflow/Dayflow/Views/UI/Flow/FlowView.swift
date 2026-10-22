@@ -17,6 +17,8 @@ struct FlowView: View {
   /// Bumped to tear down and recreate the webview on retry.
   @State private var reloadToken = 0
   @State private var showingSupport = false
+  /// Read only so a provider change re-renders the gate.
+  @AppStorage(LLMProviderRoutingStore.storageKey) private var providerRouting: Data?
 
   private enum LoadState {
     case loading
@@ -30,6 +32,8 @@ struct FlowView: View {
         && FlowWaitlistRegistration().email.isEmpty
       {
         ProgressView()
+      } else if authManager.flowEnabled && !FlowDistractionAgent.providerCanWatch {
+        FlowWaitlistView(providerLimited: true)
       } else if authManager.flowEnabled {
         webContent
       } else if authManager.hasUnrestoredSession && !authManager.isRestoringStoredSession {

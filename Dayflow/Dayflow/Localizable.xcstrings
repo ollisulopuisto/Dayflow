@@ -512,6 +512,9 @@
         }
       }
     },
+    "–" : {
+
+    },
     "— Jerry, who makes Dayflow" : {
       "localizations" : {
         "de" : {
@@ -7577,6 +7580,9 @@
           }
         }
       }
+    },
+    "Add a new task" : {
+
     },
     "Add item" : {
       "localizations" : {
@@ -19086,6 +19092,9 @@
         }
       }
     },
+    "Copy stats" : {
+
+    },
     "Copy terminal command" : {
       "localizations" : {
         "de" : {
@@ -20421,6 +20430,9 @@
           }
         }
       }
+    },
+    "Custom prompt" : {
+
     },
     "Customize the local model prompts for summary and title generation." : {
       "localizations" : {
@@ -24424,6 +24436,9 @@
         }
       }
     },
+    "Dismiss" : {
+
+    },
     "Distracted" : {
       "localizations" : {
         "de" : {
@@ -25762,6 +25777,9 @@
         }
       }
     },
+    "Due: %@" : {
+
+    },
     "Duration" : {
       "localizations" : {
         "de" : {
@@ -25899,6 +25917,9 @@
           }
         }
       }
+    },
+    "Each morning's brief adds what you finished the day before." : {
+
     },
     "EARLIER" : {
       "localizations" : {
@@ -26454,6 +26475,9 @@
           }
         }
       }
+    },
+    "Edit prompt" : {
+
     },
     "Edit title" : {
       "localizations" : {
@@ -28073,6 +28097,9 @@
         }
       }
     },
+    "Everything you completed" : {
+
+    },
     "Exit code %d" : {
       "localizations" : {
         "de" : {
@@ -28624,6 +28651,9 @@
           }
         }
       }
+    },
+    "Extra preferences for your brief, like 'skip industry news' or 'more design inspiration'. Used from the next run." : {
+
     },
     "F" : {
       "localizations" : {
@@ -29691,6 +29721,9 @@
         }
       }
     },
+    "Flow is limited for now" : {
+
+    },
     "Flow is unlocked on this Mac and attached to your Dayflow account." : {
 
     },
@@ -29746,6 +29779,9 @@
           }
         }
       }
+    },
+    "Flow watches your screen during a session to keep you on track, and that takes a level of intelligence Gemini and local models can't reach yet. Switch your provider to Claude, ChatGPT or Dayflow Pro in Settings to use Flow now, or sign up and we'll tell you when it works with yours." : {
+
     },
     "Flow: Nudge Style — %@" : {
       "localizations" : {
@@ -30390,6 +30426,9 @@
           }
         }
       }
+    },
+    "For Claude, ChatGPT and Dayflow Pro users" : {
+
     },
     "For experienced users" : {
       "localizations" : {
@@ -33262,6 +33301,9 @@
           }
         }
       }
+    },
+    "Hide this" : {
+
     },
     "Higher resolution and more frequent captures use more disk." : {
       "localizations" : {
@@ -42178,6 +42220,9 @@
         }
       }
     },
+    "No summary for %@ yet" : {
+
+    },
     "No timeline activities were recorded for %@." : {
       "localizations" : {
         "de" : {
@@ -42869,6 +42914,12 @@
           }
         }
       }
+    },
+    "Nothing here yet" : {
+
+    },
+    "Nothing saved yet" : {
+
     },
     "Nothing to review yet" : {
       "localizations" : {
@@ -43931,6 +43982,9 @@
         }
       }
     },
+    "Open an image in your daily brief and press Save to keep it here." : {
+
+    },
     "Open Dayflow" : {
       "comment" : "Menu bar status menu row that shows the main window.",
       "localizations" : {
@@ -44346,6 +44400,9 @@
           }
         }
       }
+    },
+    "Open today's brief" : {
+
     },
     "openai_compatible" : {
       "extractionState" : "stale",
@@ -45083,6 +45140,9 @@
           }
         }
       }
+    },
+    "Override instructions" : {
+
     },
     "Overrides apply only when their toggle is on. Unchecked sections fall back to Dayflow's defaults." : {
       "localizations" : {
@@ -45969,6 +46029,9 @@
           }
         }
       }
+    },
+    "Plan for your day and see new updates all in one place." : {
+
     },
     "Planning" : {
       "localizations" : {
@@ -48294,6 +48357,9 @@
         }
       }
     },
+    "Read transcript" : {
+
+    },
     "Ready for review" : {
       "localizations" : {
         "de" : {
@@ -49923,6 +49989,9 @@
         }
       }
     },
+    "Regenerating…" : {
+
+    },
     "Release notes" : {
       "localizations" : {
         "de" : {
@@ -50060,6 +50129,9 @@
           }
         }
       }
+    },
+    "Remove from saved" : {
+
     },
     "Renews" : {
       "localizations" : {
@@ -50803,6 +50875,9 @@
           }
         }
       }
+    },
+    "Reset to default" : {
+
     },
     "Resolution" : {
       "localizations" : {
@@ -52484,6 +52559,9 @@
         }
       }
     },
+    "See everything you completed" : {
+
+    },
     "See how your agents spend their time" : {
       "localizations" : {
         "de" : {
@@ -52529,6 +52607,12 @@
           }
         }
       }
+    },
+    "See my rundown" : {
+
+    },
+    "See what’s in stock today" : {
+
     },
     "See when your agents are running and when they need your input." : {
       "localizations" : {
@@ -59704,6 +59788,9 @@
         }
       }
     },
+    "The full prompt sent to Claude. Placeholders are filled in at run time. Used from the next run, so Retry picks it up." : {
+
+    },
     "The intro video, role-selection screen, and preferences screen are now wired up. We can keep replacing the remaining placeholders step by step without touching production onboarding yet." : {
       "localizations" : {
         "de" : {
@@ -59749,6 +59836,9 @@
           }
         }
       }
+    },
+    "The last retry failed: %@" : {
+
     },
     "The longer it runs, the more it can tell you" : {
       "localizations" : {
@@ -65860,6 +65950,9 @@
         }
       }
     },
+    "View %@" : {
+
+    },
     "View on X" : {
       "localizations" : {
         "de" : {
@@ -67344,6 +67437,9 @@
           }
         }
       }
+    },
+    "What you saved" : {
+
     },
     "What's going on? Bugs, ideas, confusion — all welcome." : {
       "localizations" : {

@@ -11,6 +11,24 @@ enum ClaudeCLISessionMode: Sendable, Equatable {
   case resume(id: String)
 }
 
+/// Settings for a one-shot `claude -p` run whose final answer is checked against a
+/// JSON schema (`--json-schema`). Used by the Daily brief.
+struct ClaudeCLIStructuredOutputOptions: Sendable {
+  /// Built-in tools, comma separated (e.g. "Read,WebSearch,WebFetch"); "" for none.
+  var tools: String
+  var jsonSchema: String
+  var name: String
+  /// Permission rules that run without asking, e.g. "WebSearch" or "Read(//abs/path/**)".
+  var allowedTools: [String] = []
+  /// A JSON file with extra MCP servers, passed to `--mcp-config`.
+  var mcpConfigPath: String?
+  /// JSON passed to `--settings`, e.g. hooks.
+  var settingsJSON: String?
+  /// When true the user's own MCP servers (their Claude connectors) load too,
+  /// so `--strict-mcp-config` is left off.
+  var loadsUserMCPServers = false
+}
+
 struct ClaudeCLIExecutionProfile: Sendable {
   fileprivate enum Kind: Sendable {
     case optimizedTranscription
@@ -18,10 +36,25 @@ struct ClaudeCLIExecutionProfile: Sendable {
     case optimizedCardGeneration
     case oneStepTimeline
     case flowAgent
+    case structuredOutput
   }
 
   fileprivate let kind: Kind
   fileprivate let allowedReadPath: String?
+  fileprivate var structuredOutputOptions: ClaudeCLIStructuredOutputOptions? = nil
+
+  /// A run that returns JSON matching `options.jsonSchema` (in the envelope's `structured_output`).
+  static func structuredOutput(_ options: ClaudeCLIStructuredOutputOptions)
+    -> ClaudeCLIExecutionProfile
+  {
+    ClaudeCLIExecutionProfile(
+      kind: .structuredOutput, allowedReadPath: nil, structuredOutputOptions: options)
+  }
+
+  /// Structured-output runs that use the user's own connectors skip `--strict-mcp-config`.
+  fileprivate var loadsUserMCPServers: Bool {
+    structuredOutputOptions?.loadsUserMCPServers == true
+  }
 
   private static let optimizedTranscriptionSystemPrompt =
     "You transcribe ordered screenshots into a factual screen-activity timeline. "
@@ -126,7 +159,33 @@ struct ClaudeCLIExecutionProfile: Sendable {
         "--prompt-suggestions", "false",
         "--name", "dayflow-card-generation",
       ] + persistenceArguments
+
+    case .structuredOutput:
+      return structuredOutputCommandArguments(persistenceArguments: persistenceArguments)
     }
+  }
+
+  private func structuredOutputCommandArguments(persistenceArguments: [String]) -> [String] {
+    guard let options = structuredOutputOptions else { return persistenceArguments }
+    var arguments = [
+      "--disable-slash-commands",
+      "--prompt-suggestions", "false",
+      "--tools", LoginShellRunner.shellEscape(options.tools),
+      "--json-schema", LoginShellRunner.shellEscape(options.jsonSchema),
+      "--name", LoginShellRunner.shellEscape(options.name),
+    ]
+    arguments.append(contentsOf: persistenceArguments)
+    if let settingsJSON = options.settingsJSON {
+      arguments.append(contentsOf: ["--settings", LoginShellRunner.shellEscape(settingsJSON)])
+    }
+    if let mcpConfigPath = options.mcpConfigPath {
+      arguments.append(contentsOf: ["--mcp-config", LoginShellRunner.shellEscape(mcpConfigPath)])
+    }
+    if !options.allowedTools.isEmpty {
+      arguments.append("--allowedTools")
+      arguments.append(contentsOf: options.allowedTools.map { LoginShellRunner.shellEscape($0) })
+    }
+    return arguments
   }
 
   private func transcriptionCommandArguments(
@@ -168,7 +227,7 @@ struct ClaudeCLIExecutionProfile: Sendable {
 
   fileprivate var environmentOverrides: [String: String] {
     switch kind {
-    case .optimizedCardGeneration, .oneStepTimeline:
+    case .optimizedCardGeneration, .oneStepTimeline, .structuredOutput:
       return [:]
     case .optimizedTranscription, .optimizedTranscriptionCorrection, .flowAgent:
       return ["MAX_THINKING_TOKENS": "0"]
@@ -176,7 +235,8 @@ struct ClaudeCLIExecutionProfile: Sendable {
   }
 
   fileprivate var environmentKeysToRemove: Set<String> {
-    kind == .optimizedCardGeneration || kind == .oneStepTimeline ? ["MAX_THINKING_TOKENS"] : []
+    kind == .optimizedCardGeneration || kind == .oneStepTimeline || kind == .structuredOutput
+      ? ["MAX_THINKING_TOKENS"] : []
   }
 }
 
@@ -1020,7 +1080,9 @@ struct ChatCLIProcessRunner {
       cmdParts.append("--allowedTools")
       cmdParts.append(LoginShellRunner.shellEscape("[]"))
     }
-    cmdParts.append("--strict-mcp-config")
+    if profile?.loadsUserMCPServers != true {
+      cmdParts.append("--strict-mcp-config")
+    }
     cmdParts.append("--")
     if profile == nil {
       cmdParts.append(
@@ -1175,7 +1237,7 @@ struct ChatCLIProcessRunner {
 
   /// Extracts intact top-level JSON values from unrelated login-shell stdout. The scanner only
   /// identifies byte ranges and never rewrites strings inside Claude's result envelope.
-  private func balancedJSONValues(in output: String) -> [String] {
+  func balancedJSONValues(in output: String) -> [String] {
     let bytes = Array(output.utf8)
     var values: [String] = []
     var start = 0
