@@ -3,14 +3,23 @@ import AppKit
 import QuartzCore
 import SwiftUI
 
+/// The storage reads the screenshot source needs. Kept narrow so tests can supply a fake.
+protocol TimelineReviewScreenshotStore: Sendable {
+  func fetchTimelineCard(byId id: Int64) -> TimelineCardWithTimestamps?
+  /// Must return rows ordered by `capturedAt` ascending, both bounds inclusive.
+  func fetchScreenshotsInTimeRange(startTs: Int, endTs: Int) -> [Screenshot]
+}
+
+extension StorageManager: TimelineReviewScreenshotStore {}
+
 actor TimelineReviewScreenshotSource {
-  private let storage: any StorageManaging
+  private let storage: any TimelineReviewScreenshotStore
   private var dayScreenshots: [Screenshot]?
   private var dayStartTs: Int?
   private var dayEndTs: Int?
   private var cardBoundsCache: [Int64: (startTs: Int, endTs: Int)] = [:]
 
-  init(storage: any StorageManaging = StorageManager.shared) {
+  init(storage: any TimelineReviewScreenshotStore = StorageManager.shared) {
     self.storage = storage
   }
 
@@ -27,9 +36,30 @@ actor TimelineReviewScreenshotSource {
        let dayEnd = dayEndTs,
        startTs >= dayStart, endTs <= dayEnd
     {
-      return dayScreenshots.filter { $0.capturedAt >= startTs && $0.capturedAt <= endTs }
+      // The day cache is sorted by capturedAt, so binary-search the bounds instead of
+      // scanning the whole day for every card.
+      let lower = Self.firstIndex(in: dayScreenshots) { $0.capturedAt >= startTs }
+      let upper = Self.firstIndex(in: dayScreenshots) { $0.capturedAt > endTs }
+      return Array(dayScreenshots[lower..<max(lower, upper)])
     }
     return storage.fetchScreenshotsInTimeRange(startTs: startTs, endTs: endTs)
+  }
+
+  /// Index of the first element satisfying `predicate`, assuming it is false-then-true.
+  private static func firstIndex(
+    in screenshots: [Screenshot], where predicate: (Screenshot) -> Bool
+  ) -> Int {
+    var low = 0
+    var high = screenshots.count
+    while low < high {
+      let mid = (low + high) / 2
+      if predicate(screenshots[mid]) {
+        high = mid
+      } else {
+        low = mid + 1
+      }
+    }
+    return low
   }
 
   func screenshots(for activity: TimelineActivity) -> [Screenshot] {
