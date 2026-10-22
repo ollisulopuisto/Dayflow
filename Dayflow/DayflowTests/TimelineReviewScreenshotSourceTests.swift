@@ -48,7 +48,7 @@ final class TimelineReviewScreenshotSourceTests: XCTestCase {
 
     let result = await source.screenshots(for: activity(recordId: 1, startTs: 200, endTs: 300))
 
-    XCTAssertEqual(result, [])
+    XCTAssertTrue(result.isEmpty)
     XCTAssertEqual(store.rangeQueryCount, 0)
   }
 
