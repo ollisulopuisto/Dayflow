@@ -173,7 +173,7 @@ final class ChatService: ObservableObject {
     // Build a provider-specific request. Gemini gets structured history;
     // CLI providers keep the existing prompt/session flow.
     let request: DashboardChatRequest
-    let usesSessionResume = provider != .gemini
+    let usesSessionResume = provider != .gemini && provider != .local
     let isResume = usesSessionResume && currentSessionId != nil
 
     request = buildChatRequest(provider: provider, isResume: isResume)
@@ -463,6 +463,15 @@ final class ChatService: ObservableObject {
         systemInstruction: buildGeminiSystemInstruction(),
         history: conversationHistory
       )
+    case .local:
+      currentSessionId = nil
+      return DashboardChatRequest(
+        provider: provider,
+        prompt: "",
+        sessionId: nil,
+        systemInstruction: buildLocalSystemInstruction(),
+        history: conversationHistory
+      )
     case .codex:
       let prompt: String
       if isResume {
@@ -477,7 +486,7 @@ final class ChatService: ObservableObject {
         systemInstruction: nil,
         history: []
       )
-    case .claude:
+    case .claude, .agy:
       let prompt: String
       if isResume {
         prompt = conversationHistory.last?.content ?? ""
@@ -545,10 +554,21 @@ final class ChatService: ObservableObject {
     return instruction
   }
 
+  private func buildLocalSystemInstruction() -> String {
+    var instruction = LocalChatLoop.systemPrompt(now: Date())
+    let memoryBlob = DashboardChatMemoryStore.load()
+    if !memoryBlob.isEmpty {
+      instruction += "\n\n## User Memory\n\(memoryBlob)"
+    }
+    return instruction
+  }
+
   private func debugDescription(for request: DashboardChatRequest, isResume: Bool) -> String {
     switch request.provider {
-    case .gemini:
-      var lines: [String] = ["[Gemini Dashboard Chat]"]
+    case .gemini, .local:
+      var lines: [String] = [
+        request.provider == .gemini ? "[Gemini Dashboard Chat]" : "[Local Dashboard Chat]"
+      ]
       if let systemInstruction = request.systemInstruction, !systemInstruction.isEmpty {
         lines.append("System Instruction:")
         lines.append(systemInstruction)
@@ -558,7 +578,7 @@ final class ChatService: ObservableObject {
         lines.append("\(turn.role.promptLabel): \(turn.content)")
       }
       return lines.joined(separator: "\n\n")
-    case .codex, .claude:
+    case .codex, .claude, .agy:
       if isResume, let sessionId = request.sessionId {
         return String(localized: "[Resuming session \(sessionId)] \(request.prompt)")
       }

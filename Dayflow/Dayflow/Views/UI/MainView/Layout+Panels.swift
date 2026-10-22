@@ -157,13 +157,15 @@ extension MainView {
     }
     .coordinateSpace(name: "TimelinePane")
     .onPreferenceChange(TimelineTimeLabelFramesPreferenceKey.self) { frames in
-      timelineTimeLabelFrames = frames
+      timelineTimeLabelFramesBox.frames = frames
+      updateWeeklyHoursFadeLevel(hoursFrame: weeklyHoursFrame)
     }
     .onPreferenceChange(WeeklyHoursFramePreferenceKey.self) { frame in
       // Deferred for the same reason as the cards-layer frame in
       // CanvasTimelineDataView: avoid state writes during the layout pass.
       DispatchQueue.main.async {
-        weeklyHoursFrame = frame
+        if weeklyHoursFrame != frame { weeklyHoursFrame = frame }
+        updateWeeklyHoursFadeLevel(hoursFrame: frame)
       }
     }
   }
@@ -185,36 +187,33 @@ extension MainView {
       ZStack(alignment: .topLeading) {
         switch timelineMode {
         case .day:
-          CanvasTimelineDataView(
-            selectedDate: $selectedDate,
-            selectedActivity: $selectedActivity,
-            scrollToNowTick: $scrollToNowTick,
-            hasAnyActivities: $hasAnyActivities,
-            refreshTrigger: $refreshActivitiesTrigger,
-            weeklyHoursFrame: weeklyHoursFrame,
-            weeklyHoursIntersectsCard: $weeklyHoursIntersectsCard,
-            contentLeadingInset: 0,
-            hourHeight: TimelineScale.hourHeight,
-            cardTextFontSize: TimelineTypography.cardTextFontSize,
-            cardTextFontWeight: TimelineTypography.cardTextFontWeight,
-            timeLabelFontSize: TimelineTypography.timeLabelFontSize,
-            cardIconLeadingInset: TimelineCardLayout.iconLeadingInset,
-            cardIconTextSpacing: TimelineCardLayout.iconTextSpacing,
-            cardFaviconSize: TimelineCardLayout.faviconSize,
-            cardFaviconVerticalOffset: TimelineCardLayout.faviconVerticalOffset,
-            cardCompactDurationThreshold: TimelineCardLayout.compactDurationThreshold,
-            cardCompactVerticalPadding: TimelineCardLayout.compactVerticalPadding,
-            cardNormalVerticalPadding: TimelineCardLayout.normalVerticalPadding,
-            cardHoverScale: TimelineCardLayout.hoverScale,
-            cardPressedScale: TimelineCardLayout.pressedScale,
-            mutedCategoryKeys: mutedCategoryKeys
-          )
+          canvasTimeline(hourHeight: TimelineScale.hourHeight, mergeSegments: true)
           // Day is the zoomed-IN view (1/7 of a week). Entering Day feels
           // like diving into a single column: grow from 0.95 → 1 + fade in.
           // Exiting Day (to Week) shrinks 1 → 0.95 + fade out, matching the
           // "pull back to see more" feel when Week slides in behind it.
           .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
           .zIndex(timelineMode == .day ? 1 : 0)
+
+        case .hour:
+          canvasTimeline(
+            hourHeight: TimelineScale.hourHeight * TimelineMode.hourZoom, mergeSegments: false)
+            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
+            .zIndex(timelineMode == .hour ? 1 : 0)
+
+        case .month:
+          MonthTimelineView(
+            selectedDate: selectedDate,
+            refreshTrigger: refreshActivitiesTrigger,
+            hasAnyActivities: $hasAnyActivities,
+            mutedCategoryKeys: mutedCategoryKeys,
+            onSelectDay: { day in
+              setSelectedDate(day)
+              setTimelineMode(.day)
+            }
+          )
+          .transition(.opacity.combined(with: .scale(scale: 1.05, anchor: .center)))
+          .zIndex(timelineMode == .month ? 1 : 0)
 
         case .week:
           WeekTimelineGridView(
@@ -246,6 +245,34 @@ extension MainView {
     .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }
 
+  private func canvasTimeline(hourHeight: CGFloat, mergeSegments: Bool) -> some View {
+    CanvasTimelineDataView(
+      selectedDate: $selectedDate,
+      selectedActivity: $selectedActivity,
+      scrollToNowTick: $scrollToNowTick,
+      hasAnyActivities: $hasAnyActivities,
+      refreshTrigger: $refreshActivitiesTrigger,
+      weeklyHoursFrame: weeklyHoursFrame,
+      weeklyHoursIntersectsCard: $weeklyHoursIntersectsCard,
+      contentLeadingInset: 0,
+      hourHeight: hourHeight,
+      cardTextFontSize: TimelineTypography.cardTextFontSize,
+      cardTextFontWeight: TimelineTypography.cardTextFontWeight,
+      timeLabelFontSize: TimelineTypography.timeLabelFontSize,
+      cardIconLeadingInset: TimelineCardLayout.iconLeadingInset,
+      cardIconTextSpacing: TimelineCardLayout.iconTextSpacing,
+      cardFaviconSize: TimelineCardLayout.faviconSize,
+      cardFaviconVerticalOffset: TimelineCardLayout.faviconVerticalOffset,
+      cardCompactDurationThreshold: TimelineCardLayout.compactDurationThreshold,
+      cardCompactVerticalPadding: TimelineCardLayout.compactVerticalPadding,
+      cardNormalVerticalPadding: TimelineCardLayout.normalVerticalPadding,
+      cardHoverScale: TimelineCardLayout.hoverScale,
+      cardPressedScale: TimelineCardLayout.pressedScale,
+      mutedCategoryKeys: mutedCategoryKeys,
+      mergeSegments: mergeSegments
+    )
+  }
+
   private var cardsToReviewPromptCount: Int {
     guard cardsToReviewCount > 0 else { return 0 }
     if hasRecentTimelineReviewRating || hasAnyTimelineReviewRating == false {
@@ -271,7 +298,7 @@ extension MainView {
       }
       .padding(.horizontal, 24)
 
-      if timelineMode == .day, reviewPromptCount > 0 {
+      if timelineMode == .day || timelineMode == .hour, reviewPromptCount > 0 {
         CardsToReviewButton(count: reviewPromptCount) {
           withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             showTimelineReview = true
@@ -292,9 +319,9 @@ extension MainView {
 
     return ZStack(alignment: .topLeading) {
       switch timelineMode {
-      case .day:
+      case .day, .hour:
         dayTimelineInspectorContent(geo: geo)
-      case .week:
+      case .week, .month:
         weekTimelineInspectorContent(geo: geo)
       }
     }
@@ -438,17 +465,37 @@ extension MainView {
   }
 
   private var weeklyHoursFadeOpacity: Double {
-    guard weeklyHoursFrame != .zero, !timelineTimeLabelFrames.isEmpty else { return 1 }
+    weeklyHoursFadeOpacityLevel
+  }
+
+  private func updateWeeklyHoursFadeLevel(hoursFrame: CGRect) {
+    let level = Self.weeklyHoursFadeLevel(
+      labelFrames: timelineTimeLabelFramesBox.frames,
+      hoursFrame: hoursFrame,
+      fadeDistance: weeklyHoursFadeDistance
+    )
+    if level != weeklyHoursFadeOpacityLevel {
+      weeklyHoursFadeOpacityLevel = level
+    }
+  }
+
+  /// How visible the weekly-hours footer is, given the hour labels scrolling under it.
+  /// Rounded to 5% steps so most scroll frames leave the value, and the view, unchanged.
+  static func weeklyHoursFadeLevel(
+    labelFrames: [CGRect], hoursFrame: CGRect, fadeDistance: CGFloat
+  ) -> Double {
+    guard hoursFrame != .zero, !labelFrames.isEmpty else { return 1 }
     var maxOverlap: CGFloat = 0
-    for frame in timelineTimeLabelFrames {
-      let intersection = weeklyHoursFrame.intersection(frame)
+    for frame in labelFrames {
+      let intersection = hoursFrame.intersection(frame)
       if !intersection.isNull {
         maxOverlap = max(maxOverlap, intersection.height)
       }
     }
     guard maxOverlap > 0 else { return 1 }
-    let clamped = min(maxOverlap, weeklyHoursFadeDistance)
-    return Double(1 - (clamped / weeklyHoursFadeDistance))
+    let clamped = min(maxOverlap, fadeDistance)
+    let opacity = Double(1 - (clamped / fadeDistance))
+    return (opacity * 20).rounded() / 20
   }
 
   private var weeklyHoursText: some View {

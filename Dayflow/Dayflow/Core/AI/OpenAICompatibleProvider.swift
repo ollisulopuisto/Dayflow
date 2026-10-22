@@ -37,6 +37,54 @@ final class OpenAICompatibleProvider: ChatGPTTimelinePromptSupporting {
     return request
   }
 
+  func makeChatRequest(messages: [LocalChatLoop.Message]) -> ChatRequest {
+    var request = ChatRequest(
+      model: configuration.modelID,
+      messages: messages.map { message in
+        OllamaProvider.ChatMessage(
+          role: message.role,
+          content: [.init(type: "text", text: message.text, image_url: nil)])
+      }
+    )
+    if URL(string: configuration.endpoint)?.host?.lowercased() == "openrouter.ai" {
+      request.reasoning = .init(effort: "low")
+    }
+    return request
+  }
+
+  /// Dashboard Chat on a local OpenAI-compatible server. The model has no native tools, so the
+  /// shared loop lets it request data as JSON and feeds the results back.
+  func generateChatStreaming(systemInstruction: String, history: [DashboardChatTurn])
+    -> AsyncThrowingStream<ChatStreamEvent, Error>
+  {
+    AsyncThrowingStream { continuation in
+      let loop = LocalChatLoop(
+        complete: { messages in
+          let response = try await self.complete(
+            self.makeChatRequest(messages: messages), operation: "dashboard_chat", batchId: nil)
+          return response
+        },
+        parseToolCall: { text in
+          await MainActor.run { ChatToolExecutor.parseToolCall(from: text) }
+        },
+        runTool: { request in
+          await MainActor.run { ChatToolExecutor().execute(request) }
+        }
+      )
+      let task = Task {
+        do {
+          try await loop.run(systemInstruction: systemInstruction, history: history) {
+            continuation.yield($0)
+          }
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
+
   private func complete(_ request: ChatRequest, operation: String, batchId: Int64?) async throws
     -> String
   {

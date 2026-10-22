@@ -211,13 +211,17 @@ enum AgentClientRegistration {
   /// the running bundle. Never touches entries the user added themselves
   /// beyond the "dayflow" key.
   static func repairStaleRegistrations() {
-    for url in [claudeCodeConfigURL, claudeDesktopConfigURL] {
-      guard let entry = dayflowEntry(inConfigAt: url),
-        let recorded = entry["command"] as? String,
-        recorded != cliPath
-      else { continue }
-      _ = writeDayflowEntry(configAt: url)
-      print("ℹ️ AgentAccess: repaired stale dayflow path in \(url.lastPathComponent)")
+    // Parsing the client configs (~/.claude.json grows with use) waits until after launch.
+    Task { @MainActor in
+      try? await Task.sleep(for: .seconds(3))
+      for url in [claudeCodeConfigURL, claudeDesktopConfigURL] {
+        guard let entry = dayflowEntry(inConfigAt: url),
+          let recorded = entry["command"] as? String,
+          recorded != cliPath
+        else { continue }
+        _ = writeDayflowEntry(configAt: url)
+        print("ℹ️ AgentAccess: repaired stale dayflow path in \(url.lastPathComponent)")
+      }
     }
 
     let codexRegistration = CodexMCPRegistration(cliPath: cliPath)

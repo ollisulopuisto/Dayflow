@@ -111,10 +111,10 @@ extension MainView {
 
   var timelineInspectorWidth: CGFloat {
     switch timelineMode {
-    case .day:
+    case .day, .hour:
       // 358pt of content plus the 5pt inset the panel card sits in.
       return 363
-    case .week:
+    case .week, .month:
       return isWeekTimelineInspectorVisible ? weekInspectorWidth : 0
     }
   }
@@ -122,9 +122,9 @@ extension MainView {
   var timelineInspectorDividerWidth: CGFloat {
     let gap: CGFloat = 12
     switch timelineMode {
-    case .day:
+    case .day, .hour:
       return gap
-    case .week:
+    case .week, .month:
       return isWeekTimelineInspectorVisible ? gap : 0
     }
   }
@@ -156,37 +156,43 @@ extension MainView {
 
   var timelineTitleText: String {
     switch timelineMode {
-    case .day:
+    case .day, .hour:
       return formatDateForDisplay(selectedDate)
     case .week:
       return timelineWeekRange.title
+    case .month:
+      return TimelineMonthRange.containing(selectedDate).title
     }
   }
 
   var canNavigateTimelineForward: Bool {
     switch timelineMode {
-    case .day:
+    case .day, .hour:
       return canNavigateForward(from: selectedDate)
     case .week:
       return timelineWeekRange.canNavigateForward
+    case .month:
+      return TimelineMonthRange.containing(selectedDate).canNavigateForward
     }
   }
 
   var shouldShowTodayButton: Bool {
     switch timelineMode {
-    case .day:
+    case .day, .hour:
       return !timelineIsToday(selectedDate)
     case .week:
       return !timelineWeekRange.containsToday
+    case .month:
+      return !TimelineMonthRange.containing(selectedDate).containsToday
     }
   }
 
   var timelineTrackedMinutesParts: (bold: String, rest: String) {
     let totalHours = Int(weeklyTrackedMinutes / 60)
     switch timelineMode {
-    case .day:
+    case .day, .hour:
       return (String(localized: "\(totalHours) hours"), String(localized: " tracked this week"))
-    case .week:
+    case .week, .month:
       return (
         String(localized: "\(totalHours) hours"),
         String(localized: " of activities tracked this week")
@@ -214,19 +220,24 @@ extension MainView {
 
   func previousTimelineDate() -> Date {
     switch timelineMode {
-    case .day:
+    case .day, .hour:
       return Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
     case .week:
       return Calendar.current.date(byAdding: .day, value: -7, to: selectedDate) ?? selectedDate
+    case .month:
+      return Calendar.current.date(byAdding: .month, value: -1, to: selectedDate) ?? selectedDate
     }
   }
 
   func nextTimelineDate() -> Date {
     switch timelineMode {
-    case .day:
+    case .day, .hour:
       return Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
     case .week:
       return Calendar.current.date(byAdding: .day, value: 7, to: selectedDate) ?? selectedDate
+    case .month:
+      let next = Calendar.current.date(byAdding: .month, value: 1, to: selectedDate) ?? selectedDate
+      return min(next, Date())
     }
   }
 
@@ -295,9 +306,9 @@ extension MainView {
 
   func selectTimelineActivity(_ activity: TimelineActivity) {
     switch timelineMode {
-    case .day:
+    case .day, .hour:
       selectedActivity = activity
-    case .week:
+    case .week, .month:
       if isWeekTimelineInspectorVisible {
         guard selectedActivity?.id != activity.id else { return }
         withAnimation(inspectorContentAnimation) {
@@ -420,7 +431,11 @@ func canNavigateForward(from date: Date, now: Date = Date()) -> Bool {
 
 func normalizedTimelineDate(_ date: Date) -> Date {
   let calendar = Calendar.current
-  if let normalized = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date) {
+  // Building from components is ~24x faster than date(bySettingHour:), and this runs
+  // thousands of times per layout pass.
+  var components = calendar.dateComponents([.year, .month, .day], from: date)
+  components.hour = 12
+  if let normalized = calendar.date(from: components) {
     return normalized
   }
   let startOfDay = calendar.startOfDay(for: date)

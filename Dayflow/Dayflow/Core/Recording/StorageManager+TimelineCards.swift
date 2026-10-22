@@ -517,6 +517,24 @@ extension StorageManager {
 
         return (batchIntervals + unbatchedIntervals).sorted { $0.start < $1.start }
       }) ?? []
+  func batchIDs(withStatus status: String) -> [Int64] {
+    (try? db.read { db in
+      try Int64.fetchAll(
+        db, sql: "SELECT id FROM analysis_batches WHERE status = ? ORDER BY id DESC",
+        arguments: [status])
+    }) ?? []
+  }
+
+  func batch(id: Int64) -> (id: Int64, start: Int, end: Int, status: String)? {
+    (try? db.read { db in
+      try Row.fetchOne(
+        db,
+        sql: "SELECT id, batch_start_ts, batch_end_ts, status FROM analysis_batches WHERE id = ?",
+        arguments: [id]
+      ).map { row in
+        (row["id"], row["batch_start_ts"], row["batch_end_ts"], row["status"])
+      }
+    }) ?? nil
   }
 
   func fetchRecentAnalysisBatchesForDebug(limit: Int) -> [AnalysisBatchDebugEntry] {

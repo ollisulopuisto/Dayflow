@@ -44,6 +44,12 @@ struct WeekPositionedActivity: Identifiable {
   let faviconSecondaryHost: String?
   let failureCount: Int
   let batchIds: [Int64]
+
+  /// Everything the card draws, used to skip reloads that change nothing visible.
+  var renderSignature: String {
+    "\(id)|\(columnIndex)|\(yPosition)|\(height)|\(title)|\(hoverTimeLabel)|\(categoryName)"
+      + "|\(failureCount)|\(batchIds)|\(faviconPrimaryRaw ?? "")|\(faviconSecondaryRaw ?? "")"
+  }
 }
 
 // Published by the week view's cards layer; consumed locally to drive the
@@ -82,7 +88,10 @@ struct WeekTimelineGridView: View {
 
   @State private var positionedActivities: [WeekPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
-  @State private var cardsLayerFrame: CGRect = .zero
+  /// Changes on every scroll frame and is only read when checking the footer overlap,
+  /// so it lives outside SwiftUI state.
+  @State private var cardsLayerFrameBox = TimelineFrameBox()
+  private var cardsLayerFrame: CGRect { cardsLayerFrameBox.frame }
   @State private var refreshTimer: Timer?
   @State private var loadTask: Task<Void, Never>?
   @State private var autoScrollWeekKey: String?
@@ -241,7 +250,7 @@ struct WeekTimelineGridView: View {
       }
     }
     .onPreferenceChange(WeekCardsLayerFramePreferenceKey.self) { frame in
-      cardsLayerFrame = frame
+      cardsLayerFrameBox.frame = frame
       updateWeeklyHoursIntersection()
     }
     .onChange(of: weeklyHoursFrame) {
@@ -387,6 +396,9 @@ struct WeekTimelineGridView: View {
 
   private func cardsLayer(dayWidth: CGFloat) -> some View {
     let cardWidth = weekCardWidth(for: dayWidth)
+    // Built once per render: hover re-evaluates every card, and each lookup used to
+    // search the categories and parse a hex colour per card.
+    let paletteFor = paletteLookup()
 
     return ZStack(alignment: .topLeading) {
       ForEach(positionedActivities) { item in
@@ -401,7 +413,7 @@ struct WeekTimelineGridView: View {
           height: item.height,
           effectiveHeight: cardEffectiveHeight,
           durationMinutes: item.durationMinutes,
-          palette: palette(for: item.categoryName),
+          palette: paletteFor(item.categoryName),
           isSelected: selectedActivity?.id == item.id,
           isPendingAnalysis: item.activity.isPendingAnalysis,
           isHovered: isHov,
@@ -551,7 +563,7 @@ struct WeekTimelineGridView: View {
         let dayActivities = activities.filter {
           $0.startTime.getDayInfoFor4AMBoundary().dayString == day.dayString
         }
-        let segments = TimelineActivityLoader.resolveWeekMacroblocks(
+        let segments = TimelineActivityLoader.resolveMacroblocks(
           from: TimelineActivityLoader.createDisplaySegments(from: dayActivities))
 
         for segment in segments {
@@ -623,7 +635,14 @@ struct WeekTimelineGridView: View {
 
       await MainActor.run {
         let commitStart = CFAbsoluteTimeGetCurrent()
-        positionedActivities = positioned
+        // The 60 s refresh usually finds the same cards; leave the grid alone then.
+        if TimelineReloadGate.shouldCommit(
+          animate: false,
+          old: positionedActivities.map(\.renderSignature),
+          new: positioned.map(\.renderSignature))
+        {
+          positionedActivities = positioned
+        }
         recordingProjection = projection
         hasAnyActivities = !positioned.isEmpty
         if let selectedActivity,
@@ -701,6 +720,7 @@ struct WeekTimelineGridView: View {
   private func startRefreshTimer() {
     stopRefreshTimer()
     refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+      guard AppVisibility.isMainWindowOnScreen else { return }
       loadActivities(trigger: "refreshTimer")
     }
   }
@@ -871,23 +891,40 @@ struct WeekTimelineGridView: View {
       for: dayWidth) / 2
   }
 
-  private func palette(for rawCategory: String) -> WeekTimelineCardPalette {
-    let normalizedCategory = rawCategory.trimmingCharacters(in: .whitespacesAndNewlines)
-      .lowercased()
-    if normalizedCategory == "pending analysis" {
-      let neutral = theme.textSecondary
-      return WeekTimelineCardPalette(
-        accent: neutral.opacity(0.65),
-        fill: neutral.opacity(0.08),
-        border: neutral.opacity(0.55),
-        title: theme.textSecondary
-      )
+  private func paletteLookup() -> (String) -> WeekTimelineCardPalette {
+    func normalized(_ name: String) -> String {
+      name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
-    let matched = categoryStore.categories.first {
-      $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalizedCategory
+    let neutral = theme.textSecondary
+    let pendingPalette = WeekTimelineCardPalette(
+      accent: neutral.opacity(0.65),
+      fill: neutral.opacity(0.08),
+      border: neutral.opacity(0.55),
+      title: theme.textSecondary
+    )
+    let categories = categoryStore.categories
+    let byName = Dictionary(
+      categories.map { (normalized($0.name), palette(from: $0)) },
+      uniquingKeysWith: { first, _ in first })
+    let fallback = palette(
+      from: categories.first ?? CategoryPersistence.defaultCategories.first!)
+    return { rawCategory in
+      let key = normalized(rawCategory)
+      if key == "pending analysis" { return pendingPalette }
+      return byName[key] ?? fallback
     }
-    let fallback = categoryStore.categories.first ?? CategoryPersistence.defaultCategories.first!
-    let category = matched ?? fallback
+  }
+    }
+    let categories = categoryStore.categories
+    let byName = Dictionary(
+      categories.map { (normalized($0.name), palette(from: $0)) },
+      uniquingKeysWith: { first, _ in first })
+    let fallback = palette(
+      from: categories.first ?? CategoryPersistence.defaultCategories.first!)
+    return { rawCategory in byName[normalized(rawCategory)] ?? fallback }
+  }
+
+  private func palette(from category: TimelineCategory) -> WeekTimelineCardPalette {
     let accent = Color(nsColor: NSColor(hex: category.colorHex) ?? .systemBlue)
 
     return WeekTimelineCardPalette(

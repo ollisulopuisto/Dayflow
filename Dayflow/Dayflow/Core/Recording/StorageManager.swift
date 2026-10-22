@@ -192,6 +192,8 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
   let dbWriteQueue = DispatchQueue(label: "com.dayflow.storage.writes", qos: .utility)
   let dbContentionTracker = DatabaseContentionTracker()
 
+  /// Delay before integrity check and initial purges, so they stay off the launch path.
+  static let launchHousekeepingDelay: TimeInterval = 45
   let purgeQ = DispatchQueue(label: "com.dayflow.storage.purge", qos: .background)
   var purgeTimer: DispatchSourceTimer?
   var checkpointTimer: DispatchSourceTimer?
@@ -251,16 +253,19 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
       }
     #endif
 
-    // Run integrity check on launch (logs warning if issues found)
-    performIntegrityCheck()
 
     migrate()
     migrateLegacyChunkPathsIfNeeded()
     truncateOversizedLLMCallBodiesIfNeeded()
 
-    // Run initial purge, then schedule hourly
-    purgeIfNeeded()
-    TimelapseStorageManager.shared.purgeIfNeeded()
+    // Launch-time housekeeping runs after the first frame instead of in init, where the
+    // main thread would wait on it (quick_check alone cost ~75 ms there).
+    purgeQ.asyncAfter(deadline: .now() + Self.launchHousekeepingDelay) { [weak self] in
+      guard let self else { return }
+      self.performIntegrityCheck()
+      self.purgeIfNeeded()
+      TimelapseStorageManager.shared.purgeIfNeeded()
+    }
     startPurgeScheduler()
 
     // Schedule WAL checkpoints every 5 minutes to prevent data loss
@@ -277,10 +282,6 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
     var execEnd: CFAbsoluteTime = 0
     let operationID = dbContentionTracker.begin(kind: .write, label: label)
 
-    let writeBreadcrumb = Breadcrumb(level: .debug, category: "database")
-    writeBreadcrumb.message = "DB write: \(label)"
-    writeBreadcrumb.type = "debug"
-    SentryHelper.addBreadcrumb(writeBreadcrumb)
 
     do {
       let result = try db.write { db in
@@ -369,10 +370,6 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
     var execEnd: CFAbsoluteTime = 0
     let operationID = dbContentionTracker.begin(kind: .read, label: label)
 
-    let readBreadcrumb = Breadcrumb(level: .debug, category: "database")
-    readBreadcrumb.message = "DB read: \(label)"
-    readBreadcrumb.type = "debug"
-    SentryHelper.addBreadcrumb(readBreadcrumb)
 
     do {
       let result = try db.read { db in

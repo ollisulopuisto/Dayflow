@@ -181,8 +181,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Start Daily and Weekly notifications and retire legacy Journal reminders
     NotificationService.shared.start()
     DayflowAuthManager.shared.loadStoredSessionIfNeeded()
-    SupportChatSession.shared.start()
-    SupportChatSession.startFlowWaitlistMonitoring()
+    // The support chat WKWebView spawns WebContent/Networking processes (~23 ms on main);
+    // it only feeds an unread badge, so it can wait until the first frame is long gone.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+      SupportChatSession.shared.start()
+      SupportChatSession.startFlowWaitlistMonitoring()
+    }
 
     // Start daily recap generation scheduler (checks every 5 minutes)
     DailyRecapScheduler.shared.start()

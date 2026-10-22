@@ -36,6 +36,8 @@ struct ChatView: View {
   @State var geminiConfigured = false
   @State var codexDetected = false
   @State var claudeDetected = false
+  @State var agyDetected = false
+  @State var localConfigured = false
   @State var completedAccessBatchCount = 0
   @State var cliDetectionTask: Task<Void, Never>?
   @State var didCheckCLI = false
@@ -116,6 +118,7 @@ struct ChatView: View {
       Task { await refreshRuntimeAvailability() }
     }
     .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
+      guard AppVisibility.isOnScreen else { return }
       refreshChatAccessProgress()
     }
     .onDisappear {

@@ -40,6 +40,8 @@ struct WeeklyTreemapApp: Identifiable {
   let faviconSecondaryHost: String?
   let isAggregate: Bool
   let isPlaceholder: Bool
+  /// For an "Other" tile: the apps it stands for, so the tile can be opened to show them.
+  let containedApps: [WeeklyTreemapApp]
 
   init(
     id: String,
@@ -51,7 +53,8 @@ struct WeeklyTreemapApp: Identifiable {
     faviconPrimaryHost: String? = nil,
     faviconSecondaryHost: String? = nil,
     isAggregate: Bool = false,
-    isPlaceholder: Bool = false
+    isPlaceholder: Bool = false,
+    containedApps: [WeeklyTreemapApp] = []
   ) {
     self.id = id
     self.name = name
@@ -63,6 +66,7 @@ struct WeeklyTreemapApp: Identifiable {
     self.faviconSecondaryHost = faviconSecondaryHost
     self.isAggregate = isAggregate
     self.isPlaceholder = isPlaceholder
+    self.containedApps = containedApps
   }
 
   var weight: CGFloat {
@@ -71,6 +75,11 @@ struct WeeklyTreemapApp: Identifiable {
 
   var formattedDuration: String {
     duration.weeklyTreemapDurationString
+  }
+
+  /// True when the tile can be opened to show what sits behind it.
+  var isDrillable: Bool {
+    !containedApps.isEmpty
   }
 
   var hasFaviconSource: Bool {
@@ -107,7 +116,8 @@ struct WeeklyTreemapApp: Identifiable {
       duration: duration + other.duration,
       change: nil,
       isAggregate: true,
-      isPlaceholder: false
+      isPlaceholder: false,
+      containedApps: containedApps + (other.isAggregate ? other.containedApps : [other])
     )
   }
 
@@ -118,9 +128,20 @@ struct WeeklyTreemapApp: Identifiable {
       duration: apps.reduce(0) { $0 + $1.duration },
       change: nil,
       isAggregate: true,
-      isPlaceholder: false
+      isPlaceholder: false,
+      containedApps: apps.flatMap { $0.isAggregate ? $0.containedApps : [$0] }
     )
   }
+}
+
+/// One open level of the treemap: the tile being looked into, its palette, and the path to it.
+struct WeeklyTreemapDrill: Identifiable {
+  let app: WeeklyTreemapApp
+  let palette: WeeklyTreemapPalette
+  /// Category name followed by each opened tile name, shown above the breakdown.
+  let trail: [String]
+
+  var id: String { app.id }
 }
 
 struct WeeklyTreemapChange {

@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 struct SettingsRecordingPrivacyTabView: View {
   @ObservedObject var viewModel: RecordingPrivacySettingsViewModel
   @State private var isBlockedTrayTargeted = false
+  @AppStorage(BrowserPrivacy.hideIncognitoKey) private var hidesIncognitoWindows = true
+  @AppStorage(BrowserPrivacy.excludedDomainsKey) private var excludedDomainsText = ""
 
   private let gridColumns = [
     GridItem(.adaptive(minimum: 82, maximum: 96), spacing: 12, alignment: .top)
@@ -16,6 +18,7 @@ struct SettingsRecordingPrivacyTabView: View {
       subtitle: String(localized: "Choose apps Dayflow should hide from screenshots.")
     ) {
       VStack(alignment: .leading, spacing: 18) {
+        browserPrivacySection
         searchField
         installedAppsGrid
           .frame(maxHeight: .infinity, alignment: .top)
@@ -26,6 +29,44 @@ struct SettingsRecordingPrivacyTabView: View {
     .frame(maxHeight: .infinity, alignment: .topLeading)
     .onAppear {
       viewModel.handleOnAppear()
+    }
+  }
+
+  private var browserPrivacySection: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("Browsers")
+        .font(.custom("Figtree", size: 13))
+        .fontWeight(.semibold)
+        .foregroundColor(SettingsStyle.text)
+
+      SettingsToggle(isOn: $hidesIncognitoWindows)
+      Text("Hide private and incognito windows from screenshots.")
+        .font(.custom("Figtree", size: 12))
+        .foregroundColor(SettingsStyle.meta)
+
+      Text("Excluded sites")
+        .font(.custom("Figtree", size: 12))
+        .fontWeight(.semibold)
+        .foregroundColor(SettingsStyle.text)
+        .padding(.top, 4)
+      TextField("example.com, another.org", text: $excludedDomainsText, axis: .vertical)
+        .textFieldStyle(.plain)
+        .font(.custom("Figtree", size: 13))
+        .foregroundColor(SettingsStyle.text)
+        .padding(10)
+        .background(
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(Color.black.opacity(0.04))
+        )
+        .overlay(
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .stroke(SettingsStyle.divider, lineWidth: 1)
+        )
+      Text(
+        "Screenshots are hidden while a browser shows one of these sites or any subdomain of it. Separate sites with commas or new lines. Works in Chrome, Brave, Edge, Arc, Vivaldi, Opera, Chromium, Safari and Firefox (Firefox: private windows only)."
+      )
+      .font(.custom("Figtree", size: 12))
+      .foregroundColor(SettingsStyle.meta)
     }
   }
 

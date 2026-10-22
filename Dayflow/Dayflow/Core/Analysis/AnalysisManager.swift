@@ -531,11 +531,14 @@ final class AnalysisManager: AnalysisManaging {
     let batches = createScreenshotBatches(from: screenshots)
     // 3. Persist batch rows & join table
     let batchIDs = batches.compactMap(saveScreenshotBatch)
-    if usesStudioQueue {
+    if StudioBatchQueue.isEnabled {
       StudioBatchQueue.pollResults(store: store)
-      // The batch/screenshot join is the durable cursor; submit the oldest pending batch.
-      let pendingIDs = store.pendingBatchIDs(limit: 1)
-      for id in pendingIDs { queueLLMRequest(batchId: id) }
+      // Include batches whose upload was interrupted before the laptop slept.
+      // Batches that are uploading or backing off after a failure are skipped before any work.
+      let pendingIDs = store.batchIDs(withStatus: "pending")
+      for id in pendingIDs where StudioBatchQueue.shouldAttempt(batchId: id) {
+        queueLLMRequest(batchId: id)
+      }
       return
     }
     // 4. Fire LLM for each batch
@@ -600,6 +603,12 @@ final class AnalysisManager: AnalysisManaging {
       }
 
       print("Idle shortcut fallback for batch \(batchId); continuing with normal LLM processing.")
+    }
+
+    if StudioBatchQueue.isEnabled {
+      StudioBatchQueue.submitAndImport(batchId: batchId, store: store)
+      completion?(.success(()))
+      return
     }
 
     // Start performance tracking for batch processing

@@ -3,6 +3,7 @@ import SwiftUI
 struct WeeklyTreemapCategoryCard: View {
   let category: WeeklyTreemapCategory
   let onLeafHover: (WeeklyTreemapHoverState?) -> Void
+  let onOpen: (WeeklyTreemapDrill) -> Void
 
   enum Design {
     static let cornerRadius: CGFloat = 4
@@ -50,7 +51,15 @@ struct WeeklyTreemapCategoryCard: View {
               WeeklyTreemapLeafTile(
                 app: placement.item,
                 palette: category.palette,
-                onHoverChanged: onLeafHover
+                onHoverChanged: onLeafHover,
+                onOpen: { app in
+                  onOpen(
+                    WeeklyTreemapDrill(
+                      app: app,
+                      palette: category.palette,
+                      trail: [category.name, app.name]
+                    ))
+                }
               )
               .frame(width: placement.frame.width, height: placement.frame.height)
               .offset(x: placement.frame.minX, y: placement.frame.minY)
@@ -107,6 +116,7 @@ struct WeeklyTreemapLeafTile: View {
   let app: WeeklyTreemapApp
   let palette: WeeklyTreemapPalette
   let onHoverChanged: (WeeklyTreemapHoverState?) -> Void
+  let onOpen: (WeeklyTreemapApp) -> Void
 
   enum Design {
     static let cornerRadius: CGFloat = 4
@@ -127,6 +137,10 @@ struct WeeklyTreemapLeafTile: View {
           RoundedRectangle(cornerRadius: Design.cornerRadius, style: .continuous)
             .stroke(palette.tileBorder, lineWidth: 0.5)
         )
+        .contentShape(RoundedRectangle(cornerRadius: Design.cornerRadius, style: .continuous))
+        .onTapGesture {
+          if app.isDrillable { onOpen(app) }
+        }
         .overlay {
           if app.isPlaceholder {
             EmptyView()
@@ -408,5 +422,79 @@ enum WeeklyTreemapLeafPresentationMode {
     }
 
     return .labelOnly
+  }
+}
+
+/// Replaces the category treemap with the contents of one opened tile, with a way back.
+struct WeeklyTreemapDrillView: View {
+  let drill: WeeklyTreemapDrill
+  let onOpen: (WeeklyTreemapDrill) -> Void
+  let onBack: () -> Void
+
+  enum Design {
+    static let gap: CGFloat = 4
+    static let headerHeight: CGFloat = 24
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(spacing: 8) {
+        Button(action: onBack) {
+          Label("Back", systemImage: "chevron.left")
+            .font(.custom("Figtree-Regular", size: 12))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(WeeklyPalette.text)
+
+        Text(drill.trail.joined(separator: " › "))
+          .font(.custom("Figtree-Regular", size: 12))
+          .foregroundStyle(drill.palette.headerText)
+          .lineLimit(1)
+
+        Spacer(minLength: 8)
+
+        Text(drill.app.formattedDuration)
+          .font(.custom("Figtree-Regular", size: 12))
+          .foregroundStyle(drill.palette.headerText)
+          .lineLimit(1)
+      }
+      .frame(height: Design.headerHeight)
+
+      GeometryReader { proxy in
+        let contentRect = CGRect(origin: .zero, size: proxy.size)
+        let displayApps = WeeklyTreemapAggregation.appsForDisplay(
+          drill.app.containedApps,
+          in: contentRect,
+          gap: Design.gap
+        )
+        let placements = SquarifiedTreemapLayout.place(
+          displayApps,
+          value: { $0.weight },
+          order: WeeklyTreemapApp.displayOrder,
+          in: contentRect,
+          gap: Design.gap
+        )
+
+        ZStack(alignment: .topLeading) {
+          ForEach(placements) { placement in
+            WeeklyTreemapLeafTile(
+              app: placement.item,
+              palette: drill.palette,
+              onHoverChanged: { _ in },
+              onOpen: { app in
+                onOpen(
+                  WeeklyTreemapDrill(
+                    app: app,
+                    palette: drill.palette,
+                    trail: drill.trail + [app.name]
+                  ))
+              }
+            )
+            .frame(width: placement.frame.width, height: placement.frame.height)
+            .offset(x: placement.frame.minX, y: placement.frame.minY)
+          }
+        }
+      }
+    }
   }
 }

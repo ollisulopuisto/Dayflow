@@ -558,15 +558,17 @@ final class ScreenRecorder: NSObject, @unchecked Sendable {
 
     do {
       let captureSize = scaledCaptureSize(for: display)
-      if let blockedApplication = await MainActor.run(body: {
-        RecordingPrivacyPreferences.frontmostBlockedApplication()
+      // A blocked app or a private/excluded browser window is replaced by a placeholder.
+      if let privacyLabel = await MainActor.run(body: {
+        RecordingPrivacyPreferences.frontmostBlockedApplication()?.name
+          ?? BrowserPrivacy.redactionLabel()
       }) {
         guard
           let placeholder = await MainActor.run(body: {
             RecordingPrivacyPlaceholder.image(
               width: captureSize.width,
               height: captureSize.height,
-              applicationName: blockedApplication.name
+              applicationName: privacyLabel
             )
           })
         else {

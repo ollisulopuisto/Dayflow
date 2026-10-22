@@ -773,6 +773,20 @@ extension ChatView {
       ) {
         handleProviderSelection(.claude)
       }
+      ProviderTogglePill(
+        title: String(localized: "Antigravity"),
+        isSelected: selectedProvider == .agy,
+        isEnabled: isProviderAvailable(.agy)
+      ) {
+        handleProviderSelection(.agy)
+      }
+      ProviderTogglePill(
+        title: String(localized: "Local"),
+        isSelected: selectedProvider == .local,
+        isEnabled: isProviderAvailable(.local)
+      ) {
+        handleProviderSelection(.local)
+      }
     }
     .padding(4)
     .background(

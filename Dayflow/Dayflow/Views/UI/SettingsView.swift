@@ -9,14 +9,16 @@ import Foundation
 import SwiftUI
 
 struct SettingsView: View {
-  private enum SettingsTab: String, CaseIterable, Identifiable {
-    case account
+  enum SettingsTab: String, CaseIterable, Identifiable {
     case storage
     case privacy
     case providers
     case aiTools
     case data
+    case account
     case other
+
+    static let defaultTab: SettingsTab = .storage
 
     var id: String { rawValue }
 
@@ -33,7 +35,7 @@ struct SettingsView: View {
     }
   }
 
-  @State private var selectedTab: SettingsTab = .account
+  @State private var selectedTab: SettingsTab = SettingsTab.defaultTab
 
   @Namespace private var sidebarSelectionNamespace
 

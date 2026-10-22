@@ -89,7 +89,11 @@ struct MainView: View {
   @State var reviewSummaryRefreshToken: Int = 0
   @StateObject var retryCoordinator = RetryCoordinator()
   @State var weeklyHoursFrame: CGRect = .zero
-  @State var timelineTimeLabelFrames: [CGRect] = []
+  /// Latest hour-label frames. Kept in a reference box, not SwiftUI state, because they change
+  /// on every scroll frame and would otherwise re-render the whole shell.
+  @State var timelineTimeLabelFramesBox = TimelineFramesBox()
+  /// The footer's fade level in 5% steps, written only when it changes.
+  @State var weeklyHoursFadeOpacityLevel: Double = 1
   @State var weeklyHoursIntersectsCard: Bool = false
   @State var timelineFailureToastPayload: TimelineFailureToastPayload?
   @State var showScreenRecordingPermissionNotice = false
@@ -162,4 +166,39 @@ struct MainView: View {
       ])
     return true
   }
+}
+
+/// Holds frames that are read on demand but must not trigger re-renders when they change.
+final class TimelineFramesBox {
+  var frames: [CGRect] = []
+}
+
+/// A single frame that is read on demand but must not trigger re-renders when it changes.
+final class TimelineFrameBox {
+  var frame: CGRect = .zero
+}
+
+/// Decides whether a timeline reload needs to touch view state at all.
+enum TimelineReloadGate {
+  /// A silent (timer or focus) refresh that produced the same cards leaves the view alone.
+  static func shouldCommit(animate: Bool, old: [String], new: [String]) -> Bool {
+    animate || old != new
+  }
+
+  /// At launch onAppear and didBecomeActive both load the day; the database read cannot be
+  /// cancelled midway, so an activate right after a load started is skipped.
+  static func shouldReloadOnActivate(lastLoadStart: Date?, now: Date) -> Bool {
+    guard let lastLoadStart else { return true }
+    return now.timeIntervalSince(lastLoadStart) >= 2
+  }
+
+  /// Cards fade in one after another, but never more than 0.3 s in total.
+  static func entranceDelay(index: Int) -> Double {
+    Double(min(index, 10)) * 0.03
+  }
+}
+
+/// A timestamp that is read on demand but must not trigger re-renders when it changes.
+final class TimelineTimestampBox {
+  var date: Date?
 }

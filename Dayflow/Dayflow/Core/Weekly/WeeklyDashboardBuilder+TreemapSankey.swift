@@ -39,7 +39,10 @@ extension WeeklyDashboardBuilder {
               faviconPrimaryHost: faviconSource.faviconPrimaryHost,
               faviconSecondaryHost: faviconSource.faviconSecondaryHost,
               isAggregate: false,
-              isPlaceholder: false
+              isPlaceholder: false,
+              containedApps: appFirst.appName == "Other"
+                ? unidentifiedBreakdown(of: appFacts, parentId: "\(first.categoryKey)-Other")
+                : []
             )
           }
           .sorted(by: WeeklyTreemapApp.displayOrder)
@@ -58,6 +61,24 @@ extension WeeklyDashboardBuilder {
       title: String(localized: "Most used per category"),
       categories: Array(categories.prefix(5))
     )
+  }
+
+  /// What an unidentified "Other" app was spent on, one entry per card title.
+  private static func unidentifiedBreakdown(
+    of facts: [WeeklyCardFact],
+    parentId: String
+  ) -> [WeeklyTreemapApp] {
+    Dictionary(grouping: facts, by: { $0.card.title })
+      .map { entry in
+        let minutes = entry.value.reduce(0) { $0 + $1.durationMinutes }
+        return WeeklyTreemapApp(
+          id: "\(parentId)|\(entry.key)",
+          name: entry.key.isEmpty ? String(localized: "Untitled") : entry.key,
+          duration: TimeInterval(minutes * 60),
+          change: nil
+        )
+      }
+      .sorted(by: WeeklyTreemapApp.displayOrder)
   }
 
   static func buildSankey(

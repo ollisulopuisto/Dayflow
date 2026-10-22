@@ -164,6 +164,8 @@ private struct ChatHistoryRow: View {
     case .gemini: providerLabel = "Gemini"
     case .codex: providerLabel = "Codex"
     case .claude: providerLabel = "Claude"
+    case .agy: providerLabel = "Antigravity"
+    case .local: providerLabel = "Local"
     }
     return String(localized: "\(time) · \(providerLabel)")
   }

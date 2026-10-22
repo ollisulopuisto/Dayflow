@@ -29,6 +29,12 @@ private struct TimelineCardsLayerFramePreferenceKey: PreferenceKey {
 
 // Positioned activity for Canvas rendering
 private struct CanvasPositionedActivity: Identifiable {
+  /// Everything the card draws, used to skip reloads that change nothing visible.
+  var renderSignature: String {
+    "\(id)|\(yPosition)|\(height)|\(title)|\(timeLabel)|\(categoryName)|\(failureCount)|\(batchIds)"
+      + "|\(activity.summary.hashValue)|\(faviconPrimaryRaw ?? "")|\(faviconSecondaryRaw ?? "")"
+  }
+
   let id: String
   let activity: TimelineActivity
   let yPosition: CGFloat
@@ -71,12 +77,18 @@ struct CanvasTimelineDataView: View {
   let cardPressedScale: CGFloat
   // Categories turned off in the chip row; their cards render dimmed.
   var mutedCategoryKeys: Set<String> = []
+  // false shows the raw cards (Hour zoom) instead of ~10 minute blocks.
+  var mergeSegments: Bool = true
 
   @Environment(\.dayflowTheme) private var theme
   @State private var selectedCardId: String? = nil
   @State private var positionedActivities: [CanvasPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
-  @State private var cardsLayerFrame: CGRect = .zero
+  /// Changes on every scroll frame and is only read when checking the footer overlap,
+  /// so it lives outside SwiftUI state.
+  @State private var cardsLayerFrameBox = TimelineFrameBox()
+  @State private var lastLoadStart = TimelineTimestampBox()
+  private var cardsLayerFrame: CGRect { cardsLayerFrameBox.frame }
   @State private var refreshTimer: Timer?
   @State private var didInitialScrollInView: Bool = false
   // Gate the ScrollView's visibility on whether the initial auto-scroll has
@@ -115,9 +127,21 @@ struct CanvasTimelineDataView: View {
   // Swift type-checker timeout that appeared when each closure inlined its
   // own copy of this calculation).
   private func nowCenteredTargetHourIndex() -> Int {
-    let currentHour = Calendar.current.component(.hour, from: Date())
+    Self.nowTargetHourIndex(
+      currentHour: Calendar.current.component(.hour, from: Date()), hourHeight: hourHeight)
+  }
+
+  /// Short cards are only a few points tall in Hour view, so their text is drawn smaller.
+  static func cardFontSize(base: CGFloat, showsShortCardText: Bool) -> CGFloat {
+    showsShortCardText ? min(base, 13) : base
+  }
+
+  static func nowTargetHourIndex(currentHour: Int, hourHeight: CGFloat) -> Int {
     let hoursSince4AM = currentHour >= 4 ? currentHour - 4 : (24 - 4) + currentHour
-    return max(0, hoursSince4AM - 2)
+    // Day puts "now" two hours down from the top. At a larger scale a single hour already
+    // fills that gap, so start at the current hour or "now" would sit off screen.
+    let hoursAbove = hourHeight > TimelineScale.hourHeight ? 0 : 2
+    return max(0, hoursSince4AM - hoursAbove)
   }
 
   private func scrollToNowCenteredHour(with proxy: ScrollViewProxy, animated: Bool = false) {
@@ -156,7 +180,7 @@ struct CanvasTimelineDataView: View {
         // Preference callbacks fire mid-layout; writing state that feeds the
         // card ForEach from here can trip AttributeGraph. Defer one turn.
         DispatchQueue.main.async {
-          cardsLayerFrame = frame
+          cardsLayerFrameBox.frame = frame
           updateWeeklyHoursIntersection()
         }
       }
@@ -233,7 +257,9 @@ struct CanvasTimelineDataView: View {
   }
 
   private func handleDayTimelineDidBecomeActive() {
-    loadActivities(animate: false)
+    if TimelineReloadGate.shouldReloadOnActivate(lastLoadStart: lastLoadStart.date, now: Date()) {
+      loadActivities(animate: false)
+    }
     if refreshTimer == nil {
       startRefreshTimer()
     }
@@ -333,6 +359,8 @@ struct CanvasTimelineDataView: View {
 
   private var cardsLayer: some View {
     GeometryReader { geo in
+      // Built once per render instead of a category search and hex parse per card.
+      let styleFor = styleLookup()
       ZStack(alignment: .topLeading) {
         Color.clear
           .contentShape(Rectangle())
@@ -347,7 +375,7 @@ struct CanvasTimelineDataView: View {
             time: item.timeLabel,
             height: item.height,
             durationMinutes: item.durationMinutes,
-            style: style(for: item.categoryName),
+            style: styleFor(item.categoryName),
             isSelected: selectedCardId == item.id,
             isPendingAnalysis: item.activity.isPendingAnalysis,
             isSystemCategory: item.categoryName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -368,7 +396,8 @@ struct CanvasTimelineDataView: View {
             faviconSecondaryHost: item.faviconSecondaryHost,
             statusLine: retryCoordinator.statusLine(for: item.batchIds),
             failureCount: item.failureCount,
-            fontSize: cardTextFontSize,
+            fontSize: Self.cardFontSize(
+              base: cardTextFontSize, showsShortCardText: !mergeSegments),
             fontWeight: cardTextFontWeight,
             iconLeadingInset: cardIconLeadingInset,
             iconTextSpacing: cardIconTextSpacing,
@@ -378,7 +407,8 @@ struct CanvasTimelineDataView: View {
             compactVerticalPadding: cardCompactVerticalPadding,
             normalVerticalPadding: cardNormalVerticalPadding,
             hoverScale: cardHoverScale,
-            pressedScale: cardPressedScale
+            pressedScale: cardPressedScale,
+            showsShortCardText: !mergeSegments
           )
           .frame(width: geo.size.width, height: item.height)
           .position(x: geo.size.width / 2, y: item.yPosition + (item.height / 2))
@@ -389,7 +419,7 @@ struct CanvasTimelineDataView: View {
           .offset(x: isVisible ? 0 : 12)
           .animation(
             .spring(response: 0.35, dampingFraction: 0.8)
-              .delay(Double(index) * 0.03),  // 30ms stagger between cards
+              .delay(TimelineReloadGate.entranceDelay(index: index)),  // 30ms stagger, capped
             value: isVisible
           )
         }
@@ -636,6 +666,7 @@ struct CanvasTimelineDataView: View {
   private func loadActivities(animate: Bool = true, deferWhileHovering: Bool = false) {
     // Cancel any in-flight database read to prevent query pileup
     loadTask?.cancel()
+    lastLoadStart.date = Date()
 
     loadTask = Task.detached(priority: .userInitiated) {
       let calendar = Calendar.current
@@ -657,7 +688,17 @@ struct CanvasTimelineDataView: View {
       // Check for cancellation before expensive processing
       guard !Task.isCancelled else { return }
 
-      let segments = TimelineActivityLoader.createDisplaySegments(from: payload.activities)
+      // Mitigation transform: resolve visual overlaps by trimming larger cards
+      // so that smaller cards "win". This is a display-only fix to handle
+      // upstream card-generation overlap bugs without touching stored data.
+      // Group fine-grained cards into blocks of about 10 minutes for display. The stored cards
+      // are unchanged; hovering a block still lists the underlying activities.
+      let resolvedSegments = TimelineActivityLoader.createDisplaySegments(
+        from: payload.activities)
+      let shouldMerge = self.mergeSegments
+      let segments =
+        shouldMerge
+        ? TimelineActivityLoader.resolveMacroblocks(from: resolvedSegments) : resolvedSegments
       let recordingProjection = TimelineActivityLoader.recordingProjectionWindow(
         for: payload.timelineDate,
         displaySegments: segments,
@@ -716,6 +757,16 @@ struct CanvasTimelineDataView: View {
           return
         }
         self.cardsHover.pendingRefresh = false
+        self.recordingProjection = recordingProjection
+        guard
+          TimelineReloadGate.shouldCommit(
+            animate: animate,
+            old: self.positionedActivities.map(\.renderSignature),
+            new: positioned.map(\.renderSignature))
+        else {
+          // Nothing visible changed (the usual 60 s refresh): no re-render, no broadcast.
+          return
+        }
         if animate {
           // Clear entrance progress for new activities (triggers stagger animation)
           self.cardEntranceProgress = [:]
@@ -805,6 +856,7 @@ struct CanvasTimelineDataView: View {
   private func startRefreshTimer() {
     stopRefreshTimer()
     refreshTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { _ in
+      guard AppVisibility.isMainWindowOnScreen else { return }
       loadActivities(animate: false, deferWhileHovering: true)
     }
   }
@@ -844,23 +896,29 @@ struct CanvasTimelineDataView: View {
     return "\(s) - \(e)"
   }
 
-  private func style(for rawCategory: String) -> CanvasActivityCardStyle {
-    let normalized = rawCategory.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    if normalized == "pending analysis" {
-      return CanvasActivityCardStyle(
-        text: theme.textSecondary,
-        time: theme.textSecondary,
-        accent: theme.textSecondary.opacity(0.55),
-        isIdle: false
-      )
+  private func styleLookup() -> (String) -> CanvasActivityCardStyle {
+    func normalized(_ name: String) -> String {
+      name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
     let categories = categoryStore.categories
-    let matched = categories.first {
-      $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
+    let byName = Dictionary(
+      categories.map { (normalized($0.name), style(from: $0)) },
+      uniquingKeysWith: { first, _ in first })
+    let fallback = style(from: categories.first ?? CategoryPersistence.defaultCategories.first!)
+    let pendingStyle = CanvasActivityCardStyle(
+      text: theme.textSecondary,
+      time: theme.textSecondary,
+      accent: theme.textSecondary.opacity(0.55),
+      isIdle: false
+    )
+    return { rawCategory in
+      let key = normalized(rawCategory)
+      if key == "pending analysis" { return pendingStyle }
+      return byName[key] ?? fallback
     }
-    let fallback = categories.first ?? CategoryPersistence.defaultCategories.first!
-    let category = matched ?? fallback
+  }
 
+  private func style(from category: TimelineCategory) -> CanvasActivityCardStyle {
     let baseNSColor = NSColor(hex: category.colorHex) ?? NSColor(hex: "#4F80EB") ?? .systemBlue
 
     return CanvasActivityCardStyle(

@@ -2,7 +2,11 @@ import Foundation
 import GRDB
 
 extension StorageManager {
+  /// Set once the legacy path rewrite has run, so later launches skip its full-table scans.
+  static let legacyChunkPathsMigratedKey = "didMigrateLegacyChunkPathsV1"
+
   func migrateLegacyChunkPathsIfNeeded() {
+    guard !UserDefaults.standard.bool(forKey: Self.legacyChunkPathsMigratedKey) else { return }
     guard let bundleID = Bundle.main.bundleIdentifier else { return }
     guard
       let appSupport = fileMgr.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -68,6 +72,7 @@ extension StorageManager {
           )
         }
       }
+      UserDefaults.standard.set(true, forKey: Self.legacyChunkPathsMigratedKey)
     } catch {
       print("⚠️ StorageManager: failed to migrate legacy file URLs: \(error)")
     }

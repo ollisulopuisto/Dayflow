@@ -304,14 +304,17 @@ extension ChatView {
       let detection = await Task.detached(priority: .utility) {
         (
           CLIDetector.isInstalled(.codex),
-          CLIDetector.isInstalled(.claude)
+          CLIDetector.isInstalled(.claude),
+          LoginShellRunner.isInstalled("agy")
         )
       }.value
 
       guard !Task.isCancelled else { return }
       codexDetected = detection.0
       claudeDetected = detection.1
+      agyDetected = detection.2
       geminiConfigured = isGeminiConfigured()
+      localConfigured = isLocalConfigured()
       normalizeSelectedProviderIfNeeded()
     }
   }
@@ -350,6 +353,10 @@ extension ChatView {
       return codexDetected
     case .claude:
       return claudeDetected
+    case .agy:
+      return agyDetected
+    case .local:
+      return localConfigured
     }
   }
 
@@ -361,7 +368,15 @@ extension ChatView {
       applySelectedProvider(.codex)
     } else if claudeDetected {
       applySelectedProvider(.claude)
+    } else if agyDetected {
+      applySelectedProvider(.agy)
+    } else if localConfigured {
+      applySelectedProvider(.local)
     }
+  }
+
+  func isLocalConfigured() -> Bool {
+    OpenAICompatiblePreferences.load()?.isComplete ?? false
   }
 
   func isGeminiConfigured() -> Bool {
@@ -379,6 +394,10 @@ extension ChatView {
       return String(localized: "Claude")
     case .codex:
       return String(localized: "Codex")
+    case .agy:
+      return String(localized: "Antigravity")
+    case .local:
+      return String(localized: "Local")
     case .none:
       return String(localized: "selected provider")
     }

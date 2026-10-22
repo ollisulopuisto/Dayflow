@@ -195,7 +195,7 @@ extension MainView {
       let analyticsProps: [String: Any]
 
       switch timelineMode {
-      case .day:
+      case .day, .hour:
         let timelineDate = timelineDisplayDate(from: selectedDate, now: Date())
         let day = dayString(timelineDate)
         let cards = StorageManager.shared.fetchTimelineCards(forDay: day)
@@ -209,7 +209,7 @@ extension MainView {
           "activity_count": cards.count,
         ]
 
-      case .week:
+      case .week, .month:
         let weekRange = timelineWeekRange
         let cards = StorageManager.shared.fetchTimelineCardsByTimeRange(
           from: weekRange.weekStart,

@@ -68,6 +68,29 @@ final class WeeklyDashboardBuilderTests: XCTestCase {
     XCTAssertEqual(Set(snapshot.sankey.apps.map(\.id)).count, snapshot.sankey.apps.count)
   }
 
+  func testTreemapOtherAppKeepsItsBreakdownByCardTitle() {
+    let weekRange = WeeklyDateRange.containing(Date(timeIntervalSince1970: 1_770_000_000))
+    let day = DateFormatter.yyyyMMdd.string(from: weekRange.weekStart)
+    let cards = [
+      card(day: day, appName: "Other", minutes: 120),
+      card(day: day, appName: "Xcode", minutes: 60),
+    ]
+
+    let snapshot = WeeklyDashboardBuilder.build(
+      cards: cards,
+      previousWeekCards: [],
+      categories: [TimelineCategory(name: "Focus", colorHex: "4F8EF7", order: 0)],
+      weekRange: weekRange
+    )
+
+    let apps = snapshot.treemap.categories.flatMap(\.apps)
+    let other = apps.first { $0.name == "Other" }
+    XCTAssertEqual(other?.isDrillable, true)
+    XCTAssertEqual(other?.containedApps.map(\.name), ["Other work"])
+    XCTAssertEqual(other?.containedApps.first?.duration, TimeInterval(120 * 60))
+    XCTAssertEqual(apps.first { $0.name == "Xcode" }?.isDrillable, false)
+  }
+
   private func card(
     day: String,
     category: String = "Focus",

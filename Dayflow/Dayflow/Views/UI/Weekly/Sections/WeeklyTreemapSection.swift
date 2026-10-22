@@ -5,7 +5,10 @@ let weeklyTreemapContentCoordinateSpace = "weekly-treemap-content"
 struct WeeklyTreemapSection: View {
   let snapshot: WeeklyTreemapSnapshot
   let width: CGFloat
-  @State var hoveredLeaf: WeeklyTreemapHoverState?
+  /// Held by reference so hovering re-renders only the hover overlay, not every
+  /// category's squarified layout.
+  @State private var hoverModel = WeeklyTreemapHoverModel()
+  @State var drillPath: [WeeklyTreemapDrill] = []
 
   init(
     snapshot: WeeklyTreemapSnapshot,
@@ -55,7 +58,20 @@ struct WeeklyTreemapSection: View {
     )
   }
 
+  @ViewBuilder
   var contentLayer: some View {
+    if let drill = drillPath.last {
+      WeeklyTreemapDrillView(
+        drill: drill,
+        onOpen: { drillPath.append($0) },
+        onBack: { drillPath.removeLast() }
+      )
+    } else {
+      categoryTreemap
+    }
+  }
+
+  var categoryTreemap: some View {
     GeometryReader { proxy in
       let placements = SquarifiedTreemapLayout.place(
         snapshot.categories,
@@ -71,28 +87,25 @@ struct WeeklyTreemapSection: View {
             category: placement.item,
             onLeafHover: { state in
               withAnimation(.easeOut(duration: 0.14)) {
-                hoveredLeaf = state
+                hoverModel.hoveredLeaf = state
               }
+            },
+            onOpen: { drill in
+              hoverModel.hoveredLeaf = nil
+              drillPath.append(drill)
             }
           )
           .frame(width: placement.frame.width, height: placement.frame.height)
           .offset(x: placement.frame.minX, y: placement.frame.minY)
         }
 
-        if let hoveredLeaf {
-          WeeklyTreemapHoverCard(
-            app: hoveredLeaf.app,
-            palette: hoveredLeaf.palette
-          )
-          .frame(width: Design.hoverCardSize.width, height: Design.hoverCardSize.height)
-          .offset(
-            x: hoverCardOrigin(for: hoveredLeaf.frame, in: proxy.size).x,
-            y: hoverCardOrigin(for: hoveredLeaf.frame, in: proxy.size).y
-          )
-          .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .center)))
-          .zIndex(10)
-          .allowsHitTesting(false)
-        }
+        WeeklyTreemapHoverOverlay(
+          model: hoverModel,
+          cardSize: Design.hoverCardSize,
+          origin: { frame in hoverCardOrigin(for: frame, in: proxy.size) }
+        )
+        .zIndex(10)
+        .allowsHitTesting(false)
       }
       .coordinateSpace(name: weeklyTreemapContentCoordinateSpace)
     }
@@ -113,5 +126,26 @@ struct WeeklyTreemapSection: View {
     let belowY = frame.maxY + Design.hoverCardGap
     let clampedBelowY = min(belowY, size.height - cardHeight)
     return CGPoint(x: x, y: max(clampedBelowY, 0))
+  }
+}
+
+final class WeeklyTreemapHoverModel: ObservableObject {
+  @Published var hoveredLeaf: WeeklyTreemapHoverState?
+}
+
+/// The only view that observes hover, so moving the mouse across tiles leaves the layout alone.
+private struct WeeklyTreemapHoverOverlay: View {
+  @ObservedObject var model: WeeklyTreemapHoverModel
+  let cardSize: CGSize
+  let origin: (CGRect) -> CGPoint
+
+  var body: some View {
+    if let hoveredLeaf = model.hoveredLeaf {
+      let point = origin(hoveredLeaf.frame)
+      WeeklyTreemapHoverCard(app: hoveredLeaf.app, palette: hoveredLeaf.palette)
+        .frame(width: cardSize.width, height: cardSize.height)
+        .offset(x: point.x, y: point.y)
+        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .center)))
+    }
   }
 }

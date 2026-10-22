@@ -286,10 +286,15 @@ struct GanttChartSpec: Identifiable {
 }
 
 struct ChatContentParser {
+  /// Compiled once; bubbles re-parse their content on every render while a reply streams.
+  private static let chartRegex = try? NSRegularExpression(
+    pattern: "```chart\\s+type\\s*=\\s*([A-Za-z_]+)\\s*\\n?([\\s\\S]*?)\\n?```", options: [])
+
   static func blocks(from text: String) -> [ChatContentBlock] {
+    // Most replies have no chart; skip the regex entirely for them.
+    guard text.contains("```chart") else { return [.text(id: UUID(), content: text)] }
     let normalized = text.replacingOccurrences(of: "\r\n", with: "\n")
-    let pattern = "```chart\\s+type\\s*=\\s*([A-Za-z_]+)\\s*\\n?([\\s\\S]*?)\\n?```"
-    guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+    guard let regex = chartRegex else {
       return [.text(id: UUID(), content: text)]
     }
 

@@ -36,7 +36,7 @@ extension MainView {
   }
 
   // Layer 2: sheet + lifecycle + notifications + state-change reactions.
-  private var mainLayoutCore: some View {
+  private var mainLayoutLifecycle: some View {
     mainLayoutWithOverlays
       .sheet(isPresented: $showDatePicker) {
         DatePickerSheet(
@@ -81,9 +81,33 @@ extension MainView {
           InactivityMonitor.shared.markHandledIfPending()
         }
       }
+  }
+
+  // Split from the lifecycle chain so the type checker can handle each part.
+  private var mainLayoutCore: some View {
+    mainLayoutLifecycle
       .onReceive(NotificationCenter.default.publisher(for: .navigateToWeekly)) { _ in
         withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
           selectedIcon = .weekly
+        }
+      }
+      .onReceive(NotificationCenter.default.publisher(for: .navigateToSettings)) { _ in
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+          selectedIcon = .settings
+        }
+      }
+      .onReceive(NotificationCenter.default.publisher(for: .timelineZoomStep)) { notification in
+        guard selectedIcon == .timeline else { return }
+        let delta = notification.userInfo?["delta"] as? Int ?? 0
+        setTimelineMode(timelineMode.zoomed(by: delta))
+      }
+      .onReceive(NotificationCenter.default.publisher(for: .navigateToSection)) { notification in
+        guard let number = notification.userInfo?["number"] as? Int,
+          let icon = SidebarIcon.forCommandNumber(number),
+          SidebarIcon.visibleIcons(hideFlow: SidebarIcon.hidesFlowByDefault).contains(icon)
+        else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+          selectedIcon = icon
         }
       }
       .onReceive(NotificationCenter.default.publisher(for: .showTimelineFailureToast)) {

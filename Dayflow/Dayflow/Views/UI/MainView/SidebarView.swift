@@ -16,6 +16,21 @@ private enum SidebarMetrics {
   static let labelFontSize: CGFloat = 11 * scale
 }
 
+extension SidebarIcon {
+  /// Sections reachable with Cmd+1 ... Cmd+6, in sidebar order.
+  static func forCommandNumber(_ number: Int) -> SidebarIcon? {
+    switch number {
+    case 1: return .timeline
+    case 2: return .daily
+    case 3: return .weekly
+    case 4: return .chat
+    case 5: return .flow
+    case 6: return .agents
+    default: return nil
+    }
+  }
+}
+
 enum SidebarIcon: CaseIterable {
   case timeline
   case daily
@@ -82,13 +97,53 @@ enum SidebarIcon: CaseIterable {
   }
 }
 
+extension SidebarIcon {
+  /// Flow is hidden from the sidebar unless the user turns "Show Flow" on in Settings > Other.
+  static let hideFlowKey = "hideFlowInSidebar"
+
+  static var hidesFlowByDefault: Bool {
+    UserDefaults.standard.object(forKey: hideFlowKey) as? Bool ?? true
+  }
+
+  static func visibleIcons(hideFlow: Bool) -> [SidebarIcon] {
+    allCases.filter { !(hideFlow && $0 == .flow) }
+  }
+
+  /// The Cmd+number that selects this section, if it has one.
+  var commandNumber: Int? {
+    switch self {
+    case .timeline: return 1
+    case .daily: return 2
+    case .weekly: return 3
+    case .chat: return 4
+    case .flow: return 5
+    case .agents: return 6
+    default: return nil
+    }
+  }
+
+  /// Short label drawn on the icon, e.g. "⌘1".
+  var shortcutLabel: String? {
+    if self == .settings { return "⌘," }
+    return commandNumber.map { "⌘\($0)" }
+  }
+
+  /// Tooltip text that also shows the keyboard shortcut.
+  var shortcutHint: String {
+    if self == .settings { return "\(displayName) (⌘,)" }
+    guard let number = commandNumber else { return displayName }
+    return "\(displayName) (⌘\(number))"
+  }
+}
+
 struct SidebarView: View {
   @Binding var selectedIcon: SidebarIcon
   @ObservedObject private var badgeManager = NotificationBadgeManager.shared
+  @AppStorage(SidebarIcon.hideFlowKey) private var hideFlow = true
 
   var body: some View {
     VStack(alignment: .center, spacing: SidebarMetrics.itemSpacing) {
-      ForEach(SidebarIcon.allCases, id: \.self) { icon in
+      ForEach(SidebarIcon.visibleIcons(hideFlow: hideFlow), id: \.self) { icon in
         SidebarIconButton(
           icon: icon,
           isSelected: selectedIcon == icon,
@@ -96,6 +151,7 @@ struct SidebarView: View {
           action: { selectedIcon = icon }
         )
         .frame(width: SidebarMetrics.itemSize, height: SidebarMetrics.itemSize)
+        .help(icon.shortcutHint)
       }
     }
   }
@@ -169,6 +225,15 @@ struct SidebarIconButton: View {
 
       iconImage
         .frame(width: SidebarMetrics.iconSize, height: SidebarMetrics.iconSize)
+
+      if let shortcut = icon.shortcutLabel {
+        Text(shortcut)
+          .font(.custom("Figtree", size: 8).weight(.semibold))
+          .foregroundColor(labelColor.opacity(0.75))
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+          .padding(.trailing, 1)
+          .allowsHitTesting(false)
+      }
 
       if showBadge {
         Circle()

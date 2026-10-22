@@ -92,6 +92,10 @@ protocol StorageManaging: Sendable {
   func allBatches() -> [(id: Int64, start: Int, end: Int, status: String)]
   /// Oldest pending batches first, bounded for queue submission.
   func pendingBatchIDs(limit: Int) -> [Int64]
+  /// Ids of batches whose status is exactly `status`, without reading every batch.
+  func batchIDs(withStatus status: String) -> [Int64]
+  /// One batch by id, without reading every batch.
+  func batch(id: Int64) -> (id: Int64, start: Int, end: Int, status: String)?
 
   // MARK: - Screenshot Management (new - replaces video chunks)
 
