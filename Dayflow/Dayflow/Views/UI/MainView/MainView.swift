@@ -28,6 +28,7 @@ struct MainView: View {
   @State var cachedTimelineWeekRange: TimelineWeekRange = TimelineWeekRange.containing(
     timelineDisplayDate(from: Date()))
   @State var timelineMode: TimelineMode = .day
+  @State var showWeekTimelineFontControls = false
   @AppStorage(WeekTimelineFontSizePreference.storageKey) var weekTimelineFontSizeValue: Double =
     WeekTimelineFontSizePreference.defaultValue
   @AppStorage(WeekTimelineFontWeightOption.storageKey) var weekTimelineFontWeightIndex: Double =

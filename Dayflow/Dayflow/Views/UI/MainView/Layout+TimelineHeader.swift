@@ -230,10 +230,31 @@ extension MainView {
 
   private var timelineTrailingControls: some View {
     HStack(spacing: 8) {
+      if selectedIcon == .timeline, timelineMode == .week {
+        weekTimelineFontButton
+      }
       if dailyBrief.isFeatureEnabled {
         dailyBriefButton
       }
       PausePillView()
+    }
+  }
+
+  /// Opens the week text size and weight controls.
+  private var weekTimelineFontButton: some View {
+    Button {
+      showWeekTimelineFontControls.toggle()
+    } label: {
+      Image(systemName: "textformat.size")
+        .font(.system(size: 13, weight: .medium))
+        .foregroundColor(theme.textPrimary)
+        .frame(width: 30, height: 30)
+        .background(Circle().fill(Color.white.opacity(0.6)))
+    }
+    .buttonStyle(.plain)
+    .help("Week text size and weight")
+    .popover(isPresented: $showWeekTimelineFontControls, arrowEdge: .bottom) {
+      weekTimelineFontControls
     }
   }
 

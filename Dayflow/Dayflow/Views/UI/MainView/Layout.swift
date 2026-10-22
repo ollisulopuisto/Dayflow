@@ -30,7 +30,6 @@ extension MainView {
       .overlay { overlayContent }
       .overlay(alignment: .bottomTrailing) { timelineFailureToastOverlayContent }
       .overlay(alignment: .bottomTrailing) { screenRecordingPermissionNoticeOverlayContent }
-      .overlay(alignment: .topTrailing) { weekTimelineFontSizeOverlay }
       .overlay { categoryEditorOverlay }
       .overlay { dailyBriefOverlayContent }
       .animation(.easeOut(duration: 0.22), value: dailyBrief.isPresented)
@@ -459,24 +458,15 @@ extension MainView {
     }
   }
 
-  @ViewBuilder
-  private var weekTimelineFontSizeOverlay: some View {
-    if selectedIcon == .timeline, timelineMode == .week {
-      VStack(alignment: .trailing, spacing: 6) {
-        weekTimelineFontSizeSlider
-        weekTimelineFontWeightSlider
-      }
-      .padding(10)
-      .background(
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-          .fill(Color.white.opacity(0.78))
-          .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 3)
-      )
-      .padding(.top, 58)
-      .padding(.trailing, 24)
-      .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
-      .zIndex(20)
+  /// Week text controls, shown in a popover from the header button. Kept out of the
+  /// content so it never covers the category bar or the day headers.
+  var weekTimelineFontControls: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      weekTimelineFontSizeSlider
+      weekTimelineFontWeightSlider
     }
+    .padding(14)
+    .frame(width: 260)
   }
 
   private var weekTimelineFontSizeSlider: some View {
