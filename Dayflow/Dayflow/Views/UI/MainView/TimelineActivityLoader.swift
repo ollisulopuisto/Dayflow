@@ -252,6 +252,51 @@ enum TimelineActivityLoader {
     return results
   }
 
+  /// Week view only: joins consecutive segments into blocks of about `targetDuration`, so a day
+  /// reads as a few blocks instead of a stack of minute-long slivers. A block takes the category
+  /// with the most time in it. A gap longer than `maxGap` always starts a new block. The day
+  /// view keeps the unmerged segments.
+  static func resolveWeekMacroblocks(
+    from segments: [TimelineDisplaySegment],
+    maxGap: TimeInterval = 60,
+    targetDuration: TimeInterval = 600
+  ) -> [TimelineDisplaySegment] {
+    var groups: [[TimelineDisplaySegment]] = []
+    var current: [TimelineDisplaySegment] = []
+    for segment in segments {
+      if let last = current.last, segment.start.timeIntervalSince(last.end) > maxGap {
+        groups.append(current)
+        current = []
+      }
+      current.append(segment)
+      if let first = current.first, segment.end.timeIntervalSince(first.start) >= targetDuration {
+        groups.append(current)
+        current = []
+      }
+    }
+    if !current.isEmpty { groups.append(current) }
+
+    return groups.map { group in
+      var totals: [String: TimeInterval] = [:]
+      for segment in group {
+        totals[segment.activity.category, default: 0] += segment.end.timeIntervalSince(segment.start)
+      }
+      let dominant =
+        totals.max { lhs, rhs in lhs.value < rhs.value }?.key ?? group[0].activity.category
+      let members = group.filter { $0.activity.category == dominant }.flatMap(\.activities)
+      let representative =
+        members.max { lhs, rhs in
+          lhs.endTime.timeIntervalSince(lhs.startTime) < rhs.endTime.timeIntervalSince(rhs.startTime)
+        } ?? group[0].activity
+      return TimelineDisplaySegment(
+        activity: representative,
+        activities: group.flatMap(\.activities),
+        start: group.map(\.start).min() ?? group[0].start,
+        end: group.map(\.end).max() ?? group[0].end
+      )
+    }
+  }
+
   static func createDisplaySegments(from activities: [TimelineActivity])
     -> [TimelineDisplaySegment]
   {

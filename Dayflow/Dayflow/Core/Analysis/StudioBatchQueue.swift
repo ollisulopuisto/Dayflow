@@ -321,7 +321,10 @@ enum StudioBatchQueue {
           importedSignatures.insert(signature)
           return true
         }
-        guard cardResults.allSatisfy({ $0 }) else { continue }
+        guard cardResults.allSatisfy({ $0 }) else {
+          print("Studio import incomplete for batch \(batchID): \(cardResults.filter { !$0 }.count) of \(cardResults.count) cards not saved")
+          continue
+        }
         store.updateBatchStatus(
           batchId: batchID,
           status: cards.isEmpty ? "completed_empty" : "completed"

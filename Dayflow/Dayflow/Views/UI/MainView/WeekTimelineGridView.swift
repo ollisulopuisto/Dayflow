@@ -551,7 +551,8 @@ struct WeekTimelineGridView: View {
         let dayActivities = activities.filter {
           $0.startTime.getDayInfoFor4AMBoundary().dayString == day.dayString
         }
-        let segments = TimelineActivityLoader.createDisplaySegments(from: dayActivities)
+        let segments = TimelineActivityLoader.resolveWeekMacroblocks(
+          from: TimelineActivityLoader.createDisplaySegments(from: dayActivities))
 
         for segment in segments {
           let durationMinutes = max(0, segment.end.timeIntervalSince(segment.start) / 60)

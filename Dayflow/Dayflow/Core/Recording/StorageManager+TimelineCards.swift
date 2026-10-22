@@ -77,6 +77,7 @@ extension StorageManager {
 
     // Get the batch's actual start timestamp to use as the base date
     guard let batchStartTs = getBatchStartTimestamp(batchId: batchId) else {
+      print("Timeline card save: no analysis batch \(batchId)")
       return nil
     }
     let baseDate = Date(timeIntervalSince1970: TimeInterval(batchStartTs))
@@ -84,6 +85,7 @@ extension StorageManager {
     guard let startTime = Self.timeFormatter.date(from: card.startTimestamp),
       let endTime = Self.timeFormatter.date(from: card.endTimestamp)
     else {
+      print("Timeline card save: unparsable times '\(card.startTimestamp)' - '\(card.endTimestamp)'")
       return nil
     }
 
@@ -141,36 +143,40 @@ extension StorageManager {
 
     let endTs = Int(endDate.timeIntervalSince1970)
 
-    try? timedWrite("saveTimelineCardShell") {
-      db in
-      // Encode metadata as an object for forward-compatibility
-      let meta = TimelineMetadata(
-        distractions: card.distractions,
-        appSites: card.appSites,
-        isBackupGenerated: card.isBackupGenerated,
-        idle: card.idleMetadata
-      )
-      let metadataString: String? = (try? encoder.encode(meta)).flatMap {
-        String(data: $0, encoding: .utf8)
+    do {
+      try timedWrite("saveTimelineCardShell") {
+        db in
+        // Encode metadata as an object for forward-compatibility
+        let meta = TimelineMetadata(
+          distractions: card.distractions,
+          appSites: card.appSites,
+          isBackupGenerated: card.isBackupGenerated,
+          idle: card.idleMetadata
+        )
+        let metadataString: String? = (try? encoder.encode(meta)).flatMap {
+          String(data: $0, encoding: .utf8)
+        }
+
+        // Calculate the day string using 4 AM boundary rules
+        let (dayString, _, _) = startDate.getDayInfoFor4AMBoundary()
+
+        try db.execute(
+          sql: """
+                INSERT INTO timeline_cards(
+                    batch_id, start, end, start_ts, end_ts, day, title,
+                    summary, category, subcategory, detailed_summary, metadata
+                    -- video_summary_url is omitted here
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+          arguments: [
+            batchId, card.startTimestamp, card.endTimestamp, startTs, endTs, dayString, card.title,
+            card.summary, card.category, card.subcategory, card.detailedSummary, metadataString,
+          ])
+        lastId = db.lastInsertedRowID
       }
-
-      // Calculate the day string using 4 AM boundary rules
-      let (dayString, _, _) = startDate.getDayInfoFor4AMBoundary()
-
-      try db.execute(
-        sql: """
-              INSERT INTO timeline_cards(
-                  batch_id, start, end, start_ts, end_ts, day, title,
-                  summary, category, subcategory, detailed_summary, metadata
-                  -- video_summary_url is omitted here
-              )
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          """,
-        arguments: [
-          batchId, card.startTimestamp, card.endTimestamp, startTs, endTs, dayString, card.title,
-          card.summary, card.category, card.subcategory, card.detailedSummary, metadataString,
-        ])
-      lastId = db.lastInsertedRowID
+    } catch {
+      print("Timeline card save failed for batch \(batchId): \(error)")
     }
     return lastId
   }
