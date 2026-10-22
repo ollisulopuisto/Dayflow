@@ -65,7 +65,26 @@ struct WeekTimelineActivityCard: View {
   // compact/long split, no hover switch — so text never changes size for any
   // reason. The hover interaction handles "too small to read" by revealing
   // more lines, not by shrinking the font.
-  private var titleFontSize: CGFloat { 10 }
+  @AppStorage(WeekTimelineFontSizePreference.storageKey) private var fontSizeValue: Double =
+    WeekTimelineFontSizePreference.defaultValue
+  @AppStorage(WeekTimelineFontWeightOption.storageKey) private var fontWeightIndex: Double =
+    Double(WeekTimelineFontWeightOption.defaultOption.rawValue)
+
+  // Title size and weight come from the weekly font controls, so they stay the same
+  // across hover and card height states.
+  private var titleFontSize: CGFloat {
+    WeekTimelineFontSizePreference.cardTitleFontSize(for: fontSizeValue)
+  }
+
+  private var titleFontWeight: Font.Weight {
+    switch WeekTimelineFontWeightOption.option(for: fontWeightIndex) {
+    case .light: return .light
+    case .regular: return .regular
+    case .medium: return .medium
+    case .semibold: return .semibold
+    case .bold: return .bold
+    }
+  }
 
   // Vertical padding still varies by card size (compact cards need a tighter
   // fit at rest), but it's stable across hover states so the first line's Y
@@ -89,7 +108,7 @@ struct WeekTimelineActivityCard: View {
   private var maxUnhoveredTitleLines: Int {
     let reservedStatusHeight: CGFloat = showsRetryStatus || isPendingAnalysis ? 14 : 0
     let available = height - 2 * verticalPadding - reservedStatusHeight
-    let perLine: CGFloat = 12
+    let perLine = WeekTimelineFontSizePreference.estimatedCardTitleLineHeight(for: fontSizeValue)
     return max(1, Int(available / perLine))
   }
 
@@ -147,7 +166,7 @@ struct WeekTimelineActivityCard: View {
 
       VStack(alignment: .leading, spacing: 2) {
         Text(displayTitle)
-          .font(.custom("Figtree", size: titleFontSize).weight(.semibold))
+          .font(.custom("Figtree", size: titleFontSize).weight(titleFontWeight))
           .foregroundColor(palette.title)
           .multilineTextAlignment(.leading)
           .lineLimit(renderingExpanded ? nil : maxUnhoveredTitleLines)
@@ -238,7 +257,7 @@ struct WeekTimelineActivityCard: View {
 
       VStack(alignment: .leading, spacing: 2) {
         Text(displayTitle)
-          .font(.custom("Figtree", size: titleFontSize).weight(.semibold))
+          .font(.custom("Figtree", size: titleFontSize).weight(titleFontWeight))
           .multilineTextAlignment(.leading)
           .fixedSize(horizontal: false, vertical: true)
 

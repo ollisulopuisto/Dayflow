@@ -30,6 +30,7 @@ extension MainView {
       .overlay { overlayContent }
       .overlay(alignment: .bottomTrailing) { timelineFailureToastOverlayContent }
       .overlay(alignment: .bottomTrailing) { screenRecordingPermissionNoticeOverlayContent }
+      .overlay(alignment: .topTrailing) { weekTimelineFontSizeOverlay }
       .overlay { categoryEditorOverlay }
       .overlay { dailyBriefOverlayContent }
       .animation(.easeOut(duration: 0.22), value: dailyBrief.isPresented)
@@ -455,6 +456,595 @@ extension MainView {
     screenCaptureIsFailing = false
     withAnimation(.spring(response: 0.25, dampingFraction: 0.92)) {
       showScreenRecordingPermissionNotice = false
+    }
+  }
+
+  @ViewBuilder
+  private var weekTimelineFontSizeOverlay: some View {
+    if selectedIcon == .timeline, timelineMode == .week {
+      VStack(alignment: .trailing, spacing: 6) {
+        weekTimelineFontSizeSlider
+        weekTimelineFontWeightSlider
+      }
+      .padding(10)
+      .background(
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .fill(Color.white.opacity(0.78))
+          .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 3)
+      )
+      .padding(.top, 58)
+      .padding(.trailing, 24)
+      .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
+      .zIndex(20)
+    }
+  }
+
+  private var weekTimelineFontSizeSlider: some View {
+    HStack(spacing: 8) {
+      weekTimelineFontOverlayIcon("textformat.size")
+
+      Slider(
+        value: Binding(
+          get: {
+            WeekTimelineFontSizePreference.clamped(weekTimelineFontSizeValue)
+          },
+          set: {
+            weekTimelineFontSizeValue = WeekTimelineFontSizePreference.clamped($0)
+          }
+        ),
+        in: WeekTimelineFontSizePreference.minimum...WeekTimelineFontSizePreference.maximum,
+        step: 1
+      )
+      .frame(width: 148)
+
+      Text("\(Int(WeekTimelineFontSizePreference.clamped(weekTimelineFontSizeValue)))px")
+        .font(.custom("Nunito", size: 11).weight(.medium))
+        .foregroundColor(Color(hex: "796E64"))
+        .frame(width: 32, alignment: .trailing)
+    }
+  }
+
+  private var weekTimelineFontWeightSlider: some View {
+    HStack(spacing: 8) {
+      weekTimelineFontOverlayIcon("bold")
+
+      Slider(
+        value: Binding(
+          get: {
+            Double(WeekTimelineFontWeightOption.option(for: weekTimelineFontWeightIndex).rawValue)
+          },
+          set: {
+            weekTimelineFontWeightIndex =
+              Double(WeekTimelineFontWeightOption.option(for: $0).rawValue)
+          }
+        ),
+        in: WeekTimelineFontWeightOption.sliderRange,
+        step: 1
+      )
+      .frame(width: 148)
+
+      Text(WeekTimelineFontWeightOption.option(for: weekTimelineFontWeightIndex).title)
+        .font(.custom("Nunito", size: 11).weight(.medium))
+        .foregroundColor(Color(hex: "796E64"))
+        .frame(width: 52, alignment: .trailing)
+    }
+  }
+
+  private func weekTimelineFontOverlayIcon(_ systemName: String) -> some View {
+    Image(systemName: systemName)
+      .font(.system(size: 12, weight: .semibold))
+      .foregroundColor(Color(hex: "796E64"))
+      .frame(width: 16, height: 26)
+  }
+
+  private var timelineHeaderTrailingReservation: CGFloat {
+    let measuredWidth = max(timelineHeaderTrailingWidth, 120)
+    return measuredWidth + 18
+  }
+
+  private var timelineNavigationButtons: some View {
+    HStack(spacing: 2) {
+      // Back — plain chevron matching the Figma, with a 28×28 hit box around
+      // the 14×14 glyph. `.contentShape(Rectangle())` makes the entire outer
+      // frame tappable (including transparent space around the glyph).
+      Button(action: {
+        navigateTimeline(to: previousTimelineDate(), method: "prev")
+      }) {
+        Image("LeftArrow")
+          .resizable()
+          .scaledToFit()
+          .frame(width: 20, height: 20)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(DayflowPressScaleButtonStyle())
+      .hoverScaleEffect(scale: 1.02)
+      .pointingHandCursorOnHover(reassertOnPressEnd: true)
+
+      // Forward — same pattern; stays disabled when we're already on today.
+      Button(action: {
+        guard canNavigateTimelineForward else { return }
+        navigateTimeline(to: nextTimelineDate(), method: "next")
+      }) {
+        Image("RightArrow")
+          .resizable()
+          .scaledToFit()
+          .frame(width: 20, height: 20)
+          .contentShape(Rectangle())
+          .opacity(canNavigateTimelineForward ? 1 : 0.35)
+      }
+      .buttonStyle(DayflowPressScaleButtonStyle())
+      .disabled(!canNavigateTimelineForward)
+      .hoverScaleEffect(
+        enabled: canNavigateTimelineForward,
+        scale: 1.02
+      )
+      .pointingHandCursorOnHover(
+        enabled: canNavigateTimelineForward,
+        reassertOnPressEnd: true
+      )
+    }
+  }
+
+  // Calendar pill — Figma 1:1 visuals (fill #FFA777, icon 16×16, h=30, border
+  // #F2D2BD). The arrowless card itself is rendered at the panel level so it
+  // can own outside-click dismissal without taps leaking through to the
+  // timeline below.
+  private var timelineCalendarButton: some View {
+    Button(action: {
+      if showTimelineCalendarPopover {
+        closeTimelineCalendarPopover()
+      } else {
+        openTimelineCalendarPopover()
+      }
+    }) {
+      ZStack {
+        Capsule(style: .continuous)
+          .fill(timelineCalendarButtonFillColor)
+          .overlay(
+            Capsule(style: .continuous)
+              .stroke(timelineCalendarButtonBorderColor, lineWidth: 1)
+          )
+          .shadow(
+            color: timelineCalendarButtonShadowColor,
+            radius: showTimelineCalendarPopover ? 8 : 0,
+            x: 0,
+            y: showTimelineCalendarPopover ? 2 : 0
+          )
+
+        Image("CalendarIcon")
+          .resizable()
+          .scaledToFit()
+          .frame(width: 16, height: 16)
+      }
+      .frame(width: 36, height: 30)
+      .contentShape(Capsule(style: .continuous))
+    }
+    .buttonStyle(
+      DayflowPressScaleButtonStyle(
+        pressedScale: 0.985,
+        animation: .spring(response: 0.18, dampingFraction: 0.88)
+      )
+    )
+    .pointingHandCursorOnHover(reassertOnPressEnd: true)
+    .animation(timelineCalendarButtonStateAnimation, value: showTimelineCalendarPopover)
+    .trackTimelineCalendarButtonFrame()
+  }
+
+  private var timelineCalendarButtonFillColor: Color {
+    showTimelineCalendarPopover ? Color(hex: "FFB38E") : Color(hex: "FFA777")
+  }
+
+  private var timelineCalendarButtonBorderColor: Color {
+    showTimelineCalendarPopover ? Color(hex: "E8BDA1") : Color(hex: "F2D2BD")
+  }
+
+  private var timelineCalendarButtonShadowColor: Color {
+    showTimelineCalendarPopover ? .black.opacity(0.10) : .clear
+  }
+
+  private var timelineCalendarButtonStateAnimation: Animation {
+    reduceMotion ? .linear(duration: 0.01) : .easeOut(duration: 0.14)
+  }
+
+  private var timelineCalendarPopoverOpenAnimation: Animation {
+    reduceMotion ? .linear(duration: 0.01) : .easeOut(duration: 0.18)
+  }
+
+  private var timelineCalendarPopoverCloseAnimation: Animation {
+    reduceMotion ? .linear(duration: 0.01) : .easeOut(duration: 0.12)
+  }
+
+  private var timelineCalendarPopoverTransition: AnyTransition {
+    guard !reduceMotion else { return .opacity }
+
+    return .asymmetric(
+      insertion: .opacity
+        .combined(with: .offset(y: -6))
+        .animation(timelineCalendarPopoverOpenAnimation),
+      removal: .opacity
+        .combined(with: .offset(y: -4))
+        .animation(timelineCalendarPopoverCloseAnimation)
+    )
+  }
+
+  private func openTimelineCalendarPopover() {
+    withAnimation(timelineCalendarPopoverOpenAnimation) {
+      showTimelineCalendarPopover = true
+    }
+  }
+
+  private func closeTimelineCalendarPopover() {
+    withAnimation(timelineCalendarPopoverCloseAnimation) {
+      showTimelineCalendarPopover = false
+    }
+  }
+
+  private func timelineCalendarPopoverOverlay(panelWidth: CGFloat) -> some View {
+    let cardWidth = TimelineCalendarPopover.preferredWidth
+    let horizontalPadding: CGFloat = 12
+    let maxX = max(
+      horizontalPadding,
+      panelWidth - cardWidth - horizontalPadding
+    )
+    let cardX = min(
+      max(horizontalPadding, timelineCalendarButtonFrame.midX - (cardWidth / 2)),
+      maxX
+    )
+
+    return ZStack(alignment: .topLeading) {
+      if showTimelineCalendarPopover {
+        Rectangle()
+          .fill(Color.black.opacity(0.001))
+          .contentShape(Rectangle())
+          .onTapGesture {
+            closeTimelineCalendarPopover()
+          }
+
+        TimelineCalendarPopover(
+          isPresented: $showTimelineCalendarPopover,
+          selectedDate: selectedDate,
+          canSelectFutureDates: false,
+          highlightsSelectedWeek: timelineMode == .week,
+          onSelect: { date in
+            let tappedDay = dayString(date)
+            let currentDay = dayString(selectedDate)
+            let tappedWeek = TimelineWeekRange.containing(date)
+            let currentWeek = timelineWeekRange
+            let weekChanged = tappedWeek != currentWeek
+
+            timelinePerfLog(
+              "calendarPopover.select tapped=\(tappedDay) current=\(currentDay) mode=\(timelineMode.rawValue) weekChanged=\(weekChanged)"
+            )
+
+            timelinePerfLog(
+              "calendarPopover.navigateDispatch tapped=\(tappedDay) mode=\(timelineMode.rawValue) weekChanged=\(weekChanged)"
+            )
+            navigateTimeline(to: date, method: "picker")
+            DispatchQueue.main.async {
+              closeTimelineCalendarPopover()
+            }
+          }
+        )
+        .offset(x: cardX, y: timelineCalendarButtonFrame.maxY + 55)
+        .transition(timelineCalendarPopoverTransition)
+        .zIndex(1)
+      }
+    }
+    .allowsHitTesting(showTimelineCalendarPopover)
+  }
+
+  private var timelineModeSwitch: some View {
+    HStack(spacing: 0) {
+      ForEach(TimelineMode.allCases) { mode in
+        let isSelected = timelineMode == mode
+
+        Button(action: {
+          setTimelineMode(mode)
+        }) {
+          ZStack {
+            if isSelected {
+              Capsule(style: .continuous)
+                .fill(
+                  LinearGradient(
+                    colors: [
+                      Color(hex: "FFB18D").opacity(0.6),
+                      Color(hex: "FFA46F"),
+                      Color(hex: "FFB18D"),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                  )
+                )
+                .shadow(color: Color(hex: "E89A6C").opacity(0.18), radius: 4, x: 0, y: 1)
+                .matchedGeometryEffect(
+                  id: "timeline_mode_highlight",
+                  in: timelineModeSwitchNamespace
+                )
+            }
+
+            Text(mode.title)
+              .font(.custom("Nunito", size: 12).weight(.medium))
+              .foregroundColor(isSelected ? .white : Color(hex: "796E64"))
+              // Concrete width (52pt × 2 = 104pt container) instead of
+              // `.frame(maxWidth: .infinity)`. The infinity was being fought
+              // by the `.fixedSize(horizontal: true)` ancestor on
+              // `timelineLeadingControls`, which resolved the toggle's
+              // ideal width as ~0 and collapsed the cream background +
+              // "Day" label. Three independent parallel investigations
+              // converged on this exact change.
+              .frame(width: 52, height: 30)
+          }
+          .contentShape(Capsule(style: .continuous))
+        }
+        // Reverted to PlainButtonStyle: DayflowPressScaleButtonStyle — even
+        // with `enabled: false` — still wraps the label in `.animation(...)`,
+        // which appears to conflict with the outer `.animation(...)` tied to
+        // the matchedGeometryEffect gradient. The press-darkening flash is
+        // the accepted tradeoff for a correctly-behaving matched slide.
+        .buttonStyle(PlainButtonStyle())
+        .hoverScaleEffect(scale: 1.01)
+        .pointingHandCursorOnHover(reassertOnPressEnd: true)
+      }
+    }
+    .frame(width: 104, height: 30)
+    .background(Color(hex: "FFEFE4"))
+    .clipShape(Capsule(style: .continuous))
+    .overlay(
+      Capsule(style: .continuous)
+        .stroke(Color(hex: "F2D2BD"), lineWidth: 1)
+    )
+    .animation(timelineModeSwitchAnimation, value: timelineMode)
+  }
+
+  private var timelineTodayButton: some View {
+    Button(action: {
+      navigateTimeline(to: timelineDisplayDate(from: Date()), method: "today")
+    }) {
+      Text("Today")
+        .font(.custom("Nunito", size: 12).weight(.medium))
+        .foregroundColor(Color(hex: "796E64"))
+        .padding(.horizontal, 10)
+        // Explicit width pinned (natural ~52pt + 4pt safety margin). Same
+        // rationale as the calendar pill: under the ancestor's `.fixedSize`
+        // inside a `ViewThatFits`, implicit widths can resolve to unstable
+        // values mid-transition, nudging the Day/Week toggle's position and
+        // desyncing its `matchedGeometryEffect` anchors during a mode flip.
+        .frame(width: 56, height: 30)
+        .background(Color(hex: "FFEFE4"))
+        .clipShape(Capsule(style: .continuous))
+        .overlay(
+          Capsule(style: .continuous)
+            .stroke(Color(hex: "F2D2BD"), lineWidth: 1)
+        )
+    }
+    .buttonStyle(DayflowPressScaleButtonStyle(pressedScale: 0.97))
+    .hoverScaleEffect(scale: 1.02)
+    .pointingHandCursorOnHover(reassertOnPressEnd: true)
+  }
+
+  private var timelineHeaderDateLabel: some View {
+    Text(timelineTitleText)
+      .font(.custom("InstrumentSerif-Regular", size: 26))
+      .foregroundColor(Color.black)
+      .lineLimit(1)
+      .fixedSize(horizontal: true, vertical: false)
+      .onTapGesture {
+        guard timelineMode == .day else { return }
+        showDatePicker = true
+        lastDateNavMethod = "picker"
+      }
+  }
+
+  private var timelineContent: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      TabFilterBar(
+        categories: categoryStore.editableCategories,
+        idleCategory: categoryStore.idleCategory,
+        onManageCategories: { showCategoryEditor = true }
+      )
+      .padding(.leading, 10)
+      .opacity(contentOpacity)
+
+      ZStack(alignment: .topLeading) {
+        switch timelineMode {
+        case .day:
+          CanvasTimelineDataView(
+            selectedDate: $selectedDate,
+            selectedActivity: $selectedActivity,
+            scrollToNowTick: $scrollToNowTick,
+            hasAnyActivities: $hasAnyActivities,
+            refreshTrigger: $refreshActivitiesTrigger,
+            weeklyHoursFrame: weeklyHoursFrame,
+            weeklyHoursIntersectsCard: $weeklyHoursIntersectsCard
+          )
+          // Day is the zoomed-IN view (1/7 of a week). Entering Day feels
+          // like diving into a single column: grow from 0.95 → 1 + fade in.
+          // Exiting Day (to Week) shrinks 1 → 0.95 + fade out, matching the
+          // "pull back to see more" feel when Week slides in behind it.
+          .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
+          .zIndex(timelineMode == .day ? 1 : 0)
+
+        case .week:
+          WeekTimelineGridView(
+            selectedDate: $selectedDate,
+            selectedActivity: $selectedActivity,
+            hasAnyActivities: $hasAnyActivities,
+            refreshTrigger: $refreshActivitiesTrigger,
+            weekRange: timelineWeekRange,
+            onSelectActivity: selectTimelineActivity,
+            onClearSelection: { clearTimelineSelection() },
+            weeklyHoursFrame: weeklyHoursFrame,
+            weeklyHoursIntersectsCard: $weeklyHoursIntersectsCard,
+            hideCardsForModeSwitch: hideWeekCardsDuringModeSwitch
+          )
+          // Week is the zoomed-OUT view (7 days). Entering Week from Day
+          // feels like pulling back: start at 1.05 (slightly too large) and
+          // settle to 1 + fade in. Exiting Week grows to 1.05 + fade out,
+          // matching the "dive in" feel when Day settles to 1 behind it.
+          .transition(.opacity.combined(with: .scale(scale: 1.05, anchor: .center)))
+          .zIndex(timelineMode == .week ? 1 : 0)
+        }
+      }
+      .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .environmentObject(categoryStore)
+      .opacity(contentOpacity)
+      .animation(timelineModeContentAnimation, value: timelineMode)
+    }
+    .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+  }
+
+  private var timelineFooter: some View {
+    let weeklyHoursOpacity =
+      weeklyHoursFadeOpacity * (weeklyHoursIntersectsCard ? 0 : 1)
+
+    return ZStack(alignment: .bottom) {
+      HStack(alignment: .bottom) {
+        weeklyHoursText
+          .opacity(contentOpacity * weeklyHoursOpacity)
+
+        Spacer()
+
+        copyTimelineButton
+          .opacity(contentOpacity)
+      }
+      .padding(.horizontal, 24)
+
+      if timelineMode == .day, cardsToReviewCount > 0 {
+        CardsToReviewButton(count: cardsToReviewCount) {
+          withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            showTimelineReview = true
+          }
+        }
+        .opacity(contentOpacity)
+      }
+    }
+    .padding(.bottom, 17)
+    .allowsHitTesting(true)
+  }
+
+  private func timelineRightColumn(geo: GeometryProxy) -> some View {
+    ZStack(alignment: .topLeading) {
+      if timelineInspectorWidth > 0 {
+        Color.white.opacity(0.7)
+      }
+
+      switch timelineMode {
+      case .day:
+        dayTimelineInspectorContent(geo: geo)
+      case .week:
+        weekTimelineInspectorContent(geo: geo)
+      }
+    }
+    .frame(width: timelineInspectorWidth)
+    .frame(maxHeight: .infinity)
+    .opacity(contentOpacity)
+    .clipped()
+    .clipShape(
+      UnevenRoundedRectangle(
+        cornerRadii: .init(
+          topLeading: 0,
+          bottomLeading: 0, bottomTrailing: 8, topTrailing: 8
+        )
+      )
+    )
+    .contentShape(
+      UnevenRoundedRectangle(
+        cornerRadii: .init(
+          topLeading: 0,
+          bottomLeading: 0, bottomTrailing: 8, topTrailing: 8
+        )
+      )
+    )
+  }
+
+  @ViewBuilder
+  private func dayTimelineInspectorContent(geo: GeometryProxy) -> some View {
+    if let activity = selectedActivity {
+      timelineActivityInspector(activity: activity, geo: geo)
+        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+    } else {
+      DaySummaryView(
+        selectedDate: selectedDate,
+        categories: categoryStore.categories,
+        storageManager: StorageManager.shared,
+        cardsToReviewCount: cardsToReviewCount,
+        reviewRefreshToken: reviewSummaryRefreshToken,
+        onReviewTap: {
+          guard cardsToReviewCount > 0 else { return }
+          withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            showTimelineReview = true
+          }
+        }
+      )
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .transition(.opacity.combined(with: .scale(scale: 0.98)))
+    }
+  }
+
+  @ViewBuilder
+  private func weekTimelineInspectorContent(geo: GeometryProxy) -> some View {
+    if let activity = selectedActivity, isWeekTimelineInspectorVisible {
+      timelineActivityInspector(activity: activity, geo: geo)
+        .id(activity.id)
+        .opacity(weekInspectorContentVisible ? 1 : 0)
+        .offset(x: weekInspectorContentVisible ? 0 : 10)
+        .animation(inspectorContentAnimation, value: weekInspectorContentVisible)
+        .transition(.opacity.combined(with: .offset(x: 10)))
+    }
+  }
+
+  private func timelineActivityInspector(activity: TimelineActivity, geo: GeometryProxy)
+    -> some View
+  {
+    ZStack(alignment: .bottom) {
+      ActivityCard(
+        activity: activity,
+        maxHeight: geo.size.height,
+        scrollSummary: true,
+        hasAnyActivities: hasAnyActivities,
+        onCategoryChange: { category, activity in
+          handleCategoryChange(to: category, for: activity)
+        },
+        onNavigateToCategoryEditor: {
+          showCategoryEditor = true
+        },
+        onRetryBatchCompleted: { batchId in
+          refreshActivitiesTrigger &+= 1
+          if selectedActivity?.batchId == batchId {
+            clearTimelineSelection()
+          }
+        }
+      )
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .allowsHitTesting(!feedbackModalVisible)
+      .padding(.bottom, rateSummaryFooterHeight)
+
+      if !feedbackModalVisible {
+        TimelineRateSummaryView(
+          activityID: activity.id,
+          onRate: handleTimelineRating,
+          onDelete: handleTimelineDelete
+        )
+        .frame(maxWidth: .infinity)
+        .allowsHitTesting(!feedbackModalVisible)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .overlay(alignment: .bottomLeading) {
+      if let direction = feedbackDirection, feedbackModalVisible {
+        TimelineFeedbackModal(
+          message: $feedbackMessage,
+          shareLogs: $feedbackShareLogs,
+          direction: direction,
+          mode: feedbackMode,
+          content: .timeline,
+          onSubmit: handleFeedbackSubmit,
+          onClose: { dismissFeedbackModal() }
+        )
+        .padding(.leading, 24)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
     }
   }
 
