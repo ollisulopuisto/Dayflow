@@ -76,8 +76,12 @@ struct FlowNativeSnapshot: Codable, Equatable {
     self.alwaysOn = payload["alwaysOn"] as? Bool ?? false
     self.sessionStartedAt = payload["sessionStartedAt"] as? Int
     self.goals = payload["goals"] as? [String]
-    self.goalTasks = (payload["goalTasks"] as? [[String: Any]])?.compactMap { entry in
-      guard let id = entry["id"] as? String, let title = entry["title"] as? String else {
+    // Cast the array to [Any] and keep each valid entry. Casting straight to [[String: Any]]
+    // would drop every task when a single entry is malformed.
+    self.goalTasks = (payload["goalTasks"] as? [Any])?.compactMap { raw in
+      guard let entry = raw as? [String: Any],
+        let id = entry["id"] as? String, let title = entry["title"] as? String
+      else {
         return nil
       }
       return FlowGoalTask(id: id, title: title)

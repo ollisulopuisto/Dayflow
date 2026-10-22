@@ -18,7 +18,7 @@ final class CodexClaudeProviderTests: XCTestCase {
       Array(parts.prefix(10)),
       [
         "claude", "-p", "--output-format", "stream-json", "--verbose",
-        "--include-partial-messages", "--model", "sonnet", "--effort", "medium",
+        "--include-partial-messages", "--model", LoginShellRunner.shellEscape("sonnet"), "--effort", LoginShellRunner.shellEscape("medium"),
       ]
     )
   }
@@ -35,8 +35,8 @@ final class CodexClaudeProviderTests: XCTestCase {
       Array(parts.prefix(12)),
       [
         "claude", "-p", "--output-format", "stream-json", "--verbose",
-        "--include-partial-messages", "--resume", "session-123", "--model", "sonnet",
-        "--effort", "medium",
+        "--include-partial-messages", "--resume", LoginShellRunner.shellEscape("session-123"), "--model", LoginShellRunner.shellEscape("sonnet"),
+        "--effort", LoginShellRunner.shellEscape("medium"),
       ]
     )
   }

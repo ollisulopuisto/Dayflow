@@ -21,8 +21,8 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
       Array(parts.prefix(5)),
       ["claude", "-p", "--output-format", "json", "--verbose"]
     )
-    XCTAssertEqual(try argument(after: "--model", in: parts), "sonnet")
-    XCTAssertEqual(try argument(after: "--effort", in: parts), "low")
+    XCTAssertEqual(try argument(after: "--model", in: parts), LoginShellRunner.shellEscape("sonnet"))
+    XCTAssertEqual(try argument(after: "--effort", in: parts), LoginShellRunner.shellEscape("low"))
     XCTAssertEqual(try argument(after: "--tools", in: parts), "Read")
     XCTAssertEqual(
       try argument(after: "--allowedTools", in: parts),
@@ -106,10 +106,10 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
       sessionMode: .resume(id: sessionID)
     )
 
-    XCTAssertEqual(try argument(after: "--session-id", in: initial), sessionID)
+    XCTAssertEqual(try argument(after: "--session-id", in: initial), LoginShellRunner.shellEscape(sessionID))
     XCTAssertFalse(initial.contains("--resume"))
     XCTAssertFalse(initial.contains("--no-session-persistence"))
-    XCTAssertEqual(try argument(after: "--resume", in: correction), sessionID)
+    XCTAssertEqual(try argument(after: "--resume", in: correction), LoginShellRunner.shellEscape(sessionID))
     XCTAssertFalse(correction.contains("--session-id"))
     XCTAssertFalse(correction.contains("--no-session-persistence"))
     XCTAssertEqual(try argument(after: "--tools", in: correction), "Read")
@@ -140,7 +140,7 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
 
     XCTAssertEqual(
       Array(parts.prefix(7)),
-      ["claude", "-p", "--model", "sonnet", "--effort", "medium", "--dangerously-skip-permissions"]
+      ["claude", "-p", "--model", LoginShellRunner.shellEscape("sonnet"), "--effort", LoginShellRunner.shellEscape("medium"), "--dangerously-skip-permissions"]
     )
     XCTAssertFalse(parts.contains("--output-format"))
     XCTAssertFalse(parts.contains("--safe-mode"))
