@@ -118,7 +118,7 @@ struct ChatView: View {
       Task { await refreshRuntimeAvailability() }
     }
     .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-      guard AppVisibility.isOnScreen else { return }
+      guard AppVisibility.isMainWindowOnScreen else { return }
       refreshChatAccessProgress()
     }
     .onDisappear {

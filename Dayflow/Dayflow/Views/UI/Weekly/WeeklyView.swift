@@ -162,7 +162,7 @@ struct WeeklyView: View {
       selectDefaultWeekOnEntry()
     }
     .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-      guard AppVisibility.isOnScreen else { return }
+      guard AppVisibility.isMainWindowOnScreen else { return }
       refreshWeeklyAccessState()
     }
     .onChange(of: scenePhase) { _, phase in
