@@ -1,62 +1,36 @@
 # Plan
 
-Updated 2026-10-22. Working branch: `main` (pushed to `fork`, ollisulopuisto/Dayflow).
-`origin` = JerryZLiu/Dayflow (upstream, v2.7.5). No local Xcode: CI
-(`.github/workflows/build-macos.yml`, now builds and runs DayflowTests) is the only
-compiler and test runner.
+Updated 2026-10-22. Working branch: `main` (`d436e794`), pushed to `fork`
+(ollisulopuisto/Dayflow). `origin` = JerryZLiu/Dayflow (upstream).
+No local Xcode: CI (`.github/workflows/build-macos.yml`) builds and runs DayflowTests
+and is the only compiler and test runner. Last green run on this tree: 319 unit tests passed.
 
-## Done (on main)
-- Merged upstream v2.7.5 (`da6d627b`). Conflict in StorageManaging resolved.
-- Screenshot source fallback and day cache (`TimelineReviewFrameLoading.swift`):
-  card bounds, then activity bounds; prefetched day answers without DB reads;
-  binary search on the sorted day cache.
-- Regression tests: `DayflowTests/TimelineReviewScreenshotSourceTests.swift`.
-- Week view macroblocks (10-minute blocks, dominant category) with tests.
-- Studio incomplete-import and card-save failure logging.
-- CI now runs DayflowTests (it previously only built the app).
+## Done
+- Upstream v2.7.5 merged.
+- Kotlin batching branch merged (Studio queue, week and canvas performance,
+  Hour/Month zoom, treemap, privacy filters, CI changes).
+- Stale fix branches merged: intro replay, Sparkle XPC launcher off, week font
+  controls, hang fixes (already on main).
+- Screenshot source fallback and regression tests.
+- Seven failing unit tests fixed.
+- CI runs unit tests on every build.
+- Daily upstream sync job (`.github/workflows/sync-upstream.yml`). Needs a
+  `SYNC_TOKEN` secret (PAT with `workflow` scope) for syncs that touch workflows.
+- CHANGELOG `Unreleased` section updated.
 
-## Upstream sync
-- `.github/workflows/sync-upstream.yml` runs daily (00:00 UTC) and on demand.
-  Merges `JerryZLiu/Dayflow` main into `sync/upstream-main`, opens or updates a PR,
-  then dispatches the macOS build and tests on that branch.
-- Conflicts: nothing is pushed. The run fails and lists the files.
-- Verified: "up to date" path (run 39791719832, success, sync skipped). Dry run of the
-  conflict path in a scratch clone detected the conflicting file.
-- Not yet verified end to end: a real upstream commit producing a PR.
-- Needs a repository secret `SYNC_TOKEN` (PAT with `workflow` scope) for syncs that
-  touch `.github/workflows/`. Add it in GitHub settings, not in chat.
+## Open
+- `fork/ui-refresh-dark-mode` (3 commits, Sept): not merged. It conflicts in 43 files,
+  about 150 hunks, and the redesign overlaps with main's newer UI work. Decide
+  whether to port it deliberately or drop it. Tip `13f491ee`.
+- Sync job end to end: verified only the "already up to date" path. A real upstream
+  commit has not produced a PR yet.
+- Mac Studio constraints (from `BRIEF-koti-batching.md`): no analysis 01:00–07:00
+  Helsinki; one GPU job at a time; the gpu-queue port needs owner approval.
+- `BRIEF-koti-batching.md` still names branch `koti-batching`; the work lives on `main`.
+- PR #398 "Koti batching" is still open on the fork. Close it.
+- Open upstream PRs from other contributors are not reviewed.
 
-## In flight / to verify
-- Red check: `redcheck-mutant` branch (fallback removed) must fail
-  `testFallsBackToActivityBoundsWhenCardBoundsHoldNoScreenshots`. Result pending;
-  the branch is deleted once checked.
-- CI run on main with the test step: confirm green.
-
-## Open decisions
-- `fork/koti-batching-2.7.1` has 54 commits not on main: performance work
-  (launch, Weekly, Timeline, Chat), Hour/Month zoom, treemap Other tiles,
-  private-browser filtering, Sparkle/CI changes, Chat agy provider. Choose:
-  (a) merge the whole branch into main, then delete it; or (b) keep it.
-- `fork/ui-refresh-dark-mode` has 3 unique commits (dark mode refresh). Keep or delete.
-- BRIEF-koti-batching.md still names branch `koti-batching`; update the name.
-- Mac Studio constraints (brief): no analysis 01:00–07:00 Helsinki; one GPU job
-  at a time; a gpu-queue port for Dayflow needs owner approval before changing.
-
-## Branch cleanup (nothing deleted yet)
-Fully merged into main, safe to delete:
-- fork: `claude/confident-hawking-v5my0v`, `claude/practical-archimedes-n7fqbv`,
-  `defer-analysis-to-idle-3702119853844756667`, `koti-batching`, `devin/1773987437-cpu-optimization`
-- local: `integrate-idle-capture-main`, `koti-batching`, `restore-batch-queue-main`
-
-Stale, one old commit each:
-- fork: `claude/fix-app-launch-error-SwSZp`, `codex/weekly-timeline-font-controls`,
-  `devin/1774096411-fix-app-hanging-issues`, `devin/1774332260-fix-intro-animation-replay`,
-  `perf/optimize-screenshot-source-3259676437747517955` (code identical to main)
-
-Tip SHAs before cleanup: `scratchpad/branch-tips-before-cleanup.txt` (session scratchpad).
-`origin/*` branches belong to upstream; not touched.
-
-## Parked
-- Open PRs from other contributors (#380, #382, #386–#391, #400) are not ours. Not reviewed.
-- PR #398 "Koti batching" is open on the fork. Close once the branch decision is made.
-- No CHANGELOG.md in this repo; your global rules call for one.
+## Branches
+Only `main` and `fork/main` (same commit) plus `fork/ui-refresh-dark-mode` remain.
+Tip SHAs for deleted branches are in the session scratchpad
+(`branch-tips-before-cleanup.txt`, `branch-tips-final.txt`).
