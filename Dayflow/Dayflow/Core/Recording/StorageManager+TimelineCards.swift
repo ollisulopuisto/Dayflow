@@ -517,6 +517,8 @@ extension StorageManager {
 
         return (batchIntervals + unbatchedIntervals).sorted { $0.start < $1.start }
       }) ?? []
+  }
+
   func batchIDs(withStatus status: String) -> [Int64] {
     (try? db.read { db in
       try Int64.fetchAll(

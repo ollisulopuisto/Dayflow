@@ -914,15 +914,6 @@ struct WeekTimelineGridView: View {
       return byName[key] ?? fallback
     }
   }
-    }
-    let categories = categoryStore.categories
-    let byName = Dictionary(
-      categories.map { (normalized($0.name), palette(from: $0)) },
-      uniquingKeysWith: { first, _ in first })
-    let fallback = palette(
-      from: categories.first ?? CategoryPersistence.defaultCategories.first!)
-    return { rawCategory in byName[normalized(rawCategory)] ?? fallback }
-  }
 
   private func palette(from category: TimelineCategory) -> WeekTimelineCardPalette {
     let accent = Color(nsColor: NSColor(hex: category.colorHex) ?? .systemBlue)

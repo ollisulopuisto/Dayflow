@@ -94,6 +94,24 @@ enum TimelineActivityLoader {
       + pendingActivities
   }
 
+  /// Month view: cards only. Pending capture is a week/day concern and scanning a
+  /// month of captures on every load would cost more than it shows.
+  static func activities(
+    in monthRange: TimelineMonthRange,
+    storageManager: StorageManaging = StorageManager.shared
+  ) -> [TimelineActivity] {
+    activities(from: monthRange.monthStart, to: monthRange.monthEnd, storageManager: storageManager)
+  }
+
+  static func activities(
+    from start: Date,
+    to end: Date,
+    storageManager: StorageManaging = StorageManager.shared
+  ) -> [TimelineActivity] {
+    let cards = storageManager.fetchTimelineCardsByTimeRange(from: start, to: end)
+    return buildActivities(from: displayableCards(cards, storageManager: storageManager))
+  }
+
   private static func pendingCaptureActivities(
     from start: Date,
     to end: Date,
