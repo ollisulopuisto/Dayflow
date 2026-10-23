@@ -41,7 +41,7 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Mac Studio constraints (from `BRIEF-koti-batching.md`): no analysis 01:00–07:00
   Helsinki; one GPU job at a time; the gpu-queue port needs owner approval.
 - `BRIEF-koti-batching.md` still names branch `koti-batching`; the work lives on `main`.
-- PR #398 "Koti batching" is still open on the fork. Close it.
+- PR #398 "Koti batching" lives on upstream (JerryZLiu/Dayflow), not the fork, and is already closed (not merged).
 - Open upstream PRs from other contributors are not reviewed.
 
 ## Branches
