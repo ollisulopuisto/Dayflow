@@ -82,6 +82,8 @@ struct WeekTimelineGridView: View {
   var hideCardsForModeSwitch = false
   // Categories turned off in the chip row; their cards render dimmed.
   var mutedCategoryKeys: Set<String> = []
+  // Free-text search; cards that do not match render dimmed like muted categories.
+  var searchQuery: String = ""
 
   // Opt-in fake data for #Preview; nil in production so loadActivities() runs normally.
   var previewPositionedActivities: [WeekPositionedActivity]? = nil
@@ -404,6 +406,8 @@ struct WeekTimelineGridView: View {
     // Built once per render: hover re-evaluates every card, and each lookup used to
     // search the categories and parse a hex colour per card.
     let paletteFor = paletteLookup()
+    let searchMatches = TimelineSearch.matchingIDs(
+      terms: TimelineSearch.terms(searchQuery), activities: positionedActivities.map(\.activity))
 
     return ZStack(alignment: .topLeading) {
       ForEach(positionedActivities) { item in
@@ -442,8 +446,12 @@ struct WeekTimelineGridView: View {
           }
         }
         .frame(width: cardWidth)
-        .opacity(mutedCategoryKeys.contains(categoryFilterKey(item.categoryName)) ? 0.25 : 1)
+        .opacity(
+          mutedCategoryKeys.contains(categoryFilterKey(item.categoryName))
+            || !(searchMatches?.contains(item.id) ?? true) ? 0.25 : 1
+        )
         .animation(.easeOut(duration: 0.15), value: mutedCategoryKeys)
+        .animation(.easeOut(duration: 0.15), value: searchMatches)
         .position(x: cardXPosition, y: item.yPosition + cardEffectiveHeight / 2)
         .animation(isHov ? hoverAnimation : collapseAnimation, value: hoveredCardID)
       }

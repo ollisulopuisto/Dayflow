@@ -75,6 +75,9 @@ struct MainView: View {
   // Categories the user turned off in the chip row (keys from categoryFilterKey).
   // Session-only on purpose: their cards are dimmed, not hidden.
   @State var mutedCategoryKeys: Set<String> = []
+  // Free-text search over the timeline cards. Non-matching cards are dimmed like muted categories.
+  @State var timelineSearchText = ""
+  @FocusState var timelineSearchFocused: Bool
   @State var feedbackModalVisible = false
   @State var feedbackMessage: String = ""
   @State var feedbackShareLogs = true

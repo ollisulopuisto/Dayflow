@@ -9,6 +9,9 @@
 - Week view: font size and weight controls, shown in Week mode.
 - Upstream sync: a daily job opens a PR when upstream JerryZLiu/Dayflow has new commits. It fails rather than pushing when a merge conflicts.
 
+- Timeline search: a field next to the category chips (⌘F focuses it, Esc clears it). Cards that do not match are dimmed like muted categories, in Day, Hour and Week. Month day totals count only matching activities. Matches title, summaries, category, app and site; every word must match.
+- ⌘← and ⌘→ step the timeline back and forward by a day, week or month (Day/Hour, Week, Month). Forward stops at today. In a text field they still move the cursor to the start or end of the line.
+
 ### Fixed
 - Timeline: a background refresh that lands under the pointer no longer aborts the app (AttributeGraph crash). Refreshes wait until the pointer leaves the cards.
 - Updates: the Sparkle installer launcher service is off, which fixes "The application can't be opened" (-10810) after an update.

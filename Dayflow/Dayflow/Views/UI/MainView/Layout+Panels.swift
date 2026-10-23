@@ -172,15 +172,18 @@ extension MainView {
 
   private var timelineContent: some View {
     VStack(alignment: .leading, spacing: 12) {
-      TabFilterBar(
-        categories: categoryStore.editableCategories,
-        idleCategory: categoryStore.idleCategory,
-        mutedCategoryKeys: $mutedCategoryKeys,
-        onManageCategories: { showCategoryEditor = true },
-        onMoveCategory: { id, targetID in
-          categoryStore.moveCategory(id: id, toPositionOf: targetID)
-        }
-      )
+      HStack(spacing: 10) {
+        TabFilterBar(
+          categories: categoryStore.editableCategories,
+          idleCategory: categoryStore.idleCategory,
+          mutedCategoryKeys: $mutedCategoryKeys,
+          onManageCategories: { showCategoryEditor = true },
+          onMoveCategory: { id, targetID in
+            categoryStore.moveCategory(id: id, toPositionOf: targetID)
+          }
+        )
+        TimelineSearchField(text: $timelineSearchText, isFocused: $timelineSearchFocused)
+      }
       .padding(.leading, 10 + TimelineAlignment.categoryRowInset)
       .opacity(contentOpacity)
 
@@ -207,6 +210,7 @@ extension MainView {
             refreshTrigger: refreshActivitiesTrigger,
             hasAnyActivities: $hasAnyActivities,
             mutedCategoryKeys: mutedCategoryKeys,
+            searchQuery: timelineSearchText,
             onSelectDay: { day in
               setSelectedDate(day)
               setTimelineMode(.day)
@@ -227,7 +231,8 @@ extension MainView {
             weeklyHoursFrame: weeklyHoursFrame,
             weeklyHoursIntersectsCard: $weeklyHoursIntersectsCard,
             hideCardsForModeSwitch: hideWeekCardsDuringModeSwitch,
-            mutedCategoryKeys: mutedCategoryKeys
+            mutedCategoryKeys: mutedCategoryKeys,
+            searchQuery: timelineSearchText
           )
           // Week is the zoomed-OUT view (7 days). Entering Week from Day
           // feels like pulling back: start at 1.05 (slightly too large) and
@@ -269,6 +274,7 @@ extension MainView {
       cardHoverScale: TimelineCardLayout.hoverScale,
       cardPressedScale: TimelineCardLayout.pressedScale,
       mutedCategoryKeys: mutedCategoryKeys,
+      searchQuery: timelineSearchText,
       mergeSegments: mergeSegments
     )
   }

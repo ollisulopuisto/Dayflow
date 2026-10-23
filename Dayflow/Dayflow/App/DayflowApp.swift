@@ -495,6 +495,27 @@ struct DayflowApp: App {
         .keyboardShortcut("-", modifiers: .command)
 
         Divider()
+
+        Button("Previous Day, Week or Month") {
+          NotificationCenter.default.post(
+            name: .timelineNavigateStep, object: nil, userInfo: ["delta": -1])
+        }
+        .keyboardShortcut(.leftArrow, modifiers: .command)
+
+        Button("Next Day, Week or Month") {
+          NotificationCenter.default.post(
+            name: .timelineNavigateStep, object: nil, userInfo: ["delta": 1])
+        }
+        .keyboardShortcut(.rightArrow, modifiers: .command)
+
+        Divider()
+      }
+
+      CommandGroup(after: .textEditing) {
+        Button("Search Timeline") {
+          NotificationCenter.default.post(name: .timelineFocusSearch, object: nil)
+        }
+        .keyboardShortcut("f", modifiers: .command)
       }
 
       CommandGroup(after: .sidebar) {
@@ -621,6 +642,8 @@ extension Notification.Name {
   static let navigateToWeekly = Notification.Name("navigateToWeekly")
   static let navigateToSettings = Notification.Name("navigateToSettings")
   static let timelineZoomStep = Notification.Name("timelineZoomStep")
+  static let timelineNavigateStep = Notification.Name("timelineNavigateStep")
+  static let timelineFocusSearch = Notification.Name("timelineFocusSearch")
   static let navigateToSection = Notification.Name("navigateToSection")
   static let timelineDataUpdated = Notification.Name("timelineDataUpdated")
   static let showTimelineFailureToast = Notification.Name("showTimelineFailureToast")

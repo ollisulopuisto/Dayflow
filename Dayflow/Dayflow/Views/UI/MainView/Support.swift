@@ -368,6 +368,22 @@ extension MainView {
     }
   }
 
+  /// ⌘← / ⌘→. Inside a text view the keys keep their editing meaning (line start and end).
+  func handleTimelineNavigateStep(delta: Int) {
+    guard delta != 0 else { return }
+    if let textView = NSApp.keyWindow?.firstResponder as? NSTextView {
+      textView.doCommand(by: TimelineStep.textEditingSelector(for: delta))
+      return
+    }
+    guard selectedIcon == .timeline else { return }
+    if delta > 0 {
+      guard canNavigateTimelineForward else { return }
+      navigateTimeline(to: nextTimelineDate(), method: "shortcut_next")
+    } else {
+      navigateTimeline(to: previousTimelineDate(), method: "shortcut_prev")
+    }
+  }
+
   func navigateTimeline(to date: Date, method: String) {
     let navStart = CFAbsoluteTimeGetCurrent()
     let from = selectedDate

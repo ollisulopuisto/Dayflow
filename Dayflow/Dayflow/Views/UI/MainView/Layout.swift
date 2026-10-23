@@ -101,6 +101,13 @@ extension MainView {
         let delta = notification.userInfo?["delta"] as? Int ?? 0
         setTimelineMode(timelineMode.zoomed(by: delta))
       }
+      .onReceive(NotificationCenter.default.publisher(for: .timelineNavigateStep)) { notification in
+        handleTimelineNavigateStep(delta: notification.userInfo?["delta"] as? Int ?? 0)
+      }
+      .onReceive(NotificationCenter.default.publisher(for: .timelineFocusSearch)) { _ in
+        guard selectedIcon == .timeline else { return }
+        timelineSearchFocused = true
+      }
       .onReceive(NotificationCenter.default.publisher(for: .navigateToSection)) { notification in
         guard let number = notification.userInfo?["number"] as? Int,
           let icon = SidebarIcon.forCommandNumber(number),

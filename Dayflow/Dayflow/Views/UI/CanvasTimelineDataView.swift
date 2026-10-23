@@ -77,6 +77,8 @@ struct CanvasTimelineDataView: View {
   let cardPressedScale: CGFloat
   // Categories turned off in the chip row; their cards render dimmed.
   var mutedCategoryKeys: Set<String> = []
+  // Free-text search; cards that do not match render dimmed like muted categories.
+  var searchQuery: String = ""
   // false shows the raw cards (Hour zoom) instead of ~10 minute blocks.
   var mergeSegments: Bool = true
 
@@ -366,6 +368,8 @@ struct CanvasTimelineDataView: View {
     GeometryReader { geo in
       // Built once per render instead of a category search and hex parse per card.
       let styleFor = styleLookup()
+      let searchMatches = TimelineSearch.matchingIDs(
+        terms: TimelineSearch.terms(searchQuery), activities: positionedActivities.map(\.activity))
       ZStack(alignment: .topLeading) {
         Color.clear
           .contentShape(Rectangle())
@@ -417,8 +421,12 @@ struct CanvasTimelineDataView: View {
           )
           .frame(width: geo.size.width, height: item.height)
           .position(x: geo.size.width / 2, y: item.yPosition + (item.height / 2))
-          .opacity(mutedCategoryKeys.contains(categoryFilterKey(item.categoryName)) ? 0.25 : 1)
+          .opacity(
+            mutedCategoryKeys.contains(categoryFilterKey(item.categoryName))
+              || !(searchMatches?.contains(item.id) ?? true) ? 0.25 : 1
+          )
           .animation(.easeOut(duration: 0.15), value: mutedCategoryKeys)
+          .animation(.easeOut(duration: 0.15), value: searchMatches)
           // Staggered entrance animation (Emil Kowalski: sequential reveal creates polish)
           .opacity(isVisible ? 1 : 0)
           .offset(x: isVisible ? 0 : 12)

@@ -19,12 +19,14 @@ enum MonthTimelineSummary {
   static func summarize(
     _ activities: [TimelineActivity],
     mutedCategoryKeys: Set<String> = [],
-    idleCategoryKeys: Set<String> = []
+    idleCategoryKeys: Set<String> = [],
+    searchTerms: [String] = []
   ) -> [String: MonthDaySummary] {
     var result: [String: MonthDaySummary] = [:]
     for activity in activities {
       let key = categoryFilterKey(activity.category)
       if idleCategoryKeys.contains(key) || mutedCategoryKeys.contains(key) { continue }
+      if !TimelineSearch.matches(terms: searchTerms, activity: activity) { continue }
       let seconds = max(0, activity.endTime.timeIntervalSince(activity.startTime))
       let day = activity.startTime.getDayInfoFor4AMBoundary().dayString
       var summary = result[day] ?? MonthDaySummary()
@@ -41,6 +43,8 @@ struct MonthTimelineView: View {
   let refreshTrigger: Int
   @Binding var hasAnyActivities: Bool
   var mutedCategoryKeys: Set<String> = []
+  // Free-text search; only matching activities count towards the day totals.
+  var searchQuery: String = ""
   let onSelectDay: (Date) -> Void
 
   @EnvironmentObject private var categoryStore: CategoryStore
@@ -114,6 +118,7 @@ struct MonthTimelineView: View {
     .onChange(of: monthRange) { load() }
     .onChange(of: refreshTrigger) { load() }
     .onChange(of: mutedCategoryKeys) { load() }
+    .onChange(of: searchQuery) { load() }
     // New cards arrive while the view is open, so refresh like the day and week views do.
     .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
       if AppVisibility.isMainWindowOnScreen { load() }
@@ -204,10 +209,11 @@ struct MonthTimelineView: View {
     let range = monthRange
     let muted = mutedCategoryKeys
     let idle = idleKeys
+    let searchTerms = TimelineSearch.terms(searchQuery)
     loadTask = Task.detached(priority: .userInitiated) {
       let activities = TimelineActivityLoader.activities(in: range)
       let result = MonthTimelineSummary.summarize(
-        activities, mutedCategoryKeys: muted, idleCategoryKeys: idle)
+        activities, mutedCategoryKeys: muted, idleCategoryKeys: idle, searchTerms: searchTerms)
       guard !Task.isCancelled else { return }
       await MainActor.run {
         summaries = result
