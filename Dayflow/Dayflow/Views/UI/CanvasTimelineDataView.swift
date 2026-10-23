@@ -821,13 +821,9 @@ struct CanvasTimelineDataView: View {
     }
 
     let intersectsTimelineCard = positionedActivities.contains { item in
-      let cardFrame = CGRect(
-        x: cardsLayerFrame.minX,
-        y: cardsLayerFrame.minY + item.yPosition,
-        width: cardsLayerFrame.width,
-        height: item.height
-      )
-      return cardFrame.intersects(weeklyHoursFrame)
+      TimelineFooterOverlap.overlaps(
+        cardY: cardsLayerFrame.minY + item.yPosition, height: item.height,
+        footer: weeklyHoursFrame)
     }
 
     let intersectsStatusCard: Bool

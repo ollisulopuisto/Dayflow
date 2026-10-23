@@ -44,9 +44,8 @@ Background: vImage resample, JPEG encode, `_convertJSONString`.
    and the only @State they touch (`weeklyHoursFadeOpacityLevel`, `weeklyHoursIntersectsCard`) is
    assigned only when its value changes (the fade level is rounded to 5 % steps). What is left is
    the per-frame callback work itself. The 24 hour-label GeometryReaders are replaced by one reader on
-   the time column (label frames derived in `TimelineTimeLabelGeometry`). Left: a loop over every card
-   while the weekly-hours footer overlaps the cards. Needs an Animation Hitches trace to know if it matters.
-2. C: Per-card cost in body: category lookup, favicon pattern matching, and an InnerGlow blur pass per card
+   the time column (label frames derived in `TimelineTimeLabelGeometry`). The footer loop (Day) now compares vertical spans only; it was never expensive (tens of cards). Needs an Animation Hitches trace to know if it matters.
+2. C: Per-card cost in body: category lookup, favicon pattern matching, and an InnerGlow blur pass per card (now vector strokes, `CardEdgeGlow`)
    (CanvasActivityCard.swift:190-242, DayflowTheme.swift:712).
 3. C: Cards are not lazy and the stagger animation is uncapped. The Day↔Hour switch renders two scaled timelines.
 4. C: N+1 `screenshotsForBatch` for failed cards (TimelineActivityLoader.swift:92-114).

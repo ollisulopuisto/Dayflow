@@ -709,6 +709,32 @@ extension Color {
 
 /// Faux "inset box-shadow" glow used all over the Figma: a soft stroke drawn
 /// just inside the shape's edge.
+/// A blur-free stand-in for `InnerGlow(radius: 3)` on timeline cards. The blur forced an
+/// offscreen pass per card; three nested border strokes approximate the same falloff
+/// (about 0.36 of the colour at the edge, fading out by 9 pt) as plain vector drawing.
+enum CardEdgeGlowSpec {
+  static let layers: [(width: CGFloat, opacity: Double)] = [
+    (width: 3, opacity: 0.11),
+    (width: 6, opacity: 0.18),
+    (width: 9, opacity: 0.07),
+  ]
+}
+
+struct CardEdgeGlow<S: InsettableShape>: View {
+  let shape: S
+  let color: Color
+
+  var body: some View {
+    ZStack {
+      ForEach(Array(CardEdgeGlowSpec.layers.enumerated()), id: \.offset) { _, layer in
+        shape.strokeBorder(color.opacity(layer.opacity), lineWidth: layer.width)
+      }
+    }
+    .clipShape(shape)
+    .allowsHitTesting(false)
+  }
+}
+
 struct InnerGlow<S: InsettableShape>: View {
   let shape: S
   let color: Color

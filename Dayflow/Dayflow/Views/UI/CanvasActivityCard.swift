@@ -191,10 +191,9 @@ struct CanvasActivityCard: View {
       .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
       .overlay {
         if !isFailedCard {
-          InnerGlow(
+          CardEdgeGlow(
             shape: RoundedRectangle(cornerRadius: 2, style: .continuous),
-            color: theme.cardInnerGlow,
-            radius: 3
+            color: theme.cardInnerGlow
           )
         }
       }

@@ -23,8 +23,10 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 ## Open
 - Browser privacy off-main change: CI green but not tried against a real browser (incognito, excluded site).
 - Timeline scroll time-column change: not measured on a device; label height is estimated.
-- Timeline scroll performance, rest: the preference-key and lazy-card items in `docs/PERFORMANCE.md` are not
-  done. The @State-per-frame claim was already fixed; lazy cards need a measurement first.
+- Timeline scroll, card edge glow now vector strokes (`CardEdgeGlow`): a visual approximation, check it by eye
+  in light and dark themes. Branch `perf/card-glow`, CI pending.
+- Lazy cards not done: macOS 14 has no scroll-offset API, and windowing from a custom observer costs a per-frame
+  update, which is what the earlier fixes removed. Measure with Animation Hitches before building it.
 - `fork/ui-refresh-dark-mode` (3 commits, Sept): not merged. It conflicts in 43 files,
   about 150 hunks, and the redesign overlaps with main's newer UI work. Decide
   whether to port it deliberately or drop it. Tip `13f491ee`.

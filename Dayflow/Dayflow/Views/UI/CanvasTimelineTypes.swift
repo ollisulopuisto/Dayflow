@@ -61,6 +61,14 @@ enum TimelineCardTextWeight: String, CaseIterable, Identifiable {
   }
 }
 
+/// Whether a full-width card overlaps the weekly-hours footer, by vertical span only.
+/// Callers have already checked that the footer intersects the cards layer.
+enum TimelineFooterOverlap {
+  static func overlaps(cardY: CGFloat, height: CGFloat, footer: CGRect) -> Bool {
+    cardY < footer.maxY && cardY + height > footer.minY
+  }
+}
+
 /// Hour label frames derived from the one measured time column, so a scroll frame reports
 /// a single frame instead of one per label.
 enum TimelineTimeLabelGeometry {

@@ -35,6 +35,8 @@
 - Idle: the Studio queue uploads each pending batch once at a time and waits 1, 2, 5, 15, then 60 minutes after a failure, instead of re-encoding every pending batch every minute while the Studio is unreachable.
 - Idle: the browser privacy check compiles each AppleScript once and skips browsers no setting needs. It now asks the browser on a background queue, so a slow or hung browser no longer freezes the main thread at capture time.
 - Scrolling: the Day and Week time columns report one measured frame per scroll frame and derive the hour-label frames from it, instead of 24 per-label layout readers. The weekly-hours footer fade is unchanged.
+- Scrolling: timeline cards draw their inner edge glow with three vector strokes instead of a blurred stroke, which removes an offscreen blur pass per card. The glow is an approximation of the old one and may look slightly different at the card edge.
+- Scrolling: the Day footer overlap check compares vertical spans instead of building a rectangle per card.
 
 ### Not yet addressed
-See `docs/PERFORMANCE.md` for the findings that are still open (timeline scrolling is not yet measured, and the cards are not lazy).
+See `docs/PERFORMANCE.md` for the findings that are still open (timeline scrolling is not measured, and the cards are not lazy).
