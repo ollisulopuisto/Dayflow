@@ -24,7 +24,7 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Browser privacy off-main change: CI green but not tried against a real browser (incognito, excluded site).
 - Timeline scroll time-column change: not measured on a device; label height is estimated.
 - Timeline scroll, card edge glow now vector strokes (`CardEdgeGlow`): a visual approximation, check it by eye
-  in light and dark themes. Branch `perf/card-glow`, CI pending.
+  in light and dark themes. Merged, CI green.
 - Lazy cards not done: macOS 14 has no scroll-offset API, and windowing from a custom observer costs a per-frame
   update, which is what the earlier fixes removed. Measure with Animation Hitches before building it.
 - `fork/ui-refresh-dark-mode` (3 commits, Sept): not merged. It conflicts in 43 files,
