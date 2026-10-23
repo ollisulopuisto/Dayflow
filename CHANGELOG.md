@@ -37,6 +37,7 @@
 - Scrolling: the Day and Week time columns report one measured frame per scroll frame and derive the hour-label frames from it, instead of 24 per-label layout readers. The weekly-hours footer fade is unchanged.
 - Scrolling: timeline cards draw their inner edge glow with three vector strokes instead of a blurred stroke, which removes an offscreen blur pass per card. The glow is an approximation of the old one and may look slightly different at the card edge.
 - Scrolling: the Day footer overlap check compares vertical spans instead of building a rectangle per card.
+- Week scrolling: week cards measure their expanded height only while the pointer is on them. Every card used to lay its title out a second time, hidden, and publish the height on every update (about 0.7 s of CPU per 30 s of scrolling in a trace).
 
 ### Not yet addressed
 See `docs/PERFORMANCE.md` for the findings that are still open (timeline scrolling is not measured, and the cards are not lazy).

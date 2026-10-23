@@ -21,6 +21,9 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Scroll: one time-column reader instead of 24 label readers (merged, CI green).
 
 ## Open
+- Scroll trace findings (Day, Week, 30 s each, 2026-10-23): ~50-60 % of a core on the main thread, nearly all in
+  SwiftUI internals; the whole MainView (header, right panel, mode switch) re-evaluates while scrolling. The state that
+  triggers it is not found yet. Week-card hidden measurement fixed on `perf/week-measure` (CI pending).
 - Browser privacy off-main change: CI green but not tried against a real browser (incognito, excluded site).
 - Timeline scroll time-column change: not measured on a device; label height is estimated.
 - Timeline scroll, card edge glow now vector strokes (`CardEdgeGlow`): a visual approximation, check it by eye

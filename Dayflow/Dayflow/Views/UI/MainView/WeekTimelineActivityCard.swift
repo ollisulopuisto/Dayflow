@@ -8,6 +8,16 @@ struct CardExpandedHeightPreferenceKey: PreferenceKey {
   }
 }
 
+/// Folds a card's measured expanded height into what the grid already knows. Returns nil when
+/// nothing changed, so the grid skips the @State write.
+enum ExpandedHeightMerge {
+  static func merged(current: [String: CGFloat], incoming: [String: CGFloat]) -> [String: CGFloat]? {
+    var result = current
+    for (id, height) in incoming { result[id] = height }
+    return result == current ? nil : result
+  }
+}
+
 struct WeekTimelineCardPalette {
   let accent: Color
   let fill: Color
@@ -17,6 +27,9 @@ struct WeekTimelineCardPalette {
 
 struct WeekTimelineActivityCard: View {
   @Environment(\.dayflowTheme) private var theme
+  // The expanded-height measurement lays the title out a second time, so only cards the pointer
+  // is on carry it. The hover-intent delay (120 ms) gives it time to land before the card expands.
+  @State private var pointerOver = false
 
   let cardId: String
   let title: String
@@ -139,11 +152,14 @@ struct WeekTimelineActivityCard: View {
     .hoverScaleEffect(scale: 1.01)
     .zIndex(isHovered ? 10 : (isSelected ? 2 : 0))
     .onHover { hovering in
+      pointerOver = hovering
       onHoverChanged(hovering)
     }
     // Hidden natural-height measurement published to parent via preference.
     .background(alignment: .topLeading) {
-      expandedHeightMeasurement
+      if pointerOver || isHovered {
+        expandedHeightMeasurement
+      }
     }
   }
 

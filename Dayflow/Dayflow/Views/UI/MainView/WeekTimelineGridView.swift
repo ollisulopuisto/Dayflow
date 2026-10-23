@@ -471,7 +471,10 @@ struct WeekTimelineGridView: View {
       hoveredCardID = nil
     }
     .onPreferenceChange(CardExpandedHeightPreferenceKey.self) { values in
-      measuredExpandedHeights = values
+      // Only the hovered card publishes, so fold it in rather than replacing what is known.
+      if let merged = ExpandedHeightMerge.merged(current: measuredExpandedHeights, incoming: values) {
+        measuredExpandedHeights = merged
+      }
     }
   }
 
