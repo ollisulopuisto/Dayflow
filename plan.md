@@ -21,12 +21,12 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Scroll: one time-column reader instead of 24 label readers (merged, CI green).
 
 ## Open
-- Timeline search and ⌘←/⌘→ (branch `feature/search-and-step-nav`, CI pending, never run in the app). Check: ⌘← in the
+- Timeline search and ⌘←/⌘→ (merged, CI green, not yet tried in the app). Check: ⌘← in the
   search field and in Chat still moves the cursor; search dims the right cards in Day, Week and Month; in Day/Week
   merged ~10 minute blocks only match on the text of the block's main activity.
 - Scroll trace findings (Day, Week, 30 s each, 2026-10-23): ~50-60 % of a core on the main thread, nearly all in
   SwiftUI internals; the whole MainView (header, right panel, mode switch) re-evaluates while scrolling. The state that
-  triggers it is not found yet. Week-card hidden measurement fixed on `perf/week-measure` (CI pending).
+  triggers it is not found yet. Week-card hidden measurement fixed and merged (CI green; hover not yet tried in the app).
 - Browser privacy off-main change: CI green but not tried against a real browser (incognito, excluded site).
 - Timeline scroll time-column change: not measured on a device; label height is estimated.
 - Timeline scroll, card edge glow now vector strokes (`CardEdgeGlow`): a visual approximation, check it by eye
