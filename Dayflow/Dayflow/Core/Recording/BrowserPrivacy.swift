@@ -82,9 +82,9 @@ enum BrowserPrivacy {
   }
 
   /// The label to draw instead of the screen, or nil when the frontmost window may be captured.
-  @MainActor
-  static func redactionLabel() -> String? {
-    guard let state = frontmostBrowserState(),
+  /// The browser is asked on `AppleScriptQueue`, so a slow or hung browser never blocks the main thread.
+  static func redactionLabel() async -> String? {
+    guard let state = await frontmostBrowserState(),
       let redaction = redactionReason(
         isIncognito: state.isIncognito,
         url: state.url,
@@ -127,9 +127,15 @@ enum BrowserPrivacy {
     }
   }
 
-  /// The state of the frontmost window when it belongs to a supported browser, otherwise nil.
+  /// The frontmost app when it is a supported browser that a current setting needs to ask.
+  struct Target: Sendable {
+    let kind: BrowserKind
+    let bundleID: String
+    let pid: pid_t
+  }
+
   @MainActor
-  static func frontmostBrowserState() -> State? {
+  static func frontmostTarget() -> Target? {
     guard let app = NSWorkspace.shared.frontmostApplication,
       let bundleID = app.bundleIdentifier
     else { return nil }
@@ -146,25 +152,34 @@ enum BrowserPrivacy {
     }
     guard needsCheck(kind, hidesIncognito: hidesIncognito, excludedDomains: excludedDomains)
     else { return nil }
+    return Target(kind: kind, bundleID: bundleID, pid: app.processIdentifier)
+  }
 
-    switch kind {
+  /// The state of the frontmost window when it belongs to a supported browser, otherwise nil.
+  static func frontmostBrowserState() async -> State? {
+    guard let target = await MainActor.run(body: { frontmostTarget() }) else { return nil }
+    return await AppleScriptQueue.perform { state(of: target) }
+  }
+
+  private static func state(of target: Target) -> State? {
+    switch target.kind {
     case .chromium:
-      return scriptedState(bundleID: bundleID, chromium: true)
+      return scriptedState(bundleID: target.bundleID, chromium: true)
     case .safari:
-      return scriptedState(bundleID: bundleID, chromium: false)
+      return scriptedState(bundleID: target.bundleID, chromium: false)
     case .firefox:
-      let title = frontWindowTitle(pid: app.processIdentifier) ?? ""
+      let title = frontWindowTitle(pid: target.pid) ?? ""
       return State(isIncognito: title.contains("Private Browsing"), url: nil)
     }
   }
 
   /// Compiled once per browser; compiling AppleScript on every capture was wasted work.
-  @MainActor private static var compiledScripts: [String: NSAppleScript] = [:]
+  /// Only touched from `AppleScriptQueue`.
+  nonisolated(unsafe) private static var compiledScripts: [String: NSAppleScript] = [:]
 
-  @MainActor
   private static func compiledScript(bundleID: String, chromium: Bool) -> NSAppleScript? {
     if let cached = compiledScripts[bundleID] { return cached }
-    // The timeout keeps a hung browser from blocking the main thread for the 2 minute default.
+    // The timeout bounds how long the queue is held by a hung browser (the default is 2 minutes).
     let body =
       chromium
       ? "return (mode of front window) & linefeed & (URL of active tab of front window)"
@@ -184,7 +199,6 @@ enum BrowserPrivacy {
     return script
   }
 
-  @MainActor
   private static func scriptedState(bundleID: String, chromium: Bool) -> State? {
     guard let script = compiledScript(bundleID: bundleID, chromium: chromium) else { return nil }
     var error: NSDictionary?
@@ -206,5 +220,17 @@ enum BrowserPrivacy {
         && (window[kCGWindowLayer as String] as? NSNumber)?.intValue == 0
     }
     return match?[kCGWindowName as String] as? String
+  }
+}
+
+/// NSAppleScript is not thread safe, so all use shares one serial queue, away from the main thread.
+enum AppleScriptQueue {
+  private static let queue = DispatchQueue(
+    label: "so.dayflow.browser-privacy.applescript", qos: .utility)
+
+  static func perform<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+    await withCheckedContinuation { continuation in
+      queue.async { continuation.resume(returning: work()) }
+    }
   }
 }

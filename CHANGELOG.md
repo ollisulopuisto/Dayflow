@@ -31,5 +31,8 @@
 - Idle: the Day, Week and Month timelines no longer reload every 60 s while the app is hidden, minimized or covered. They refresh when the app becomes active again.
 - Idle: removed the per-query "DB read/write" Sentry breadcrumbs; slow and failed queries still log them.
 
+- Idle: the Studio queue uploads each pending batch once at a time and waits 1, 2, 5, 15, then 60 minutes after a failure, instead of re-encoding every pending batch every minute while the Studio is unreachable.
+- Idle: the browser privacy check compiles each AppleScript once and skips browsers no setting needs. It now asks the browser on a background queue, so a slow or hung browser no longer freezes the main thread at capture time.
+
 ### Not yet addressed
-See `docs/PERFORMANCE.md` for the measured and code-audited findings that are still open (Timeline scroll preference-key updates, Studio queue retries, main-thread AppleScript privacy check).
+See `docs/PERFORMANCE.md` for the findings that are still open (timeline scrolling is not yet measured, and the cards are not lazy).

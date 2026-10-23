@@ -1,6 +1,6 @@
 # Plan
 
-Updated 2026-10-22. Working branch: `main` (`d436e794`), pushed to `fork`
+Updated 2026-10-23. Working branch: `main`, pushed to `fork`
 (ollisulopuisto/Dayflow). `origin` = JerryZLiu/Dayflow (upstream).
 No local Xcode: CI (`.github/workflows/build-macos.yml`) builds and runs DayflowTests
 and is the only compiler and test runner. Last green run on this tree: 319 unit tests passed.
@@ -17,8 +17,13 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Daily upstream sync job (`.github/workflows/sync-upstream.yml`). Needs a
   `SYNC_TOKEN` secret (PAT with `workflow` scope) for syncs that touch workflows.
 - CHANGELOG `Unreleased` section updated.
+- Idle: browser privacy AppleScript runs on a background queue (CI result pending, see Open).
 
 ## Open
+- Browser privacy off-main change and `BrowserPrivacyQueueTests`: pushed but not yet built or tested on CI.
+  The failing-first run was skipped (the test does not compile without `AppleScriptQueue`).
+- Timeline scroll performance: the preference-key and lazy-card items in `docs/PERFORMANCE.md` are not
+  done. The @State-per-frame claim was already fixed; lazy cards need a measurement first.
 - `fork/ui-refresh-dark-mode` (3 commits, Sept): not merged. It conflicts in 43 files,
   about 150 hunks, and the redesign overlaps with main's newer UI work. Decide
   whether to port it deliberately or drop it. Tip `13f491ee`.

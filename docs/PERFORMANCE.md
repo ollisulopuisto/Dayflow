@@ -27,11 +27,11 @@ After that, the splash video (about 3.6 s) and a fixed 1.5 s scroll delay (Lifec
 Measured: 0.7 % CPU, 80 MB RSS, and about 360 ms of SwiftUI AttributeGraph work on main per 90 s.
 Background: vImage resample, JPEG encode, `_convertJSONString`.
 
-1. C: The Studio queue re-encodes every `pending` batch every minute with no backoff or in-flight guard
-   (StudioBatchQueue.swift:35-106). The DB had 0 pending and 215 `studio_queued` batches, so this
-   only applies while the Studio is unreachable. Unbounded while it is.
-2. C: An AppleScript privacy check runs synchronously on main at every capture (BrowserPrivacy.swift:86-156),
-   and the script is compiled each time.
+1. Fixed (76de88f0): the Studio queue re-encoded every `pending` batch every minute with no backoff or in-flight
+   guard. `StudioUploadBackoff` now allows one upload per batch and waits 1, 2, 5, 15, 60 min after a failure.
+2. Fixed (ff783850 and this change): the AppleScript privacy check compiled the script at every capture and ran
+   it synchronously on main. Scripts are compiled once, skipped when no setting needs them, and run on a serial
+   background queue (`AppleScriptQueue`).
 3. C: 60 s timeline refresh timers keep running when the window is hidden (soft quit = `NSApp.hide`).
    They replace the whole non-Equatable `positionedActivities`, so every card re-renders
    (CanvasTimelineDataView.swift:807, Week :701, Month :118). Likely source of the AG time.
@@ -39,8 +39,12 @@ Background: vImage resample, JPEG encode, `_convertJSONString`.
 5. C: PauseManager sends `objectWillChange` at 1 Hz while paused, which redraws MainView.
 
 ## Timeline scrolling (code audit, not yet measured)
-1. C: Preference keys inside the ScrollView write @State in MainView every scroll frame
-   (CanvasTimelineDataView.swift:166-173, :324-331, Layout+Panels.swift:150-153; Week grid :372-446).
+1. C, mostly fixed: the preference callbacks still fire every scroll frame (the frames are measured
+   in the outer "TimelinePane" space), but they write into plain reference boxes (`TimelineFrameBox`),
+   and the only @State they touch (`weeklyHoursFadeOpacityLevel`, `weeklyHoursIntersectsCard`) is
+   assigned only when its value changes (the fade level is rounded to 5 % steps). What is left is
+   the per-frame callback work itself: 24 hour-label GeometryReaders plus a loop over every card
+   while the weekly-hours footer overlaps the cards. Needs an Animation Hitches trace to know if it matters.
 2. C: Per-card cost in body: category lookup, favicon pattern matching, and an InnerGlow blur pass per card
    (CanvasActivityCard.swift:190-242, DayflowTheme.swift:712).
 3. C: Cards are not lazy and the stagger animation is uncapped. The Day↔Hour switch renders two scaled timelines.
@@ -48,8 +52,11 @@ Background: vImage resample, JPEG encode, `_convertJSONString`.
 
 ## State
 - Cherry-picked a89a7640 (Release type-check timeout in FlowSessionTimeline.swift) so Release builds.
-- Fixed: startup items 1, 2, 3 and 6 (5 benefits from 3), idle items 3 (timers while hidden) and 4 (breadcrumbs). See CHANGELOG.md.
-- Open: startup 4, 7, 8; idle 1, 2, 5; all Timeline scrolling items (not yet measured with Animation Hitches).
+- Fixed: startup items 1, 2, 3 and 6 (5 benefits from 3), idle items 1, 2, 3 (timers while hidden) and 4 (breadcrumbs). See CHANGELOG.md.
+- Open: startup 4, 7, 8; idle 5; Timeline scrolling items 2-4 and the remainder of 1 (not yet measured with Animation Hitches).
+- Timeline scrolling items 2 and 3 are partly done already: the category style lookup is built once per render and the
+  entrance stagger is capped (`TimelineReloadGate.entranceDelay`). Cards are still a ZStack of offset views, not lazy.
+  Windowing them needs the scroll offset, which is itself a per-frame cost, so measure first.
 - Traces are in the session scratchpad and are not committed.
 - Caveat: the "after" launch traces did NOT measure the new build. `xctrace --launch` started
   /Applications/Dayflow.app instead of the perf build (running the perf binary directly works). The
