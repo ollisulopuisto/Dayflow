@@ -55,7 +55,7 @@ Background: vImage resample, JPEG encode, `_convertJSONString`.
 - Fixed: startup items 1, 2, 3 and 6 (5 benefits from 3), idle items 1, 2, 3 (timers while hidden) and 4 (breadcrumbs). See CHANGELOG.md.
 - Open: startup 4, 7, 8; idle 5; Timeline scrolling items 2-4 and the remainder of 1 (not yet measured with Animation Hitches).
 - Timeline scrolling items 2 and 3 are partly done already: the category style lookup is built once per render and the
-  entrance stagger is capped (`TimelineReloadGate.entranceDelay`). Cards are still a ZStack of offset views, not lazy.
+  entrance stagger is capped (`TimelineReloadGate.entranceDelay`). Cards are still a ZStack of offset views, but only those near the viewport are built (`TimelineCardWindow`).
   Windowing them needs the scroll offset, which is itself a per-frame cost, so measure first.
 - Traces are in the session scratchpad and are not committed.
 - Caveat: the "after" launch traces did NOT measure the new build. `xctrace --launch` started

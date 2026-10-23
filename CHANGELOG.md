@@ -41,6 +41,7 @@
 - Scrolling: timeline cards draw their inner edge glow with three vector strokes instead of a blurred stroke, which removes an offscreen blur pass per card. The glow is an approximation of the old one and may look slightly different at the card edge.
 - Scrolling: the Day footer overlap check compares vertical spans instead of building a rectangle per card.
 - Week scrolling: week cards measure their expanded height only while the pointer is on them. Every card used to lay its title out a second time, hidden, and publish the height on every update (about 0.7 s of CPU per 30 s of scrolling in a trace).
+- Scrolling: Day, Hour and Week build only the cards near the viewport (about a screen of margin each way) instead of every card of the day or week. Most effective in Hour zoom, where the day is several screens tall; in Day and Week the saving is small because a day is only 2 to 3 screens.
 
 ### Not yet addressed
-See `docs/PERFORMANCE.md` for the findings that are still open (timeline scrolling is not measured, and the cards are not lazy).
+See `docs/PERFORMANCE.md` for the findings that are still open (timeline scrolling is not measured; the window-wide re-evaluation on scroll is not found).

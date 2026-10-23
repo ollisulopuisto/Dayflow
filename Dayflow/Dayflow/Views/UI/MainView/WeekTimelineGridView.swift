@@ -93,6 +93,8 @@ struct WeekTimelineGridView: View {
   /// Changes on every scroll frame and is only read when checking the footer overlap,
   /// so it lives outside SwiftUI state.
   @State private var cardsLayerFrameBox = TimelineFrameBox()
+  /// Scroll position in `TimelineCardWindow` buckets; cards far outside the viewport are not built.
+  @State private var scrollBucket = 0
   private var cardsLayerFrame: CGRect { cardsLayerFrameBox.frame }
   @State private var refreshTimer: Timer?
   @State private var loadTask: Task<Void, Never>?
@@ -254,6 +256,11 @@ struct WeekTimelineGridView: View {
     .onPreferenceChange(WeekCardsLayerFramePreferenceKey.self) { frame in
       cardsLayerFrameBox.frame = frame
       updateWeeklyHoursIntersection()
+      // Deferred: preference callbacks run mid-layout, where a state write can trip AttributeGraph.
+      let bucket = TimelineCardWindow.bucket(layerMinY: frame.minY)
+      DispatchQueue.main.async {
+        if bucket != scrollBucket { scrollBucket = bucket }
+      }
     }
     .onChange(of: weeklyHoursFrame) {
       updateWeeklyHoursIntersection()
@@ -406,11 +413,19 @@ struct WeekTimelineGridView: View {
     // Built once per render: hover re-evaluates every card, and each lookup used to
     // search the categories and parse a hex colour per card.
     let paletteFor = paletteLookup()
+    let cardWindow = TimelineCardWindow.range(
+      bucket: scrollBucket,
+      viewportHeight: TimelineCardWindow.viewportHeight(
+        windowContentHeight: NSApp.keyWindow?.contentView?.bounds.height))
     let searchMatches = TimelineSearch.matchingIDs(
       terms: TimelineSearch.terms(searchQuery), activities: positionedActivities.map(\.activity))
 
     return ZStack(alignment: .topLeading) {
-      ForEach(positionedActivities) { item in
+      ForEach(
+        positionedActivities.filter {
+          TimelineCardWindow.isVisible(y: $0.yPosition, height: $0.height, in: cardWindow)
+        }
+      ) { item in
         let cardXPosition = weekCardXPosition(for: item.columnIndex, dayWidth: dayWidth)
         let isHov = hoveredCardID == item.id
         let cardEffectiveHeight = effectiveHeight(for: item)

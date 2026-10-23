@@ -89,6 +89,8 @@ struct CanvasTimelineDataView: View {
   /// Changes on every scroll frame and is only read when checking the footer overlap,
   /// so it lives outside SwiftUI state.
   @State private var cardsLayerFrameBox = TimelineFrameBox()
+  /// Scroll position in `TimelineCardWindow` buckets; cards far outside the viewport are not built.
+  @State private var scrollBucket = 0
   @State private var lastLoadStart = TimelineTimestampBox()
   private var cardsLayerFrame: CGRect { cardsLayerFrameBox.frame }
   @State private var refreshTimer: Timer?
@@ -184,6 +186,8 @@ struct CanvasTimelineDataView: View {
         DispatchQueue.main.async {
           cardsLayerFrameBox.frame = frame
           updateWeeklyHoursIntersection()
+          let bucket = TimelineCardWindow.bucket(layerMinY: frame.minY)
+          if bucket != scrollBucket { scrollBucket = bucket }
         }
       }
       .onChange(of: weeklyHoursFrame) {
@@ -368,6 +372,10 @@ struct CanvasTimelineDataView: View {
     GeometryReader { geo in
       // Built once per render instead of a category search and hex parse per card.
       let styleFor = styleLookup()
+      let cardWindow = TimelineCardWindow.range(
+        bucket: scrollBucket,
+        viewportHeight: TimelineCardWindow.viewportHeight(
+          windowContentHeight: NSApp.keyWindow?.contentView?.bounds.height))
       let searchMatches = TimelineSearch.matchingIDs(
         terms: TimelineSearch.terms(searchQuery), activities: positionedActivities.map(\.activity))
       ZStack(alignment: .topLeading) {
@@ -377,7 +385,12 @@ struct CanvasTimelineDataView: View {
             clearSelection()
           }
           .pointingHandCursor(enabled: selectedCardId != nil || selectedActivity != nil)
-        ForEach(Array(positionedActivities.enumerated()), id: \.element.id) { index, item in
+        ForEach(
+          Array(positionedActivities.enumerated()).filter {
+            TimelineCardWindow.isVisible(
+              y: $0.element.yPosition, height: $0.element.height, in: cardWindow)
+          }, id: \.element.id
+        ) { index, item in
           let isVisible = cardEntranceProgress[item.id] ?? false
           CanvasActivityCard(
             title: item.title,

@@ -31,8 +31,8 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Timeline scroll time-column change: not measured on a device; label height is estimated.
 - Timeline scroll, card edge glow now vector strokes (`CardEdgeGlow`): a visual approximation, check it by eye
   in light and dark themes. Merged, CI green.
-- Lazy cards not done: macOS 14 has no scroll-offset API, and windowing from a custom observer costs a per-frame
-  update, which is what the earlier fixes removed. Measure with Animation Hitches before building it.
+- Lazy cards (`perf/lazy-cards`, CI pending, not tried in the app): cards outside the viewport band are not built.
+  Check for cards popping in at the edges when scrolling fast, and after the initial scroll to "now".
 - `fork/ui-refresh-dark-mode` (3 commits, Sept): not merged. It conflicts in 43 files,
   about 150 hunks, and the redesign overlaps with main's newer UI work. Decide
   whether to port it deliberately or drop it. Tip `13f491ee`.

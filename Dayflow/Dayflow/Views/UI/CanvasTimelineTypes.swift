@@ -61,6 +61,37 @@ enum TimelineCardTextWeight: String, CaseIterable, Identifiable {
   }
 }
 
+/// Which cards are worth building while scrolling. Cards are absolutely positioned, so only the
+/// scroll position is needed. It is quantized into buckets so state changes once per
+/// `bucketSize` points of scrolling, not once per frame.
+enum TimelineCardWindow {
+  static let bucketSize: CGFloat = 300
+  /// Extra space kept above and below the viewport so cards are there before they scroll in.
+  static let margin: CGFloat = 300
+  static let minimumViewportHeight: CGFloat = 800
+
+  /// `layerMinY` is the cards layer top in the timeline pane: it goes negative as you scroll down.
+  static func bucket(layerMinY: CGFloat) -> Int {
+    Int((max(0, -layerMinY) / bucketSize).rounded(.down))
+  }
+
+  static func viewportHeight(windowContentHeight: CGFloat?) -> CGFloat {
+    max(minimumViewportHeight, windowContentHeight ?? 0)
+  }
+
+  /// A band in layer coordinates. The bucket reads the offset from the layer's top in the pane,
+  /// which is the real scroll offset minus the header above it (under 300 pt), so the band
+  /// starts a margin early and runs a bucket plus two margins past the viewport.
+  static func range(bucket: Int, viewportHeight: CGFloat) -> ClosedRange<CGFloat> {
+    let top = CGFloat(bucket) * bucketSize - margin
+    return top...(top + viewportHeight + bucketSize + 2 * margin)
+  }
+
+  static func isVisible(y: CGFloat, height: CGFloat, in range: ClosedRange<CGFloat>) -> Bool {
+    y + height >= range.lowerBound && y <= range.upperBound
+  }
+}
+
 /// Whether a full-width card overlaps the weekly-hours footer, by vertical span only.
 /// Callers have already checked that the footer intersects the cards layer.
 enum TimelineFooterOverlap {
