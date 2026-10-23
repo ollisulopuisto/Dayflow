@@ -61,6 +61,20 @@ enum TimelineCardTextWeight: String, CaseIterable, Identifiable {
   }
 }
 
+/// Hour label frames derived from the one measured time column, so a scroll frame reports
+/// a single frame instead of one per label.
+enum TimelineTimeLabelGeometry {
+  static func frames(
+    column: CGRect, count: Int, hourHeight: CGFloat, labelHeight: CGFloat, yOffset: CGFloat
+  ) -> [CGRect] {
+    (0..<count).map { index in
+      CGRect(
+        x: column.minX, y: column.minY + CGFloat(index) * hourHeight + yOffset,
+        width: column.width, height: labelHeight)
+    }
+  }
+}
+
 struct TimelineTimeLabelFramesPreferenceKey: PreferenceKey {
   static var defaultValue: [CGRect] = []
 

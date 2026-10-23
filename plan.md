@@ -22,7 +22,8 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 ## Open
 - Browser privacy off-main change and `BrowserPrivacyQueueTests`: pushed but not yet built or tested on CI.
   The failing-first run was skipped (the test does not compile without `AppleScriptQueue`).
-- Timeline scroll performance: the preference-key and lazy-card items in `docs/PERFORMANCE.md` are not
+- Timeline scroll: one time-column reader instead of 24 label readers (branch `perf/timeline-scroll`, CI pending). Not measured; the label height is estimated.
+- Timeline scroll performance, rest: the preference-key and lazy-card items in `docs/PERFORMANCE.md` are not
   done. The @State-per-frame claim was already fixed; lazy cards need a measurement first.
 - `fork/ui-refresh-dark-mode` (3 commits, Sept): not merged. It conflicts in 43 files,
   about 150 hunks, and the redesign overlaps with main's newer UI work. Decide

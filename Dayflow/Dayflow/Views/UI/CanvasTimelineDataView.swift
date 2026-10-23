@@ -336,20 +336,25 @@ struct CanvasTimelineDataView: View {
           .lineLimit(1)
           .minimumScaleFactor(0.95)
           .allowsTightening(true)
-          .background(
-            GeometryReader { proxy in
-              Color.clear.preference(
-                key: TimelineTimeLabelFramesPreferenceKey.self,
-                value: [proxy.frame(in: .named("TimelinePane"))]
-              )
-            }
-          )
           .frame(height: hourHeight, alignment: .top)
           .offset(y: -8)
           .id("hour-\(hourIndex)")
       }
     }
     .frame(width: CanvasConfig.timeColumnWidth)
+    .background(
+      GeometryReader { proxy in
+        Color.clear.preference(
+          key: TimelineTimeLabelFramesPreferenceKey.self,
+          value: TimelineTimeLabelGeometry.frames(
+            column: proxy.frame(in: .named("TimelinePane")),
+            count: CanvasConfig.endHour - CanvasConfig.startHour,
+            hourHeight: hourHeight,
+            labelHeight: timeLabelFontSize * 1.25 + 2,
+            yOffset: -8)
+        )
+      }
+    )
     .contentShape(Rectangle())
     .onTapGesture {
       clearSelection()

@@ -378,20 +378,25 @@ struct WeekTimelineGridView: View {
           .padding(.trailing, 6)
           .padding(.top, 2)
           .frame(width: WeekTimelineConfig.timeColumnWidth, alignment: .trailing)
-          .background(
-            GeometryReader { proxy in
-              Color.clear.preference(
-                key: TimelineTimeLabelFramesPreferenceKey.self,
-                value: [proxy.frame(in: .named("TimelinePane"))]
-              )
-            }
-          )
           .frame(height: WeekTimelineConfig.hourHeight, alignment: .top)
           .offset(y: -7)
           .id("week-hour-\(hourIndex)")
       }
     }
     .frame(width: WeekTimelineConfig.timeColumnWidth)
+    .background(
+      GeometryReader { proxy in
+        Color.clear.preference(
+          key: TimelineTimeLabelFramesPreferenceKey.self,
+          value: TimelineTimeLabelGeometry.frames(
+            column: proxy.frame(in: .named("TimelinePane")),
+            count: WeekTimelineConfig.endHour - WeekTimelineConfig.startHour,
+            hourHeight: WeekTimelineConfig.hourHeight,
+            labelHeight: 9 * 1.25 + 2,
+            yOffset: -7)
+        )
+      }
+    )
   }
 
   private func cardsLayer(dayWidth: CGFloat) -> some View {
