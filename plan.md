@@ -17,12 +17,12 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Daily upstream sync job (`.github/workflows/sync-upstream.yml`). Needs a
   `SYNC_TOKEN` secret (PAT with `workflow` scope) for syncs that touch workflows.
 - CHANGELOG `Unreleased` section updated.
-- Idle: browser privacy AppleScript runs on a background queue (CI result pending, see Open).
+- Idle: browser privacy AppleScript runs on a background queue (merged, CI green).
+- Scroll: one time-column reader instead of 24 label readers (merged, CI green).
 
 ## Open
-- Browser privacy off-main change and `BrowserPrivacyQueueTests`: pushed but not yet built or tested on CI.
-  The failing-first run was skipped (the test does not compile without `AppleScriptQueue`).
-- Timeline scroll: one time-column reader instead of 24 label readers (branch `perf/timeline-scroll`, CI pending). Not measured; the label height is estimated.
+- Browser privacy off-main change: CI green but not tried against a real browser (incognito, excluded site).
+- Timeline scroll time-column change: not measured on a device; label height is estimated.
 - Timeline scroll performance, rest: the preference-key and lazy-card items in `docs/PERFORMANCE.md` are not
   done. The @State-per-frame claim was already fixed; lazy cards need a measurement first.
 - `fork/ui-refresh-dark-mode` (3 commits, Sept): not merged. It conflicts in 43 files,
