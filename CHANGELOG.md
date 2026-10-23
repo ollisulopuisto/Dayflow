@@ -22,6 +22,7 @@
 - CI now runs the unit tests on every build. Previously it only built the app.
 - Fixed the seven unit tests that were failing on main.
 - Added `TimelineDateHelpersTests`.
+- CI: the build workflow token has `contents: write` (no step uses it yet).
 
 ### Performance
 - Startup: the splash video is skipped after onboarding (it held the window for ~3.6 s on every launch), and the initial scroll to "now" waits 0.4 s instead of 1.5 s.
