@@ -31,7 +31,7 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Timeline scroll time-column change: not measured on a device; label height is estimated.
 - Timeline scroll, card edge glow now vector strokes (`CardEdgeGlow`): a visual approximation, check it by eye
   in light and dark themes. Merged, CI green.
-- Lazy cards (`perf/lazy-cards`, CI pending, not tried in the app): cards outside the viewport band are not built.
+- Lazy cards (merged, CI green, not tried in the app): cards outside the viewport band are not built.
   Check for cards popping in at the edges when scrolling fast, and after the initial scroll to "now".
 - `fork/ui-refresh-dark-mode` (3 commits, Sept): not merged. It conflicts in 43 files,
   about 150 hunks, and the redesign overlaps with main's newer UI work. Decide
