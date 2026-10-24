@@ -64,10 +64,18 @@ extension MainView {
       }
       .onChange(of: selectedDate) { _, newDate in
         handleSelectedDateChange(newDate)
+        refreshTimelineSearchStats()
       }
       .onChange(of: refreshActivitiesTrigger) {
         updateCardsToReviewCount()
         loadWeeklyTrackedMinutes()
+        refreshTimelineSearchStats()
+      }
+      .onChange(of: timelineSearchText) {
+        refreshTimelineSearchStats()
+      }
+      .onChange(of: timelineMode) {
+        refreshTimelineSearchStats()
       }
       .onChange(of: selectedActivity?.id) {
         handleSelectedActivityIdChange()
@@ -176,6 +184,7 @@ extension MainView {
 
   private func performMainLayoutOnAppear() {
     syncCurrentUIContext()
+    refreshTimelineSearchStats()
 
     // screen viewed and initial timeline view
     AnalyticsService.shared.screen("timeline")

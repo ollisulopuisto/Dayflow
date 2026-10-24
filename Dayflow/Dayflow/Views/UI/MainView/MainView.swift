@@ -77,6 +77,8 @@ struct MainView: View {
   @State var mutedCategoryKeys: Set<String> = []
   // Free-text search over the timeline cards. Non-matching cards are dimmed like muted categories.
   @State var timelineSearchText = ""
+  @State var timelineSearchStats: TimelineSearchStats?
+  @State var timelineSearchStatsRequestID = 0
   @FocusState var timelineSearchFocused: Bool
   @State var feedbackModalVisible = false
   @State var feedbackMessage: String = ""

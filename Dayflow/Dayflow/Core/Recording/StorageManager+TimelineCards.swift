@@ -262,6 +262,21 @@ extension StorageManager {
     try? updateTimelineCard(cardId: cardId, title: nil, category: trimmed)
   }
 
+  func renameTimelineCardCategory(from oldName: String, to newName: String) {
+    let old = oldName.trimmingCharacters(in: .whitespacesAndNewlines)
+    let new = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !old.isEmpty, !new.isEmpty,
+      old.lowercased() != new.lowercased()
+    else { return }
+
+    try? timedWrite("renameTimelineCardCategory") { db in
+      try db.execute(
+        sql: "UPDATE timeline_cards SET category = ? WHERE lower(trim(category)) = lower(trim(?))",
+        arguments: [new, old]
+      )
+    }
+  }
+
   func updateTimelineCardTitle(cardId: Int64, title: String) {
     let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
     guard trimmed.isEmpty == false else { return }

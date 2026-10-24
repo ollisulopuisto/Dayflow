@@ -923,9 +923,6 @@ struct WeekTimelineGridView: View {
   }
 
   private func paletteLookup() -> (String) -> WeekTimelineCardPalette {
-    func normalized(_ name: String) -> String {
-      name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    }
     let neutral = theme.textSecondary
     let pendingPalette = WeekTimelineCardPalette(
       accent: neutral.opacity(0.65),
@@ -934,15 +931,14 @@ struct WeekTimelineGridView: View {
       title: theme.textSecondary
     )
     let categories = categoryStore.categories
-    let byName = Dictionary(
-      categories.map { (normalized($0.name), palette(from: $0)) },
-      uniquingKeysWith: { first, _ in first })
     let fallback = palette(
       from: categories.first ?? CategoryPersistence.defaultCategories.first!)
     return { rawCategory in
-      let key = normalized(rawCategory)
-      if key == "pending analysis" { return pendingPalette }
-      return byName[key] ?? fallback
+      if categoryFilterKey(rawCategory) == "pending analysis" { return pendingPalette }
+      guard let category = categoryStore.category(matchingStoredName: rawCategory) else {
+        return fallback
+      }
+      return palette(from: category)
     }
   }
 

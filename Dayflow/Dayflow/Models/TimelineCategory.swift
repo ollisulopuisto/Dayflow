@@ -69,6 +69,7 @@ final class CategoryStore: ObservableObject {
   static let shared = CategoryStore()
   enum StoreKeys {
     static let categories = "colorCategories"
+    static let legacyCategoryNames = "colorCategoryLegacyNames"
     static let hasUsedApp = "hasUsedApp"
     static let onboardingSelectedRole = "onboardingSelectedRole"
     static let onboardingAppliedCategoryPreset = "onboardingAppliedCategoryPreset"
@@ -76,8 +77,12 @@ final class CategoryStore: ObservableObject {
   }
 
   @Published private(set) var categories: [TimelineCategory] = []
+  private var legacyCategoryIDsByName: [String: String] = [:]
 
   init() {
+    legacyCategoryIDsByName =
+      UserDefaults.standard.dictionary(forKey: StoreKeys.legacyCategoryNames) as? [String: String]
+      ?? [:]
     load()
   }
 
@@ -180,9 +185,30 @@ final class CategoryStore: ObservableObject {
   func renameCategory(id: UUID, to newName: String) {
     let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return }
+    guard let previousName = categories.first(where: { $0.id == id })?.name,
+      previousName != trimmed
+    else { return }
+
+    legacyCategoryIDsByName[categoryFilterKey(previousName)] = id.uuidString
+    legacyCategoryIDsByName.removeValue(forKey: categoryFilterKey(trimmed))
+    UserDefaults.standard.set(legacyCategoryIDsByName, forKey: StoreKeys.legacyCategoryNames)
+    StorageManager.shared.renameTimelineCardCategory(from: previousName, to: trimmed)
     updateCategory(id: id) { cat in
       cat.name = trimmed
     }
+  }
+
+  /// Resolves a category label stored on a timeline card, including names kept
+  /// before the user renamed that category.
+  func category(matchingStoredName rawName: String) -> TimelineCategory? {
+    let key = categoryFilterKey(rawName)
+    if let current = categories.first(where: { categoryFilterKey($0.name) == key }) {
+      return current
+    }
+    guard let idString = legacyCategoryIDsByName[key], let id = UUID(uuidString: idString) else {
+      return nil
+    }
+    return categories.first(where: { $0.id == id })
   }
 
   func removeCategory(id: UUID) {

@@ -461,16 +461,10 @@ struct ActivityCard: View {
     let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return nil }
 
-    let normalized = trimmed.lowercased()
-    let categories = categoryStore.categories
-    let matched = categories.first {
-      $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
-    }
-
-    let category =
-      matched
+    let category = categoryStore.category(matchingStoredName: trimmed)
       ?? CategoryPersistence.defaultCategories.first {
-        $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
+        $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+          == trimmed.lowercased()
       }
 
     guard let resolvedCategory = category else { return nil }

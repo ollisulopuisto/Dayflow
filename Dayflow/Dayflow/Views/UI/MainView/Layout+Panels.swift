@@ -182,7 +182,11 @@ extension MainView {
             categoryStore.moveCategory(id: id, toPositionOf: targetID)
           }
         )
-        TimelineSearchField(text: $timelineSearchText, isFocused: $timelineSearchFocused)
+        TimelineSearchField(
+          text: $timelineSearchText,
+          isFocused: $timelineSearchFocused,
+          stats: timelineSearchStats
+        )
       }
       .padding(.leading, 10 + TimelineAlignment.categoryRowInset)
       .opacity(contentOpacity)

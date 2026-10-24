@@ -919,13 +919,7 @@ struct CanvasTimelineDataView: View {
   }
 
   private func styleLookup() -> (String) -> CanvasActivityCardStyle {
-    func normalized(_ name: String) -> String {
-      name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    }
     let categories = categoryStore.categories
-    let byName = Dictionary(
-      categories.map { (normalized($0.name), style(from: $0)) },
-      uniquingKeysWith: { first, _ in first })
     let fallback = style(from: categories.first ?? CategoryPersistence.defaultCategories.first!)
     let pendingStyle = CanvasActivityCardStyle(
       text: theme.textSecondary,
@@ -934,9 +928,11 @@ struct CanvasTimelineDataView: View {
       isIdle: false
     )
     return { rawCategory in
-      let key = normalized(rawCategory)
-      if key == "pending analysis" { return pendingStyle }
-      return byName[key] ?? fallback
+      if categoryFilterKey(rawCategory) == "pending analysis" { return pendingStyle }
+      guard let category = categoryStore.category(matchingStoredName: rawCategory) else {
+        return fallback
+      }
+      return style(from: category)
     }
   }
 

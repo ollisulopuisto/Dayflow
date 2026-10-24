@@ -6,6 +6,17 @@ func categoryFilterKey(_ name: String) -> String {
   name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 }
 
+enum CategoryFacetSelection {
+  static func doubleClick(
+    key: String,
+    allKeys: Set<String>,
+    mutedKeys: Set<String>
+  ) -> Set<String> {
+    let onlyThisCategory = allKeys.subtracting([key])
+    return mutedKeys == onlyThisCategory ? [] : onlyThisCategory
+  }
+}
+
 struct TabFilterBar: View {
   let categories: [TimelineCategory]
   let idleCategory: TimelineCategory?
@@ -63,6 +74,7 @@ struct TabFilterBar: View {
     let isIdle: Bool
     let isMuted: Bool
     let onTap: () -> Void
+    let onDoubleTap: () -> Void
 
     var body: some View {
       Button(action: onTap) {
@@ -72,6 +84,13 @@ struct TabFilterBar: View {
       .pointingHandCursor()
       .opacity(isMuted ? 0.4 : 1)
       .animation(.easeOut(duration: 0.15), value: isMuted)
+      .simultaneousGesture(
+        TapGesture(count: 2).onEnded {
+          // Let the Button's two normal click actions finish first, then apply
+          // the double-click selection as one deterministic state change.
+          DispatchQueue.main.async(execute: onDoubleTap)
+        }
+      )
     }
 
     private var chipLabel: some View {
@@ -143,7 +162,8 @@ struct TabFilterBar: View {
       category: category,
       isIdle: isIdle,
       isMuted: mutedCategoryKeys.contains(key),
-      onTap: { toggleMuted(key) }
+      onTap: { toggleMuted(key) },
+      onDoubleTap: { toggleOnly(key) }
     )
   }
 
@@ -169,6 +189,18 @@ struct TabFilterBar: View {
       mutedCategoryKeys.remove(key)
     } else {
       mutedCategoryKeys.insert(key)
+    }
+  }
+
+  private func toggleOnly(_ key: String) {
+    let allKeys = Set(categories.map { categoryFilterKey($0.name) }
+      + (idleCategory.map { [categoryFilterKey($0.name)] } ?? []))
+    withAnimation(.easeOut(duration: 0.15)) {
+      mutedCategoryKeys = CategoryFacetSelection.doubleClick(
+        key: key,
+        allKeys: allKeys,
+        mutedKeys: mutedCategoryKeys
+      )
     }
   }
 
