@@ -521,6 +521,11 @@ final class AnalysisManager: AnalysisManaging {
     defer { isProcessing = false }
 
     let usesStudioQueue = StudioBatchQueue.isEnabled
+    if usesStudioQueue {
+      // Import finished work whenever Dayflow is awake. Only sending new batches
+      // to the Studio needs to wait for the Mac to be idle.
+      StudioBatchQueue.pollResults(store: store)
+    }
     if usesStudioQueue, !InputIdleSnapshot.isIdle() {
       return
     }
@@ -532,7 +537,6 @@ final class AnalysisManager: AnalysisManaging {
     // 3. Persist batch rows & join table
     let batchIDs = batches.compactMap(saveScreenshotBatch)
     if StudioBatchQueue.isEnabled {
-      StudioBatchQueue.pollResults(store: store)
       // Include batches whose upload was interrupted before the laptop slept.
       // Batches that are uploading or backing off after a failure are skipped before any work.
       let pendingIDs = store.batchIDs(withStatus: "pending")

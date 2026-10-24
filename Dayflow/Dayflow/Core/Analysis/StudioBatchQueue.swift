@@ -210,7 +210,10 @@ enum StudioBatchQueue {
           print("Studio import incomplete for batch \(batchID): \(cardResults.filter { !$0 }.count) of \(cardResults.count) cards not saved")
           continue
         }
-        if cards.isEmpty { store.updateBatchStatus(batchId: batchID, status: "completed_empty") }
+        store.updateBatchStatus(
+          batchId: batchID,
+          status: cards.isEmpty ? "completed_empty" : "analyzed"
+        )
         acknowledge(jobID: jobID, deviceID: deviceID, endpoint: endpoint)
       }
     }.resume()
