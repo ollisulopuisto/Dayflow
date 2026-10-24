@@ -1,0 +1,235 @@
+name: Release macOS DMG
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  APP_NAME: Dayflow
+  SCHEME: Dayflow
+  CONFIG: Release
+  PROJECT_PATH: Dayflow/Dayflow.xcodeproj
+  DERIVED_DATA: build
+  DMG_NAME: ${{ env.APP_NAME }}.dmg
+  # Background image for the DMG window (committed in the repo)
+  DMG_BG: docs/assets/dmg-background.png
+
+jobs:
+  build-and-release:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      #-----------------------------------------------------------------------------
+      # Install tools: create-dmg (not pre-installed on GH Actions macOS runners)
+      #-----------------------------------------------------------------------------
+      - name: Install create-dmg
+        run: |
+          brew install create-dmg
+
+      #-----------------------------------------------------------------------------
+      # Import Developer ID signing certificate (optional).
+      # Set secrets.SIGNING_CERTIFICATE_P12 (base64 .p12) and
+      # secrets.SIGNING_CERTIFICATE_PASSWORD to enable code signing.
+      #-----------------------------------------------------------------------------
+      - name: Import code-signing certificate
+        if: ${{ secrets.SIGNING_CERTIFICATE_P12 != '' }}
+        run: |
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          echo "${{ secrets.SIGNING_CERTIFICATE_P12 }}" | base64 -D > /tmp/cert.p12
+          security import /tmp/cert.p12 -k build.keychain \
+            -P "${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple:codesign,apple: -s -k "" build.keychain
+          SIGN_ID=$(security find-identity -v -p codesigning build.keychain \
+            | awk -F '"' '/Developer ID Application/ {print $2; exit}')
+          if [[ -z "$SIGN_ID" ]]; then
+            echo "ERROR: No Developer ID Application identity found in imported certificate." >&2
+            exit 1
+          fi
+          echo "Using signing identity: $SIGN_ID"
+          echo "SIGN_ID=$SIGN_ID" >> $GITHUB_ENV
+          rm -f /tmp/cert.p12
+
+      #-----------------------------------------------------------------------------
+      # Build the app. If a signing identity is available, codesign during build;
+      # otherwise build unsigned (still produces a usable DMG for manual download).
+      #-----------------------------------------------------------------------------
+      - name: Build app
+        env:
+          # DAYFLOW_BACKEND_URL is injected into Info.plist at build time.
+          # Set it as a repository secret for a functional release build.
+          DAYFLOW_BACKEND_URL: ${{ secrets.DAYFLOW_BACKEND_URL }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          XCODE_ARGS=(
+            -project "${{ env.PROJECT_PATH }}"
+            -scheme "${{ env.SCHEME }}"
+            -configuration "${{ env.CONFIG }}"
+            -derivedDataPath "${{ env.DERIVED_DATA }}"
+          )
+          if [[ -n "${SIGN_ID:-}" ]]; then
+            XCODE_ARGS+=(CODE_SIGN_IDENTITY="$SIGN_ID" CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES)
+          else
+            XCODE_ARGS+=(CODE_SIGNING_ALLOWED=NO)
+          fi
+          if [[ -n "${DAYFLOW_BACKEND_URL:-}" ]]; then
+            XCODE_ARGS+=(DAYFLOW_BACKEND_URL="$DAYFLOW_BACKEND_URL")
+          fi
+          if [[ -n "${POSTHOG_API_KEY:-}" ]]; then
+            XCODE_ARGS+=(POSTHOG_API_KEY="$POSTHOG_API_KEY")
+          fi
+          if [[ -n "${SENTRY_DSN:-}" ]]; then
+            XCODE_ARGS+=(SENTRY_DSN="$SENTRY_DSN")
+          fi
+          xcodebuild "${XCODE_ARGS[@]}" build
+
+      #-----------------------------------------------------------------------------
+      # Codesign the app bundle + frameworks (only when a cert was imported).
+      #-----------------------------------------------------------------------------
+      - name: Codesign app bundle
+        if: env.SIGN_ID != ''
+        run: |
+          APP_PATH="${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app"
+          echo "Codesigning $APP_PATH…"
+          # Sign helper binaries first
+          CLI_BINARY="$APP_PATH/Contents/Helpers/dayflow"
+          if [[ -f "$CLI_BINARY" ]]; then
+            codesign -vvv --force --options runtime --timestamp --sign "$SIGN_ID" "$CLI_BINARY"
+          fi
+          # Sign Sparkle helpers (Sparkle sandboxing guide)
+          SPARKLE_DIR="$APP_PATH/Contents/Frameworks/Sparkle.framework/Versions/B"
+          if [[ -d "$SPARKLE_DIR" ]]; then
+            [[ -d "$SPARKLE_DIR/XPCServices/Installer.xpc" ]] && \
+              codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR/XPCServices/Installer.xpc" || true
+            [[ -d "$SPARKLE_DIR/XPCServices/Downloader.xpc" ]] && \
+              codesign -vvv --force --options runtime --preserve-metadata=entitlements --sign "$SIGN_ID" "$SPARKLE_DIR/XPCServices/Downloader.xpc" || true
+            [[ -f "$SPARKLE_DIR/Autoupdate" ]] && \
+              codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR/Autoupdate" || true
+            [[ -d "$SPARKLE_DIR/Updater.app" ]] && \
+              codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR/Updater.app" || true
+            codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR/../../Current" 2>/dev/null || \
+              codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR" || true
+          fi
+          # Sign the app bundle itself
+          codesign -vvv --force --strict --options runtime --timestamp \
+            --entitlements Dayflow/Dayflow/Dayflow.entitlements \
+            --sign "$SIGN_ID" "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          spctl -a -vvv --type execute "$APP_PATH" || true
+
+      #-----------------------------------------------------------------------------
+      # Create the DMG with create-dmg.
+      #-----------------------------------------------------------------------------
+      - name: Create DMG
+        run: |
+          APP_PATH="${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app"
+          if [[ ! -d "$APP_PATH" ]]; then
+            echo "ERROR: Built app not found at $APP_PATH" >&2
+            exit 1
+          fi
+          if [[ ! -f "${{ env.DMG_BG }}" ]]; then
+            echo "ERROR: Background image not found at ${{ env.DMG_BG }}" >&2
+            exit 1
+          fi
+          rm -f "${{ env.DMG_NAME }}"
+          create-dmg \
+            --volname "${{ env.APP_NAME }}" \
+            --background "${{ env.DMG_BG }}" \
+            --window-size 775 480 \
+            --icon-size 128 \
+            --icon "${{ env.APP_NAME }}.app" 200 270 \
+            --app-drop-link 575 270 \
+            --no-internet-enable \
+            "${{ env.DMG_NAME }}" \
+            "$APP_PATH"
+          echo "DMG created: ${{ env.DMG_NAME }} ($(stat -f%z "${{ env.DMG_NAME }}") bytes)"
+
+      #-----------------------------------------------------------------------------
+      # Notarize the DMG (optional). Set one of the notarization credential sets.
+      #-----------------------------------------------------------------------------
+      - name: Notarize DMG
+        if: >
+          ${{ secrets.NOTARY_APPLE_ID != '' && secrets.NOTARY_APP_PASSWORD != '' && secrets.NOTARY_TEAM_ID != '' }}
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_APP_PASSWORD: ${{ secrets.NOTARY_APP_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+        run: |
+          echo "Submitting DMG for notarization…"
+          xcrun notarytool submit "${{ env.DMG_NAME }}" \
+            --apple-id "$NOTARY_APPLE_ID" \
+            --team-id "$NOTARY_TEAM_ID" \
+            --password "$NOTARY_APP_PASSWORD" \
+            --wait
+          xcrun stapler staple "${{ env.DMG_NAME }}"
+          xcrun stapler validate "${{ env.DMG_NAME }}"
+          echo "Notarization complete."
+
+      #-----------------------------------------------------------------------------
+      # Create GitHub Release and upload the DMG as an asset.
+      #-----------------------------------------------------------------------------
+      - name: Create GitHub Release
+        id: release
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          TITLE="${{ env.APP_NAME }} $TAG"
+          NOTES_FILE="$(mktemp)"
+          if [[ -f CHANGELOG.md ]]; then
+            # Try to extract the section for this version from CHANGELOG.md
+            sed -n "/^## .*${TAG//./\\.}/,/^## /p" CHANGELOG.md 2>/dev/null | head -n -1 > "$NOTES_FILE" || true
+            if [[ ! -s "$NOTES_FILE" ]]; then
+              echo "See CHANGELOG.md for full details." > "$NOTES_FILE"
+            fi
+          else
+            echo "See CHANGELOG.md for full details." > "$NOTES_FILE"
+          fi
+          gh release create "$TAG" "${{ env.DMG_NAME }}" \
+            --title "$TITLE" \
+            --notes-file "$NOTES_FILE" \
+            --draft=false
+          rm -f "$NOTES_FILE"
+          ASSET_URL=$(gh release view "$TAG" --json assets -q \
+            ".assets[] | select(.name==\"${{ env.DMG_NAME }}\").url" 2>/dev/null || true)
+          echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
+          echo "release_url=$(gh release view "$TAG" --json url -q .url)" >> $GITHUB_OUTPUT
+          echo "Created release: $TAG"
+
+      #-----------------------------------------------------------------------------
+      # Upload dSYM to Sentry (optional) for crash symbolication.
+      #-----------------------------------------------------------------------------
+      - name: Upload dSYM to Sentry
+        if: >
+          ${{ secrets.SENTRY_AUTH_TOKEN != '' && secrets.SENTRY_ORG != '' && secrets.SENTRY_PROJECT != '' }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          if ! command -v sentry-cli >/dev/null 2>&1; then
+            echo "sentry-cli not installed; skipping dSYM upload. Install with: brew install getsentry/tools/sentry-cli"
+            exit 0
+          fi
+          DSYM_PATH="${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app.dSYM"
+          if [[ -d "$DSYM_PATH" ]]; then
+            VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app/Contents/Info.plist")
+            BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app/Contents/Info.plist")
+            sentry-cli upload-dif \
+              --org "$SENTRY_ORG" \
+              --project "$SENTRY_PROJECT" \
+              "$DSYM_PATH"
+            echo "dSYM uploaded for $VERSION+$BUILD"
+          else
+            echo "dSYM not found at $DSYM_PATH; skipping upload."
+          fi
