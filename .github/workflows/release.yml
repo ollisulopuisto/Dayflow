@@ -41,8 +41,12 @@ jobs:
       # secrets.SIGNING_CERTIFICATE_PASSWORD to enable code signing.
       #-----------------------------------------------------------------------------
       - name: Import code-signing certificate
-        if: ${{ secrets.SIGNING_CERTIFICATE_P12 != '' }}
         run: |
+          if [[ -z "${{ secrets.SIGNING_CERTIFICATE_P12 }}" ]]; then
+            echo "No SIGNING_CERTIFICATE_P12 secret; skipping code signing."
+            echo "SIGN_ID=" >> $GITHUB_ENV
+            exit 0
+          fi
           security create-keychain -p "" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "" build.keychain
@@ -100,8 +104,11 @@ jobs:
       # Codesign the app bundle + frameworks (only when a cert was imported).
       #-----------------------------------------------------------------------------
       - name: Codesign app bundle
-        if: ${{ env.SIGN_ID != '' }}
         run: |
+          if [[ -z "${SIGN_ID:-}" ]]; then
+            echo "No signing identity; skipping codesign."
+            exit 0
+          fi
           APP_PATH="${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app"
           echo "Codesigning $APP_PATH…"
           # Sign helper binaries first
@@ -158,21 +165,19 @@ jobs:
           echo "DMG created: ${{ env.DMG_NAME }} ($(stat -f%z "${{ env.DMG_NAME }}") bytes)"
 
       #-----------------------------------------------------------------------------
-      # Notarize the DMG (optional). Set one of the notarization credential sets.
+      # Notarize the DMG (optional). Set notary credentials as repository secrets.
       #-----------------------------------------------------------------------------
       - name: Notarize DMG
-        if: >
-          ${{ secrets.NOTARY_APPLE_ID != '' && secrets.NOTARY_APP_PASSWORD != '' && secrets.NOTARY_TEAM_ID != '' }}
-        env:
-          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
-          NOTARY_APP_PASSWORD: ${{ secrets.NOTARY_APP_PASSWORD }}
-          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
         run: |
+          if [[ -z "${{ secrets.NOTARY_APPLE_ID }}" || -z "${{ secrets.NOTARY_APP_PASSWORD }}" || -z "${{ secrets.NOTARY_TEAM_ID }}" ]]; then
+            echo "No notarization credentials; skipping notarization."
+            exit 0
+          fi
           echo "Submitting DMG for notarization…"
           xcrun notarytool submit "${{ env.DMG_NAME }}" \
-            --apple-id "$NOTARY_APPLE_ID" \
-            --team-id "$NOTARY_TEAM_ID" \
-            --password "$NOTARY_APP_PASSWORD" \
+            --apple-id "${{ secrets.NOTARY_APPLE_ID }}" \
+            --team-id "${{ secrets.NOTARY_TEAM_ID }}" \
+            --password "${{ secrets.NOTARY_APP_PASSWORD }}" \
             --wait
           xcrun stapler staple "${{ env.DMG_NAME }}"
           xcrun stapler validate "${{ env.DMG_NAME }}"
@@ -211,15 +216,13 @@ jobs:
       # Upload dSYM to Sentry (optional) for crash symbolication.
       #-----------------------------------------------------------------------------
       - name: Upload dSYM to Sentry
-        if: >
-          ${{ secrets.SENTRY_AUTH_TOKEN != '' && secrets.SENTRY_ORG != '' && secrets.SENTRY_PROJECT != '' }}
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: |
+          if [[ -z "${{ secrets.SENTRY_AUTH_TOKEN }}" || -z "${{ secrets.SENTRY_ORG }}" || -z "${{ secrets.SENTRY_PROJECT }}" ]]; then
+            echo "No Sentry credentials; skipping dSYM upload."
+            exit 0
+          fi
           if ! command -v sentry-cli >/dev/null 2>&1; then
-            echo "sentry-cli not installed; skipping dSYM upload. Install with: brew install getsentry/tools/sentry-cli"
+            echo "sentry-cli not installed; skipping dSYM upload."
             exit 0
           fi
           DSYM_PATH="${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app.dSYM"
@@ -227,8 +230,8 @@ jobs:
             VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app/Contents/Info.plist")
             BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app/Contents/Info.plist")
             sentry-cli upload-dif \
-              --org "$SENTRY_ORG" \
-              --project "$SENTRY_PROJECT" \
+              --org "${{ secrets.SENTRY_ORG }}" \
+              --project "${{ secrets.SENTRY_PROJECT }}" \
               "$DSYM_PATH"
             echo "dSYM uploaded for $VERSION+$BUILD"
           else
