@@ -14,7 +14,7 @@ env:
   CONFIG: Release
   PROJECT_PATH: Dayflow/Dayflow.xcodeproj
   DERIVED_DATA: build
-  DMG_NAME: ${{ env.APP_NAME }}.dmg
+  DMG_NAME: Dayflow.dmg
   # Background image for the DMG window (committed in the repo)
   DMG_BG: docs/assets/dmg-background.png
 
