@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -99,7 +100,7 @@ jobs:
       # Codesign the app bundle + frameworks (only when a cert was imported).
       #-----------------------------------------------------------------------------
       - name: Codesign app bundle
-        if: env.SIGN_ID != ''
+        if: ${{ env.SIGN_ID != '' }}
         run: |
           APP_PATH="${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app"
           echo "Codesigning $APP_PATH…"
