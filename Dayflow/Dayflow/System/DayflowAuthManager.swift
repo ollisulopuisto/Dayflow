@@ -226,6 +226,8 @@ struct DayflowAuthActionResult: Equatable {
       return "client_error"
     case .nonHTTP:
       return "non_http_response"
+    case .networkAccessDenied:
+      return "network_access_denied"
     case .unauthorized:
       return "unauthorized"
     }

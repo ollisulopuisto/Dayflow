@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.12] - 2026-10-26
+
+### Fixed
+- CI build: restored compilation of the network access alert, month summary, and auth error mapping.
+
 ## [2.7.11] - 2026-10-26
 
 ### Fixed

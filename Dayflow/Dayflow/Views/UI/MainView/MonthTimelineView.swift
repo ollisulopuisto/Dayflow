@@ -51,7 +51,10 @@ enum MonthTimelineSummary {
       // Assign each covered slice to one category only. Earlier-starting cards
       // take precedence; category key breaks ties deterministically.
       clipped.sort { lhs, rhs in
-        lhs.start == rhs.start ? lhs.key < rhs.key : lhs.start < rhs.start
+        if lhs.start != rhs.start {
+          return lhs.start < rhs.start
+        }
+        return lhs.key < rhs.key
       }
       var covered: [(start: Int, end: Int)] = []
       for item in clipped {

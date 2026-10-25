@@ -19,7 +19,10 @@ struct NetworkAccessModalView: View {
     EmptyView()
       .alert(
         "Outside Network Access Blocked",
-        isPresented: $coordinator.isShowingModal,
+        isPresented: Binding(
+          get: { coordinator.isShowingModal },
+          set: { _ in }
+        ),
         actions: {
           Button("Don't Allow", role: .cancel) {
             coordinator.respond(false)
@@ -30,7 +33,7 @@ struct NetworkAccessModalView: View {
           .buttonStyle(.borderedProminent)
         },
         message: {
-          Text(modalMessage)
+          modalMessage
         }
       )
   }
