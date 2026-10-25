@@ -1229,6 +1229,11 @@ private enum ReleaseSurveyClient {
       throw URLError(.badURL)
     }
 
+    // Local-first hardening: block outside network unless explicitly permitted.
+    guard await NetworkGate.shared.allow(url) else {
+      throw URLError(.notConnectedToInternet)
+    }
+
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")

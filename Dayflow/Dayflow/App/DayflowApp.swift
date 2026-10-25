@@ -272,6 +272,7 @@ struct DayflowApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
   @AppStorage("didOnboard") private var didOnboard = false
   @StateObject private var systemAppearance = SystemAppearanceObserver()
+  @StateObject private var networkCoordinator = NetworkAccessCoordinator.shared
   @AppStorage(DayflowAppearance.storageKey) private var appearance: DayflowAppearance = .system
   @AppStorage("useBlankUI") private var useBlankUI = false
   /// Mirrors FlowNudgeVariant.current so the menu title re-renders on toggle.
@@ -295,6 +296,12 @@ struct DayflowApp: App {
     // Ignore it so the write simply fails with EPIPE instead.
     signal(SIGPIPE, SIG_IGN)
 
+    // Backstop for "local access only" hardening: block ALL outside (non-localhost)
+    // http/https network at the URL-loading layer unless the user has explicitly
+    // granted permission via NetworkAccessModalView. This catches third-party SDKs
+    // (analytics, updater, etc.) that bypass the explicit URLSession call sites.
+    URLProtocol.registerClass(NetworkBlockingURLProtocol.self)
+
     // Comment out for production - only use for testing onboarding
     // UserDefaults.standard.set(false, forKey: "didOnboard")
   }
@@ -305,6 +312,8 @@ struct DayflowApp: App {
   var body: some Scene {
     Window("Dayflow", id: "main") {
       ZStack {
+        NetworkAccessModalView(coordinator: networkCoordinator)
+
         // Main app UI or onboarding with entrance animation
         Group {
           if didOnboard {

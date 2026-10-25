@@ -953,6 +953,10 @@ final class DayflowAuthManager: ObservableObject {
   }
 
   private func send<Response: Decodable>(_ request: URLRequest) async throws -> Response {
+    // Local-first hardening: block outside network unless explicitly permitted.
+    guard let url = request.url, await NetworkGate.shared.allow(url) else {
+      throw DayflowAuthError.networkAccessDenied
+    }
     let (data, response) = try await URLSession.shared.data(for: request)
     let path = request.url?.path
     guard let httpResponse = response as? HTTPURLResponse else {
@@ -1167,6 +1171,7 @@ private enum DayflowAuthError: LocalizedError {
   case backend(statusCode: Int, detail: String?, path: String?)
   case busy
   case message(String)
+  case networkAccessDenied
   case nonHTTP(path: String?)
   case unauthorized
 
@@ -1181,6 +1186,10 @@ private enum DayflowAuthError: LocalizedError {
       return String(localized: "Another Dayflow account request is already running.")
     case .message(let message):
       return message
+    case .networkAccessDenied:
+      return String(
+        localized:
+          "Outside network access is blocked. Grant permission in the network alarm to sign in to Dayflow.")
     case .nonHTTP:
       return String(localized: "Dayflow returned a non-HTTP response.")
     case .unauthorized:

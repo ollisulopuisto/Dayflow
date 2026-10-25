@@ -22,7 +22,12 @@ final class GeminiAPIHelper {
 
   private init() {
     requestData = { request in
-      try await URLSession.shared.data(for: request)
+      // Local-first hardening: block outside network unless explicitly permitted.
+      guard let url = request.url, await NetworkGate.shared.allow(url) else {
+        throw APIError.networkError(
+          String(localized: "Outside network access is blocked. Grant permission in the network alarm."))
+      }
+      return try await URLSession.shared.data(for: request)
     }
     logsRequests = true
   }
