@@ -33,17 +33,18 @@ extension StorageManager {
     let startTs = Int(dayStart.timeIntervalSince1970)
     let endTs = Int(dayEnd.timeIntervalSince1970)
 
-    // Sum total duration of timeline cards for the day
+    // Sum total duration of timeline cards for the day, clipping each card's end
+    // to the day boundary so a card that starts in this day but ends in the next
+    // only contributes the portion that actually falls within this day.
     let totalMinutes: Int? = try? timedRead("hasMinimumTimelineActivity") { db in
-      // Calculate sum of (end_ts - start_ts) for all cards, converted to minutes
       let result = try Int.fetchOne(
         db,
         sql: """
-              SELECT COALESCE(SUM(end_ts - start_ts), 0) / 60 as total_minutes
+              SELECT COALESCE(SUM(MAX(0, LEAST(end_ts, ?) - start_ts)), 0) / 60 as total_minutes
               FROM timeline_cards
               WHERE start_ts >= ? AND start_ts < ?
                 AND is_deleted = 0
-          """, arguments: [startTs, endTs])
+          """, arguments: [endTs, startTs, endTs])
       return result
     }
 
@@ -754,16 +755,18 @@ extension StorageManager {
     let endTs = Int(to.timeIntervalSince1970)
 
     let totalSeconds: Double? = try? timedRead("fetchTotalMinutesTracked") { db in
+      // Clip each card's end to the range end so a card starting in the range but
+      // ending after it only contributes the portion that falls within the range.
       try Double.fetchOne(
         db,
         sql: """
-              SELECT COALESCE(SUM(end_ts - start_ts), 0)
+              SELECT COALESCE(SUM(MAX(0, LEAST(end_ts, ?) - start_ts)), 0)
               FROM timeline_cards
               WHERE start_ts >= ? AND start_ts < ?
               AND is_deleted = 0
               AND category != 'System'
           """,
-        arguments: [startTs, endTs]
+        arguments: [endTs, startTs, endTs]
       )
     }
 

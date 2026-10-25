@@ -121,6 +121,50 @@ struct TimelineActivity: Identifiable {
       isPendingAnalysis: isPendingAnalysis
     )
   }
+
+  func withStartTime(_ newStartTime: Date) -> TimelineActivity {
+    TimelineActivity(
+      id: id,
+      recordId: recordId,
+      batchId: batchId,
+      startTime: newStartTime,
+      endTime: endTime,
+      title: title,
+      summary: summary,
+      detailedSummary: detailedSummary,
+      category: category,
+      subcategory: subcategory,
+      distractions: distractions,
+      videoSummaryURL: videoSummaryURL,
+      screenshot: screenshot,
+      appSites: appSites,
+      isBackupGenerated: isBackupGenerated,
+      screenshots: screenshots,
+      isPendingAnalysis: isPendingAnalysis
+    )
+  }
+
+  func withEndTime(_ newEndTime: Date) -> TimelineActivity {
+    TimelineActivity(
+      id: id,
+      recordId: recordId,
+      batchId: batchId,
+      startTime: startTime,
+      endTime: newEndTime,
+      title: title,
+      summary: summary,
+      detailedSummary: detailedSummary,
+      category: category,
+      subcategory: subcategory,
+      distractions: distractions,
+      videoSummaryURL: videoSummaryURL,
+      screenshot: screenshot,
+      appSites: appSites,
+      isBackupGenerated: isBackupGenerated,
+      screenshots: screenshots,
+      isPendingAnalysis: isPendingAnalysis
+    )
+  }
 }
 
 /// Sheet view for selecting a date

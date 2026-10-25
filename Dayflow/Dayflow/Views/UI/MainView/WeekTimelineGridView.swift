@@ -583,19 +583,30 @@ struct WeekTimelineGridView: View {
       let activities = TimelineActivityLoader.activities(in: requestedWeekRange)
       let fetchMs = Int((CFAbsoluteTimeGetCurrent() - fetchStart) * 1000)
       let weekDays = requestedWeekRange.days
-      let dayLookup = Dictionary(
-        uniqueKeysWithValues: weekDays.enumerated().map { ($1.dayString, $0) })
+
+      // Split activities into per-column pieces clipped to each day's 4am→4am
+      // window, so a card that runs past midnight only fills its start day's
+      // column up to 4am and continues in the next day's column instead of
+      // overflowing the grid (or landing at the wrong y position).
+      var activitiesByColumn: [Int: [TimelineActivity]] = [:]
+      for activity in activities {
+        for piece in Self.splitActivityIntoDayColumns(
+          activity,
+          weekStart: requestedWeekRange.weekStart)
+        {
+          activitiesByColumn[piece.columnIndex, default: []].append(
+            activity.withStartTime(piece.start).withEndTime(piece.end))
+        }
+      }
 
       let positioningStart = CFAbsoluteTimeGetCurrent()
       var positioned: [WeekPositionedActivity] = []
       positioned.reserveCapacity(activities.count)
 
-      for day in weekDays {
-        let dayActivities = activities.filter {
-          $0.startTime.getDayInfoFor4AMBoundary().dayString == day.dayString
-        }
+      for columnIndex in weekDays.indices {
+        let columnActivities = activitiesByColumn[columnIndex] ?? []
         let segments = TimelineActivityLoader.resolveMacroblocks(
-          from: TimelineActivityLoader.createDisplaySegments(from: dayActivities))
+          from: TimelineActivityLoader.createDisplaySegments(from: columnActivities))
 
         for segment in segments {
           let durationMinutes = max(0, segment.end.timeIntervalSince(segment.start) / 60)
@@ -606,9 +617,9 @@ struct WeekTimelineGridView: View {
 
           positioned.append(
             WeekPositionedActivity(
-              id: segment.activity.id,
+              id: "\(segment.activity.id)-col\(columnIndex)",
               activity: segment.activity,
-              columnIndex: dayLookup[day.dayString] ?? 0,
+              columnIndex: columnIndex,
               yPosition: calculateYPosition(for: segment.start) + 1,
               height: height,
               durationMinutes: durationMinutes,
@@ -875,6 +886,44 @@ struct WeekTimelineGridView: View {
         end: max(segment.end, renderedEnd)
       )
     }
+  }
+
+  // Splits an activity into one piece per day column it overlaps, clipping each
+  // piece to that column's 4am→4am window. A card that runs past midnight only
+  // fills its start day's column up to 4am; the remainder lands in the next day's
+  // column instead of overflowing the grid (or mapping to the wrong y position).
+  static func splitActivityIntoDayColumns(
+    _ activity: TimelineActivity,
+    weekStart: Date
+  ) -> [(columnIndex: Int, start: Date, end: Date)] {
+    var calendar = Calendar.current
+    calendar.timeZone = .autoupdatingCurrent
+
+    let oneDay: TimeInterval = 24 * 60 * 60
+    let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
+
+    // Clip to the displayed week window.
+    var remainingStart = max(activity.startTime, weekStart)
+    let remainingEnd = min(activity.endTime, weekEnd)
+    guard remainingEnd > remainingStart else { return [] }
+
+    var pieces: [(columnIndex: Int, start: Date, end: Date)] = []
+    while remainingStart < remainingEnd {
+      let secondsFromWeekStart = remainingStart.timeIntervalSince(weekStart)
+      let columnIndex = Int(floor(secondsFromWeekStart / oneDay))
+      guard columnIndex >= 0, columnIndex < 7 else { break }
+
+      let columnStart = calendar.date(byAdding: .day, value: columnIndex, to: weekStart)!
+      let columnEnd = calendar.date(byAdding: .day, value: columnIndex + 1, to: weekStart)!
+
+      let pieceStart = remainingStart
+      let pieceEnd = min(remainingEnd, columnEnd)
+      guard pieceEnd > pieceStart else { break }
+
+      pieces.append((columnIndex: columnIndex, start: pieceStart, end: pieceEnd))
+      remainingStart = pieceEnd
+    }
+    return pieces
   }
 
   private func calculateYPosition(for time: Date) -> CGFloat {
