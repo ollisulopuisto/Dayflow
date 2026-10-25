@@ -22,17 +22,19 @@ final class NetworkAccessCoordinator: ObservableObject {
   /// The URL that triggered the modal, shown to the user for transparency.
   @Published private(set) var pendingURL: URL?
 
-  private var continuation: CheckedContinuation<Bool, Never>?
+  private var continuations: [CheckedContinuation<Bool, Never>] = []
 
   private init() {}
 
   /// Show the modal alarm for `url` and wait for the user's explicit decision.
   /// Returns `true` only if the user taps "Allow".
   func requestAccess(for url: URL) async -> Bool {
-    pendingURL = url
-    isShowingModal = true
+    if !isShowingModal {
+      pendingURL = url
+      isShowingModal = true
+    }
     return await withCheckedContinuation { continuation in
-      self.continuation = continuation
+      continuations.append(continuation)
     }
   }
 
@@ -40,7 +42,8 @@ final class NetworkAccessCoordinator: ObservableObject {
   func respond(_ allowed: Bool) {
     isShowingModal = false
     pendingURL = nil
-    continuation?.resume(returning: allowed)
-    continuation = nil
+    let waitingRequests = continuations
+    continuations.removeAll()
+    waitingRequests.forEach { $0.resume(returning: allowed) }
   }
 }

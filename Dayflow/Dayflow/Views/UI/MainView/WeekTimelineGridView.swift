@@ -899,7 +899,6 @@ struct WeekTimelineGridView: View {
     var calendar = Calendar.current
     calendar.timeZone = .autoupdatingCurrent
 
-    let oneDay: TimeInterval = 24 * 60 * 60
     let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
 
     // Clip to the displayed week window.
@@ -908,13 +907,15 @@ struct WeekTimelineGridView: View {
     guard remainingEnd > remainingStart else { return [] }
 
     var pieces: [(columnIndex: Int, start: Date, end: Date)] = []
+    var columnIndex = 0
     while remainingStart < remainingEnd {
-      let secondsFromWeekStart = remainingStart.timeIntervalSince(weekStart)
-      let columnIndex = Int(floor(secondsFromWeekStart / oneDay))
-      guard columnIndex >= 0, columnIndex < 7 else { break }
+      guard columnIndex < 7 else { break }
 
-      let columnStart = calendar.date(byAdding: .day, value: columnIndex, to: weekStart)!
       let columnEnd = calendar.date(byAdding: .day, value: columnIndex + 1, to: weekStart)!
+      if remainingStart >= columnEnd {
+        columnIndex += 1
+        continue
+      }
 
       let pieceStart = remainingStart
       let pieceEnd = min(remainingEnd, columnEnd)
@@ -922,6 +923,7 @@ struct WeekTimelineGridView: View {
 
       pieces.append((columnIndex: columnIndex, start: pieceStart, end: pieceEnd))
       remainingStart = pieceEnd
+      columnIndex += 1
     }
     return pieces
   }

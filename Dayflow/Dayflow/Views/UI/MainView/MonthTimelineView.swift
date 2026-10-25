@@ -17,78 +17,77 @@ enum MonthTimelineSummary {
   /// Groups activities by their 4 AM-bounded day string and sums time per category.
   /// Idle time is left out of the totals.
   ///
-  /// Each activity is clipped to the 4 AM→4 AM window of the day it starts in, and
-  /// overlapping coverage within a day is merged so a single day never totals more
-  /// than 24 h and cross-day activity isn't dumped entirely on the day it started.
+  /// Activities are split across every 4 AM→4 AM day window they overlap, and
+  /// overlapping coverage within a day is counted once.
   static func summarize(
     _ activities: [TimelineActivity],
     mutedCategoryKeys: Set<String> = [],
     idleCategoryKeys: Set<String> = [],
     searchTerms: [String] = []
   ) -> [String: MonthDaySummary] {
-    var activityByDay: [String: [TimelineActivity]] = [:]
+    var activityByDay: [String: [(start: Int, end: Int, key: String)]] = [:]
     for activity in activities {
       let key = categoryFilterKey(activity.category)
       if idleCategoryKeys.contains(key) || mutedCategoryKeys.contains(key) { continue }
       if !TimelineSearch.matches(terms: searchTerms, activity: activity) { continue }
-      let day = activity.startTime.getDayInfoFor4AMBoundary().dayString
-      activityByDay[day, default: []].append(activity)
+
+      var cursor = activity.startTime
+      while cursor < activity.endTime {
+        let dayInfo = cursor.getDayInfoFor4AMBoundary()
+        let pieceEnd = min(activity.endTime, dayInfo.endOfDay)
+        guard pieceEnd > cursor else { break }
+        activityByDay[dayInfo.dayString, default: []].append((
+          start: Int(cursor.timeIntervalSince(dayInfo.startOfDay)),
+          end: Int(pieceEnd.timeIntervalSince(dayInfo.startOfDay)),
+          key: key
+        ))
+        cursor = pieceEnd
+      }
     }
 
     var result: [String: MonthDaySummary] = [:]
-    for (day, dayActivities) in activityByDay {
-      guard let window = day4AMWindow(forDayString: day) else { continue }
-
-      // Clip each activity to this day's 4 AM→4 AM window.
-      var clipped: [(start: Int, end: Int, key: String)] = []
-      for activity in dayActivities {
-        let start = max(activity.startTime, window.start)
-        let end = min(activity.endTime, window.end)
-        guard end > start else { continue }
-        clipped.append((
-          start: Int(start.timeIntervalSince(window.start)),
-          end: Int(end.timeIntervalSince(window.start)),
-          key: categoryFilterKey(activity.category)
-        ))
-      }
-
-      // Merge overlapping coverage so each minute is counted once (capped at 24 h).
-      clipped.sort { $0.start < $1.start }
-      var merged: [(start: Int, end: Int)] = []
-      for interval in clipped {
-        if let lastIdx = merged.indices.last, interval.start <= merged[lastIdx].end {
-          merged[lastIdx].end = max(merged[lastIdx].end, interval.end)
-        } else {
-          merged.append((interval.start, interval.end))
-        }
-      }
-
+    for (day, clipped) in activityByDay {
       var summary = MonthDaySummary()
-      for interval in merged {
-        summary.totalSeconds += Double(interval.end - interval.start)
+      // Assign each covered slice to one category only. Earlier-starting cards
+      // take precedence; category key breaks ties deterministically.
+      clipped.sort { lhs, rhs in
+        lhs.start == rhs.start ? lhs.key < rhs.key : lhs.start < rhs.start
       }
+      var covered: [(start: Int, end: Int)] = []
       for item in clipped {
-        let seconds = Double(item.end - item.start)
-        summary.secondsByCategory[item.key, default: 0] += seconds
+        var cursor = item.start
+        var newlyAssigned = 0.0
+        for interval in covered where interval.end > cursor {
+          if interval.start > cursor {
+            let seconds = Double(min(interval.start, item.end) - cursor)
+            summary.secondsByCategory[item.key, default: 0] += seconds
+            newlyAssigned += seconds
+            cursor = min(interval.start, item.end)
+          }
+          cursor = max(cursor, interval.end)
+          if cursor >= item.end { break }
+        }
+        if cursor < item.end {
+          let seconds = Double(item.end - cursor)
+          summary.secondsByCategory[item.key, default: 0] += seconds
+          newlyAssigned += seconds
+        }
+        summary.totalSeconds += newlyAssigned
+        covered.append((item.start, item.end))
+        covered.sort { $0.start < $1.start }
+        var merged: [(start: Int, end: Int)] = []
+        for interval in covered {
+          if let last = merged.indices.last, interval.start <= merged[last].end {
+            merged[last].end = max(merged[last].end, interval.end)
+          } else {
+            merged.append(interval)
+          }
+        }
+        covered = merged
       }
       result[day] = summary
     }
     return result
-  }
-
-  /// The 4 AM→4 AM window (a "timeline day") for the given `yyyy-MM-dd` day string.
-  private static func day4AMWindow(forDayString dayString: String) -> (start: Date, end: Date)? {
-    let df = DateFormatter.yyyyMMdd
-    guard let dayDate = df.date(from: dayString) else { return nil }
-    var calendar = Calendar.current
-    calendar.timeZone = .autoupdatingCurrent
-    var components = calendar.dateComponents([.year, .month, .day], from: dayDate)
-    components.hour = 4
-    components.minute = 0
-    components.second = 0
-    guard let start = calendar.date(from: components) else { return nil }
-    guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
-    return (start, end)
   }
 }
 
