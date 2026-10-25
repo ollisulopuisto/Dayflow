@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.13] - 2026-10-26
+
+### Fixed
+- CI build: copy month summary intervals into a mutable local before sorting.
+
 ## [2.7.12] - 2026-10-26
 
 ### Fixed

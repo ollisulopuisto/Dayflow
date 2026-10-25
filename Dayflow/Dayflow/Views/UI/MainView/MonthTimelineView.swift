@@ -46,10 +46,11 @@ enum MonthTimelineSummary {
     }
 
     var result: [String: MonthDaySummary] = [:]
-    for (day, clipped) in activityByDay {
+    for (day, dayActivities) in activityByDay {
       var summary = MonthDaySummary()
       // Assign each covered slice to one category only. Earlier-starting cards
       // take precedence; category key breaks ties deterministically.
+      var clipped = dayActivities
       clipped.sort { lhs, rhs in
         if lhs.start != rhs.start {
           return lhs.start < rhs.start
