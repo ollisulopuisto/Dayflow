@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.11] - 2026-10-26
+
+### Fixed
+- CI build: corrected static localhost checks in the network blocking protocol and fixed a malformed comment in the network access modal.
+
 ## [2.7.9] - 2026-10-25
 
 ### Added

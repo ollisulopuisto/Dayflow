@@ -27,7 +27,7 @@ final class NetworkBlockingURLProtocol: URLProtocol {
       return false
     }
     // Localhost / link-local is local access: never block.
-    if isLocalHost(url) { return false }
+    if Self.isLocalHost(url) { return false }
     // Permission granted: let everything load normally.
     if NetworkAccessStore.shared.isAllowed { return false }
     // No permission: block this outside request.
@@ -56,7 +56,7 @@ final class NetworkBlockingURLProtocol: URLProtocol {
     // Nothing in flight; we never open a real connection.
   }
 
-  private func isLocalHost(_ url: URL) -> Bool {
+  private static func isLocalHost(_ url: URL) -> Bool {
     guard let host = url.host?.lowercased() else { return true }
     return host == "localhost" || host == "127.0.0.1" || host == "::1"
   }

@@ -5,7 +5,7 @@
 //  Modal alarm presented the first time the app attempts outside (non-localhost)
 //  network access. Dayflow is local-first: nothing leaves the machine unless the
 //  user explicitly taps "Allow". Tapping "Don't Allow" denies the request and
-  keeps the local-only default.
+// keeps the local-only default.
 //
 
 import SwiftUI
