@@ -38,15 +38,15 @@ enum TimelineSearch {
   static func statistics(query: String, activities: [TimelineActivity]) -> TimelineSearchStats? {
     let searchTerms = terms(query)
     guard !searchTerms.isEmpty else { return nil }
-    let matches = activities.filter { matches(terms: searchTerms, activity: $0) }
-    guard let first = matches.map(\.startTime).min(), let last = matches.map(\.endTime).max() else {
+    let matchedActivities = activities.filter { TimelineSearch.matches(terms: searchTerms, activity: $0) }
+    guard let first = matchedActivities.map(\.startTime).min(), let last = matchedActivities.map(\.endTime).max() else {
       return TimelineSearchStats(matchCount: 0, totalDuration: 0, firstMatch: nil, lastMatch: nil)
     }
-    let duration = matches.reduce(0.0) { total, activity in
+    let duration = matchedActivities.reduce(0.0) { total, activity in
       total + max(0, activity.endTime.timeIntervalSince(activity.startTime))
     }
     return TimelineSearchStats(
-      matchCount: matches.count,
+      matchCount: matchedActivities.count,
       totalDuration: duration,
       firstMatch: first,
       lastMatch: last

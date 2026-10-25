@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [2.7.9] - 2026-10-25
 
 ### Added
 - Studio batch analysis: analysis can run on the Mac Studio queue, and pending analysis shows as its own card in the timeline.
