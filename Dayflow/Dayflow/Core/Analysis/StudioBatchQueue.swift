@@ -74,7 +74,10 @@ enum StudioBatchQueue {
 
   static func pollResults(store: any StorageManaging) {
     guard let endpoint else { return }
-    importAvailableResults(from: endpoint, store: store)
+    Task {
+      guard await NetworkGate.shared.allow(endpoint) else { return }
+      importAvailableResults(from: endpoint, store: store)
+    }
   }
 
   private static var endpoint: URL? {
@@ -93,9 +96,21 @@ enum StudioBatchQueue {
 
   /// Queue the batch once. Results are imported by the per-minute poll, not per upload.
   static func submitAndImport(batchId: Int64, store: any StorageManaging) {
-    guard endpoint != nil, scheduler.shouldAttempt(batchId) else { return }
+    guard let endpoint, scheduler.shouldAttempt(batchId) else { return }
+    Task {
+      guard await NetworkGate.shared.allow(endpoint) else { return }
+      submitAuthorized(batchId: batchId, store: store, endpoint: endpoint)
+    }
+  }
+
+  private static func submitAuthorized(
+    batchId: Int64,
+    store: any StorageManaging,
+    endpoint: URL
+  ) {
+    guard scheduler.shouldAttempt(batchId) else { return }
     let batch = store.batch(id: batchId)
-    guard let batch, let endpoint else { return }
+    guard let batch else { return }
     if batch.status != "studio_queued" && batch.status != "completed" {
       guard scheduler.tryBegin(batchId) else { return }
       guard let payload = makePayload(batchId: batchId, start: batch.start, end: batch.end, store: store),

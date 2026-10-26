@@ -2,15 +2,14 @@
 //  NetworkBlockingURLProtocol.swift
 //  Dayflow
 //
-//  URLProtocol registered process-wide as the ultimate backstop for
-//  "local access only" hardening. When outside-network permission has NOT been
-//  granted, every http/https request to a non-local host is failed immediately
+//  URLProtocol registered process-wide as the ultimate backstop for network
+//  scope enforcement. Requests outside the selected scope fail immediately
 //  without ever opening a network connection. This catches third-party SDKs
 //  (analytics, updater, etc.) that create their own URLSession and bypass the
 //  explicit `URLSession.shared` call sites guarded by `NetworkGate`.
 //
-//  When permission IS granted, `canInit` returns `false` for everything, so
-//  normal network loading proceeds unimpeded.
+//  When the selected scope allows a URL, `canInit` returns `false` and normal
+//  network loading proceeds unimpeded.
 //
 
 import Foundation
@@ -26,17 +25,12 @@ final class NetworkBlockingURLProtocol: URLProtocol {
     else {
       return false
     }
-    // Localhost / link-local is local access: never block.
-    if Self.isLocalHost(url) { return false }
-    // Permission granted: let everything load normally.
-    if NetworkAccessStore.shared.isAllowed { return false }
-    // No permission: block this outside request.
-    return true
+    !NetworkAccessStore.shared.scope.allows(url)
   }
 
   override class func canInit(with task: URLSessionTask) -> Bool {
-    // We handle requests at the request level; task-level init is not needed.
-    false
+    guard let request = task.currentRequest ?? task.originalRequest else { return false }
+    return canInit(with: request)
   }
 
   override class func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -56,8 +50,4 @@ final class NetworkBlockingURLProtocol: URLProtocol {
     // Nothing in flight; we never open a real connection.
   }
 
-  private static func isLocalHost(_ url: URL) -> Bool {
-    guard let host = url.host?.lowercased() else { return true }
-    return host == "localhost" || host == "127.0.0.1" || host == "::1"
-  }
 }

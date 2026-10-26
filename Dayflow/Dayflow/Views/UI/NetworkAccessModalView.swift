@@ -2,10 +2,8 @@
 //  NetworkAccessModalView.swift
 //  Dayflow
 //
-//  Modal alarm presented the first time the app attempts outside (non-localhost)
-//  network access. Dayflow is local-first: nothing leaves the machine unless the
-//  user explicitly taps "Allow". Tapping "Don't Allow" denies the request and
-// keeps the local-only default.
+//  Modal alarm presented when a connection requires a wider scope than the
+//  user selected in Settings or onboarding.
 //
 
 import SwiftUI
@@ -18,7 +16,7 @@ struct NetworkAccessModalView: View {
   var body: some View {
     EmptyView()
       .alert(
-        "Outside Network Access Blocked",
+        "Network Access Needed",
         isPresented: Binding(
           get: { coordinator.isShowingModal },
           set: { _ in }
@@ -27,7 +25,7 @@ struct NetworkAccessModalView: View {
           Button("Don't Allow", role: .cancel) {
             coordinator.respond(false)
           }
-          Button("Allow", role: .none) {
+          Button("Allow \(coordinator.pendingScope.title)", role: .none) {
             coordinator.respond(true)
           }
           .buttonStyle(.borderedProminent)
@@ -41,13 +39,7 @@ struct NetworkAccessModalView: View {
   private var modalMessage: Text {
     let host = coordinator.pendingURL?.host ?? "an external service"
     return Text(
-      """
-      Dayflow is local-first and does not send your data anywhere by default.
-
-      Dayflow tried to connect to \(host).
-
-      Allow outside network access? This may send data to \(host).
-      """
+      "Dayflow tried to connect to \(host), which is outside your current network access scope. This request may send data to that host. Allow \(coordinator.pendingScope.title.lowercased()) access?"
     )
   }
 }

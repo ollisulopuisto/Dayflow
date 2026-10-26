@@ -28,11 +28,12 @@ struct OnboardingFlow: View {
     case .introVideo: return 0
     case .roleSelection: return 0
     case .referral: return 1
-    case .llmSelection: return 2
-    case .llmSetup: return 3
-    case .screen: return 4
-    case .personalGoal: return 5
-    case .completion: return 6
+    case .networkAccess: return 2
+    case .llmSelection: return 3
+    case .llmSetup: return 4
+    case .screen: return 5
+    case .personalGoal: return 6
+    case .completion: return 7
     }
   }
 
@@ -103,6 +104,15 @@ struct OnboardingFlow: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
           AnalyticsService.shared.screen("onboarding_referral")
+        }
+
+      case .networkAccess:
+        NetworkAccessOnboardingStep(
+          onBack: { setStep(.referral) },
+          onContinue: { advance() }
+        )
+        .onAppear {
+          AnalyticsService.shared.screen("onboarding_network_access")
         }
 
       case .llmSelection:
@@ -215,7 +225,7 @@ struct OnboardingFlow: View {
       }
 
       // Progress ring — bottom-left, always in tree (opacity toggle preserves @State)
-      ProgressRingView(totalSegments: 6, filledSegments: onboardingFilledSegments)
+      ProgressRingView(totalSegments: 7, filledSegments: onboardingFilledSegments)
         .opacity(showsProgressRing ? 1 : 0)
         .animation(.easeInOut(duration: 0.3), value: showsProgressRing)
         .padding(.leading, 0)
@@ -322,6 +332,10 @@ struct OnboardingFlow: View {
       markStepCompleted(step, extraProps: extraProps)
       step.next()
       savedStepRawValue = step.rawValue
+    case .networkAccess:
+      markStepCompleted(step, extraProps: ["scope": NetworkAccessStore.shared.scope.rawValue])
+      step.next()
+      savedStepRawValue = step.rawValue
     case .llmSelection:
       markStepCompleted(step, extraProps: extraProps)
       let nextStep: OnboardingStep =
@@ -356,7 +370,7 @@ struct OnboardingFlow: View {
 
 /// Wizard step order
 enum OnboardingStep: Int, CaseIterable {
-  case introVideo, roleSelection, referral, llmSelection, llmSetup, screen, personalGoal, completion
+  case introVideo, roleSelection, referral, networkAccess, llmSelection, llmSetup, screen, personalGoal, completion
 
   var analyticsName: String {
     switch self {
@@ -366,6 +380,8 @@ enum OnboardingStep: Int, CaseIterable {
       return "role_selection"
     case .referral:
       return "referral"
+    case .networkAccess:
+      return "network_access"
     case .llmSelection:
       return "llm_selection"
     case .llmSetup:
@@ -390,7 +406,7 @@ enum OnboardingStep: Int, CaseIterable {
 enum OnboardingStepMigration {
   static let schemaVersionKey = "onboardingStepSchemaVersion"
   private static let onboardingStepKey = "onboardingStep"
-  static let currentVersion = 6
+  static let currentVersion = 7
 
   @discardableResult
   static func migrateIfNeeded(defaults: UserDefaults = .standard) -> Int {
@@ -440,6 +456,10 @@ enum OnboardingStepMigration {
     // New v6: introVideo=0, roleSelection=1, referral=2, llmSelection=3, llmSetup=4, screen=5, personalGoal=6, completion=7
     if storedVersion < 6 {
       migratedValue = migrateV5toV6(migratedValue)
+    }
+
+    if storedVersion < 7 {
+      migratedValue = migrateV6toV7(migratedValue)
     }
 
     defaults.set(migratedValue, forKey: onboardingStepKey)
@@ -520,10 +540,19 @@ enum OnboardingStepMigration {
     }
   }
 
+  static func migrateV6toV7(_ rawValue: Int) -> Int {
+    switch rawValue {
+    case 0...2: return rawValue  // introVideo, roleSelection, referral stay in place
+    case 3...7: return rawValue + 1  // steps after referral move for networkAccess
+    default: return 0
+    }
+  }
+
   // Keep for testing compatibility
   static func migrateRawValue(_ rawValue: Int) -> Int {
-    migrateV5toV6(
-      migrateV4toV5(migrateV3toV4(migrateV2toV3(migrateV1toV2(migrateV0toV1(rawValue))))))
+    migrateV6toV7(
+      migrateV5toV6(
+        migrateV4toV5(migrateV3toV4(migrateV2toV3(migrateV1toV2(migrateV0toV1(rawValue)))))))
   }
 }
 

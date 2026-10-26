@@ -3,7 +3,7 @@
 //  Dayflow
 //
 //  @MainActor coordinator that bridges `NetworkGate`'s async authorization with
-//  SwiftUI modal state. When `NetworkGate` needs outside-network permission it
+//  SwiftUI modal state. When `NetworkGate` needs a wider access scope it
 //  calls `requestAccess(for:)`, which shows the modal alarm and suspends until
 //  the user explicitly taps "Allow" or "Don't Allow".
  //
@@ -11,7 +11,7 @@
 import Foundation
 import SwiftUI
 
-/// Presents the network-permission modal alarm and suspends the calling
+/// Presents the network-scope modal alarm and suspends the calling
 /// `NetworkGate.allow(_:)` until the user explicitly grants or denies permission.
 @MainActor
 final class NetworkAccessCoordinator: ObservableObject {
@@ -21,6 +21,8 @@ final class NetworkAccessCoordinator: ObservableObject {
   @Published private(set) var isShowingModal = false
   /// The URL that triggered the modal, shown to the user for transparency.
   @Published private(set) var pendingURL: URL?
+  /// Minimum access scope needed for the pending request.
+  @Published private(set) var pendingScope: NetworkAccessScope = .anyNetwork
 
   private var continuations: [CheckedContinuation<Bool, Never>] = []
 
@@ -29,9 +31,14 @@ final class NetworkAccessCoordinator: ObservableObject {
   /// Show the modal alarm for `url` and wait for the user's explicit decision.
   /// Returns `true` only if the user taps "Allow".
   func requestAccess(for url: URL) async -> Bool {
+    let requiredScope = NetworkAccessScope.required(for: url)
     if !isShowingModal {
       pendingURL = url
+      pendingScope = requiredScope
       isShowingModal = true
+    } else if requiredScope.rank > pendingScope.rank {
+      pendingURL = url
+      pendingScope = requiredScope
     }
     return await withCheckedContinuation { continuation in
       continuations.append(continuation)

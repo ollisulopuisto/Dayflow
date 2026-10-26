@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.14] - 2026-10-26
+
+### Added
+- Configurable network access scopes for localhost, local network, and all network addresses in onboarding and Preferences.
+- Scope-aware network gating for requests, including batched Studio analysis transfers.
+
+
 ## [2.7.13] - 2026-10-26
 
 ### Fixed

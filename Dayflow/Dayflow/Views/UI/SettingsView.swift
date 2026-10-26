@@ -11,6 +11,7 @@ import SwiftUI
 struct SettingsView: View {
   enum SettingsTab: String, CaseIterable, Identifiable {
     case storage
+    case network
     case privacy
     case providers
     case aiTools
@@ -26,6 +27,7 @@ struct SettingsView: View {
       switch self {
       case .account: return String(localized: "Account")
       case .storage: return String(localized: "Storage")
+      case .network: return String(localized: "Network")
       case .privacy: return String(localized: "Privacy")
       case .providers: return String(localized: "Providers")
       case .aiTools: return String(localized: "MCP / CLI")
@@ -259,6 +261,8 @@ struct SettingsView: View {
         SettingsAccountSection()
       case .storage:
         SettingsStorageTabView(viewModel: storageViewModel)
+      case .network:
+        SettingsNetworkTabView()
       case .privacy:
         SettingsRecordingPrivacyTabView(viewModel: privacyViewModel)
       case .providers:

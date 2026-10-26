@@ -2,20 +2,17 @@
 //  NetworkGate.swift
 //  Dayflow
 //
-//  Central choke point for all outside (non-localhost) network access.
-//  Dayflow is local-first: by default NO outside network access is allowed.
-//  Every request is funneled through `allow(_:)`, which returns `false` unless
-//  the user has explicitly granted permission via the modal alarm in
-//  `NetworkAccessModalView`.
+//  Central policy for Dayflow's localhost, local-network, and internet scopes.
+//  Requests that exceed the selected scope ask the user before continuing.
 //
 //  A `NetworkBlockingURLProtocol` is registered process-wide as a backstop so
-//  even third-party SDKs (analytics, updater, etc.) cannot reach the outside
-//  network unless permission has been granted.
+//  even third-party SDKs (analytics, updater, etc.) cannot exceed the selected
+//  scope for HTTP(S) requests.
 //
 
 import Foundation
 
-/// Decision engine: is a given URL allowed to make a network request?
+/// Decision engine: does the selected scope allow a URL to make a connection?
 final class NetworkGate {
   static let shared = NetworkGate()
 
@@ -39,25 +36,19 @@ final class NetworkGate {
     lock.lock(); authorize = handler; lock.unlock()
   }
 
-  /// Returns `true` iff the request to `url` may proceed over the network.
-  ///
-  /// - Localhost/link-local and `file://` URLs are local access: always allowed.
-  /// - Outside network is blocked by default until `authorize` returns `true`,
-  ///   at which point permission is persisted and all subsequent requests pass.
+  /// Returns `true` iff the selected scope allows the request. If the request
+  /// needs a wider scope, ask once and persist the scope the user approves.
   func allow(_ url: URL) async -> Bool {
-    if isLocalHost(url) { return true }
-    if store.isAllowed { return true }
+    let requiredScope = NetworkAccessScope.required(for: url)
+    if store.scope.allows(url) { return true }
     lock.lock()
     let authorizer = authorize
     lock.unlock()
     guard let authorizer else { return false }
     let allowed = await authorizer(url)
-    if allowed { store.setAllowed(true) }
+    if allowed, store.scope.rank < requiredScope.rank {
+      store.setScope(requiredScope)
+    }
     return allowed
-  }
-
-  private func isLocalHost(_ url: URL) -> Bool {
-    guard let host = url.host?.lowercased() else { return true } // file:// etc. -> local
-    return host == "localhost" || host == "127.0.0.1" || host == "::1"
   }
 }
