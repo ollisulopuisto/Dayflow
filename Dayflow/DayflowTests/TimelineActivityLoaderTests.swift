@@ -323,7 +323,7 @@ final class SettingsTabOrderTests: XCTestCase {
   func testAccountIsSecondToLastAndStorageIsTheDefault() {
     XCTAssertEqual(
       SettingsView.SettingsTab.allCases.map(\.rawValue),
-      ["storage", "privacy", "providers", "aiTools", "data", "account", "other"])
+      ["storage", "network", "privacy", "providers", "aiTools", "data", "account", "other"])
     XCTAssertEqual(SettingsView.SettingsTab.defaultTab, .storage)
   }
 }
