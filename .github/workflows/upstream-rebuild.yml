@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: koti-batching-2.7.1
+          ref: main
           fetch-depth: 0
 
       - name: Find the latest upstream release
@@ -87,4 +87,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$SOURCE_REF" \
             --title "Dayflow fork built from upstream $TAG" \
-            --notes "Upstream $TAG merged into koti-batching-2.7.1; durable source ref $SOURCE_REF (commit $(git rev-parse --short HEAD)). Unsigned build."
+            --notes "Upstream $TAG merged into main; durable source ref $SOURCE_REF (commit $(git rev-parse --short HEAD)). Unsigned build."
