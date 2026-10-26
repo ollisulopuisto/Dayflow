@@ -25,7 +25,7 @@ final class NetworkBlockingURLProtocol: URLProtocol {
     else {
       return false
     }
-    !NetworkAccessStore.shared.scope.allows(url)
+    return !NetworkAccessStore.shared.scope.allows(url)
   }
 
   override class func canInit(with task: URLSessionTask) -> Bool {
