@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.15] - 2026-10-26
+
+### Fixed
+- Weekly insights: restore recorded-time totals by using SQLite-supported overlap calculations, including activity crossing the selected week's boundaries.
+- Weekly insights: identify the selected week in the recording requirement message and refresh when analysis results arrive.
+- Weekly navigation: support Command-Left and Command-Right with the same text-editing behavior as Timeline.
+- CI: include Network in the Settings tab order test and rebuild upstream releases from main.
+
 ## [2.7.14] - 2026-10-26
 
 ### Added

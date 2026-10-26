@@ -650,6 +650,7 @@ extension Notification.Name {
   static let navigateToSettings = Notification.Name("navigateToSettings")
   static let timelineZoomStep = Notification.Name("timelineZoomStep")
   static let timelineNavigateStep = Notification.Name("timelineNavigateStep")
+  static let weeklyNavigateStep = Notification.Name("weeklyNavigateStep")
   static let timelineFocusSearch = Notification.Name("timelineFocusSearch")
   static let navigateToSection = Notification.Name("navigateToSection")
   static let timelineDataUpdated = Notification.Name("timelineDataUpdated")

@@ -165,6 +165,17 @@ struct WeeklyView: View {
       guard AppVisibility.isMainWindowOnScreen else { return }
       refreshWeeklyAccessState()
     }
+    .onReceive(NotificationCenter.default.publisher(for: .weeklyNavigateStep)) { notification in
+      let delta = notification.userInfo?["delta"] as? Int ?? 0
+      navigateWeeks(by: delta)
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .timelineDataUpdated)) { _ in
+      refreshWeeklyAccessState()
+      guard isWeeklyAccessUnlocked else { return }
+      Task {
+        await loadWeeklyData(for: weekRange, categories: categoryStore.categories)
+      }
+    }
     .onChange(of: scenePhase) { _, phase in
       guard phase == .active else { return }
       refreshWeeklyAccessState()
@@ -192,7 +203,8 @@ struct WeeklyView: View {
             if shouldShowWeeklyDataGate {
               WeeklyDataRequirementView(
                 recordedMinutes: selectedWeekRecordedMinutes ?? 0,
-                targetMinutes: Self.weeklyDataRequirementMinutes
+                targetMinutes: Self.weeklyDataRequirementMinutes,
+                weekTitle: weekRange.title
               )
               .frame(width: layout.contentWidth, height: WeeklyAdaptiveLayout.dataGateHeight)
             } else {
@@ -468,12 +480,17 @@ struct WeeklyView: View {
   }
 
   private func showPreviousWeek() {
-    weekRange = weekRange.shifted(byWeeks: -1)
+    navigateWeeks(by: -1)
   }
 
   private func showNextWeek() {
-    guard weekRange.canNavigateForward else { return }
-    weekRange = weekRange.shifted(byWeeks: 1)
+    navigateWeeks(by: 1)
+  }
+
+  private func navigateWeeks(by delta: Int) {
+    guard delta != 0 else { return }
+    if delta > 0, !weekRange.canNavigateForward { return }
+    weekRange = weekRange.shifted(byWeeks: delta)
   }
 
   @MainActor
@@ -525,6 +542,7 @@ struct WeeklyView: View {
 private struct WeeklyDataRequirementView: View {
   let recordedMinutes: Int
   let targetMinutes: Int
+  let weekTitle: String
 
   private var progress: Double {
     guard targetMinutes > 0 else { return 1 }
@@ -556,11 +574,11 @@ private struct WeeklyDataRequirementView: View {
             .font(.custom("InstrumentSerif-Regular", size: 24))
             .foregroundStyle(WeeklyPalette.text)
 
-          Text("Weekly insights need at least 15 hours of recorded activity for the selected week.")
+          Text("Weekly insights for \(weekTitle) need at least 15 hours of recorded activity.")
             .font(.custom("Figtree-Regular", size: 14))
             .foregroundStyle(WeeklyPalette.secondaryText)
             .multilineTextAlignment(.center)
-            .lineLimit(2)
+            .lineLimit(3)
         }
 
         WeeklyDataRequirementPill(text: recordedTimeText)

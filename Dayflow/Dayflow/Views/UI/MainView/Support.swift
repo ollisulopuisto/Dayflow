@@ -375,6 +375,11 @@ extension MainView {
       textView.doCommand(by: TimelineStep.textEditingSelector(for: delta))
       return
     }
+    if selectedIcon == .weekly {
+      NotificationCenter.default.post(
+        name: .weeklyNavigateStep, object: nil, userInfo: ["delta": delta])
+      return
+    }
     guard selectedIcon == .timeline else { return }
     if delta > 0 {
       guard canNavigateTimelineForward else { return }
