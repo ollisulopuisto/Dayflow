@@ -47,19 +47,9 @@ final class StorageSettingsViewModel: ObservableObject {
   func runStorageStatusCheck() {
     guard !isRefreshingStorage else { return }
     isRefreshingStorage = true
-
-    let group = DispatchGroup()
-    group.enter()
-    StorageManager.shared.purgeNow {
-      group.leave()
-    }
-    group.enter()
-    TimelapseStorageManager.shared.purgeNow {
-      group.leave()
-    }
-    group.notify(queue: .main) { [weak self] in
-      self?.refreshStorageMetrics(force: true)
-    }
+    StorageManager.shared.purgeNow()
+    TimelapseStorageManager.shared.purgeNow()
+    refreshStorageMetrics(force: true)
   }
 
   func refreshStorageMetrics(force: Bool = false) {
@@ -72,6 +62,12 @@ final class StorageSettingsViewModel: ObservableObject {
 
     Task.detached(priority: .utility) { [weak self] in
       let permission = CGPreflightScreenCaptureAccess()
+      await MainActor.run {
+        guard let self else { return }
+        self.storagePermissionGranted = permission
+        self.lastStorageCheck = Date()
+        self.isRefreshingStorage = false
+      }
       let recordingsURL = StorageManager.shared.recordingsRoot
 
       let recordingsSize = StorageSettingsViewModel.directorySize(at: recordingsURL)
@@ -81,12 +77,9 @@ final class StorageSettingsViewModel: ObservableObject {
 
       await MainActor.run {
         guard let self else { return }
-        self.storagePermissionGranted = permission
         self.recordingsUsageBytes = recordingsSize
         self.timelapseUsageBytes = timelapseSize
         self.observedBytesPerHour = observedRate
-        self.lastStorageCheck = Date()
-        self.isRefreshingStorage = false
 
         let recordingsLimit = StoragePreferences.recordingsLimitBytes
         let timelapseLimit = StoragePreferences.timelapsesLimitBytes
