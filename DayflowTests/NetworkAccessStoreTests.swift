@@ -2,8 +2,8 @@
 //  NetworkAccessStoreTests.swift
 //  DayflowTests
 //
-//  Dayflow is local-first: outside-network permission defaults to `false` and can
-//  only be flipped to `true` by the user's explicit choice.
+//  Dayflow is local-first: the network scope defaults to `localhostOnly` and can
+//  only be widened by the user's explicit choice.
 //
 
 import XCTest
@@ -22,33 +22,33 @@ final class NetworkAccessStoreTests: XCTestCase {
   }
 
   override func tearDown() {
-    store.reset()
+    store.setScope(.localhostOnly)
     defaults.removePersistentDomain(forName: defaults.suiteName ?? "test.NetworkAccessStore")
     store = nil
     defaults = nil
     super.tearDown()
   }
 
-  func testDefaultsToNotAllowed() {
-    // Local-first: permission starts off.
-    XCTAssertFalse(store.isAllowed)
+  func testDefaultsToLocalhostOnly() {
+    // Local-first: permission starts at "This Mac only".
+    XCTAssertEqual(store.scope, .localhostOnly)
   }
 
-  func testSetAllowedTruePersists() {
-    store.setAllowed(true)
-    XCTAssertTrue(store.isAllowed)
+  func testSetScopePersists() {
+    store.setScope(.anyNetwork)
+    XCTAssertEqual(store.scope, .anyNetwork)
   }
 
-  func testSetAllowedFalsePersists() {
-    store.setAllowed(true)
-    store.setAllowed(false)
-    XCTAssertFalse(store.isAllowed)
+  func testScopeCanBeNarrowedBack() {
+    store.setScope(.anyNetwork)
+    store.setScope(.localhostOnly)
+    XCTAssertEqual(store.scope, .localhostOnly)
   }
 
-  func testResetReturnsToDefaultFalse() {
-    store.setAllowed(true)
-    store.reset()
-    XCTAssertFalse(store.isAllowed)
+  func testScopeSurvivesReRead() {
+    store.setScope(.localNetwork)
+    let freshStore = NetworkAccessStore(defaults: defaults)
+    XCTAssertEqual(freshStore.scope, .localNetwork)
   }
 
   func testSharedIsSingleton() {

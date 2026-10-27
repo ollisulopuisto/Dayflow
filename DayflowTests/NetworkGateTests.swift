@@ -24,7 +24,7 @@ final class NetworkGateTests: XCTestCase {
   }
 
   override func tearDown() {
-    store.reset()
+    store.setScope(.localhostOnly)
     defaults.removePersistentDomain(forName: defaults.suiteName ?? "test.NetworkGate")
     gate = nil
     store = nil
@@ -35,12 +35,13 @@ final class NetworkGateTests: XCTestCase {
   func testPublicInternetBlockedByDefault() async {
     gate.setAuthorize(nil)
     XCTAssertFalse(await gate.allow(URL(string: "https://example.com")!))
+    XCTAssertEqual(store.scope, .localhostOnly)
   }
 
   func testNoAuthorizerMeansBlocked() async {
     gate.setAuthorize(nil)
     XCTAssertFalse(await gate.allow(URL(string: "https://example.com")!))
-    XCTAssertFalse(store.isAllowed)
+    XCTAssertEqual(store.scope, .localhostOnly)
   }
 
   func testExplicitAuthorizationAllowsAndPersists() async {
@@ -52,7 +53,7 @@ final class NetworkGateTests: XCTestCase {
 
     let url = URL(string: "https://example.com")!
     XCTAssertTrue(await gate.allow(url))
-    XCTAssertTrue(store.isAllowed, "permission should be persisted after explicit grant")
+    XCTAssertEqual(store.scope, .anyNetwork, "permission should be widened after explicit grant")
     XCTAssertEqual(received.count, 1, "authorizer should be invoked once")
     XCTAssertEqual(received.first, url, "authorizer should receive the requested URL")
   }
@@ -61,7 +62,7 @@ final class NetworkGateTests: XCTestCase {
     gate.setAuthorize { _ in false }
 
     XCTAssertFalse(await gate.allow(URL(string: "https://example.com")!))
-    XCTAssertFalse(store.isAllowed)
+    XCTAssertEqual(store.scope, .localhostOnly)
   }
 
   func testSubsequentRequestsDoNotRepromptOncePermitted() async {
@@ -75,7 +76,7 @@ final class NetworkGateTests: XCTestCase {
     XCTAssertTrue(await gate.allow(URL(string: "https://example.org")!))
     XCTAssertTrue(await gate.allow(URL(string: "https://example.net")!))
     XCTAssertEqual(promptCount, 1, "authorizer should only run once after permission granted")
-    XCTAssertTrue(store.isAllowed)
+    XCTAssertEqual(store.scope, .anyNetwork)
   }
 
   func testLocalhostAlwaysAllowedWithoutPrompt() async {
@@ -89,7 +90,7 @@ final class NetworkGateTests: XCTestCase {
     XCTAssertTrue(await gate.allow(URL(string: "http://localhost:9876/")!))
     XCTAssertTrue(await gate.allow(URL(string: "http://[::1]:9876/")!))
     XCTAssertEqual(promptCount, 0, "localhost must never prompt")
-    XCTAssertFalse(store.isAllowed, "localhost should not flip the permission flag")
+    XCTAssertEqual(store.scope, .localhostOnly, "localhost should not widen the scope")
   }
 
   func testFileURLsTreatedAsLocal() async {
@@ -106,9 +107,9 @@ final class NetworkGateTests: XCTestCase {
   func testResetReBlocksPublicInternet() async {
     gate.setAuthorize { _ in true }
     _ = await gate.allow(URL(string: "https://example.com")!)
-    XCTAssertTrue(store.isAllowed)
+    XCTAssertEqual(store.scope, .anyNetwork)
 
-    store.reset()
+    store.setScope(.localhostOnly)
     let freshGate = NetworkGate(store: store)
     freshGate.setAuthorize(nil)
     XCTAssertFalse(await freshGate.allow(URL(string: "https://example.com")!))
