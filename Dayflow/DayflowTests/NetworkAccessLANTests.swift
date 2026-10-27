@@ -5,30 +5,28 @@
 //  Verifies that when the user selects "Local network" scope, Dayflow can
 //  reach LAN hosts but cannot reach the public internet.
 //
-//
-// NOTE: xcodebuild is unavailable in this environment (only command-line
-// tools, no Xcode), so these tests cannot be compiled/run here. Add them to
-// DayflowTests and run in Xcode.
 
 import XCTest
 @testable import Dayflow
 
 final class NetworkAccessLANTests: XCTestCase {
+  private var suiteName: String!
   private var defaults: UserDefaults!
   private var store: NetworkAccessStore!
   private var gate: NetworkGate!
 
   override func setUp() {
     super.setUp()
-    defaults = UserDefaults(suiteName: "test.NetworkAccessLAN")!
-    defaults.removePersistentDomain(forName: defaults.suiteName ?? "test.NetworkAccessLAN")
+    suiteName = "test.NetworkAccessLAN.\(UUID().uuidString)"
+    defaults = UserDefaults(suiteName: suiteName)!
+    defaults.removePersistentDomain(forName: suiteName)
     store = NetworkAccessStore(defaults: defaults)
     gate = NetworkGate(store: store)
   }
 
   override func tearDown() {
     store.setScope(.localhostOnly)
-    defaults.removePersistentDomain(forName: defaults.suiteName ?? "test.NetworkAccessLAN")
+    defaults.removePersistentDomain(forName: suiteName)
     gate = nil
     store = nil
     defaults = nil
@@ -68,22 +66,24 @@ final class NetworkAccessLANTests: XCTestCase {
     XCTAssertTrue(store.scope.allows(URL(string: "http://192.168.1.50:8080/")!))
   }
 
-  // MARK: - NetworkGate.allow() with LAN scope (deny-by-default authorizer)
+  // MARK: - NetworkGate.allow() with LAN scope (injected authorizer)
 
-  func testLANScopePublicInternetBlockedWithoutAuthorizer() {
+  func testLANScopePublicInternetBlockedWhenAuthorizationDenied() async {
     store.setScope(.localNetwork)
-    gate.setAuthorize(nil)
-    XCTAssertFalse(await gate.allow(URL(string: "https://example.com")!))
+    gate.setAuthorize { _ in false }
+    let allowed = await gate.allow(URL(string: "https://example.com")!)
+    XCTAssertFalse(allowed)
   }
 
-  func testLANScopeLANAllowedWithoutPrompt() {
+  func testLANScopeLANAllowedWithoutPrompt() async {
     store.setScope(.localNetwork)
     var promptCount = 0
     gate.setAuthorize { _ in
       promptCount += 1
       return true
     }
-    XCTAssertTrue(await gate.allow(URL(string: "http://192.168.1.50:8080/")!))
+    let allowed = await gate.allow(URL(string: "http://192.168.1.50:8080/")!)
+    XCTAssertTrue(allowed)
     XCTAssertEqual(promptCount, 0, "LAN hosts must not prompt")
   }
 }

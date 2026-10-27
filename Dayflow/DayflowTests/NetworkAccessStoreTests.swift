@@ -10,20 +10,22 @@ import XCTest
 @testable import Dayflow
 
 final class NetworkAccessStoreTests: XCTestCase {
+  private var suiteName: String!
   private var defaults: UserDefaults!
   private var store: NetworkAccessStore!
 
   override func setUp() {
     super.setUp()
     // Isolated suite so tests never leak into the real UserDefaults.standard.
-    defaults = UserDefaults(suiteName: "test.NetworkAccessStore")!
-    defaults.removePersistentDomain(forName: defaults.suiteName ?? "test.NetworkAccessStore")
+    suiteName = "test.NetworkAccessStore.\(UUID().uuidString)"
+    defaults = UserDefaults(suiteName: suiteName)!
+    defaults.removePersistentDomain(forName: suiteName)
     store = NetworkAccessStore(defaults: defaults)
   }
 
   override func tearDown() {
     store.setScope(.localhostOnly)
-    defaults.removePersistentDomain(forName: defaults.suiteName ?? "test.NetworkAccessStore")
+    defaults.removePersistentDomain(forName: suiteName)
     store = nil
     defaults = nil
     super.tearDown()
