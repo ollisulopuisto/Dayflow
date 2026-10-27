@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.7.16] - 2026-10-27
+
+### Performance
+- Week timeline: render cards around the actual scroll viewport with a smaller buffer.
+- Week timeline: coalesce scroll bucket updates and defer hover scaling and expanded-title measurement until hover intent is confirmed.
+
+### Fixed
+- Weekly insights: equal start and end times no longer count as 24 hours of activity.
+
 ## [2.7.15] - 2026-10-26
 
 ### Fixed
