@@ -62,3 +62,15 @@ Background: vImage resample, JPEG encode, `_convertJSONString`.
   /Applications/Dayflow.app instead of the perf build (running the perf binary directly works). The
   date-helper gain is from a micro-benchmark only (17.8 µs → 0.74 µs per call); the startup gains
   (splash skip, deferred integrity check) are not yet re-measured end to end.
+
+## Week timeline follow-up (2026-10-26, code audit)
+
+- The card window now uses the actual scroll viewport height and its own coordinate space.
+  Previously it used the entire key-window height, a minimum of 800 pt, and 900 pt of extra
+  vertical coverage. Week now keeps 500 pt beyond the actual viewport (100 pt overscan on each
+  side plus a 300 pt scroll bucket). Day/Hour retain their existing window sizing.
+- Scroll updates are queued only when changing buckets and coalesced using the latest offset.
+- Week cards measure expanded titles and scale only after the existing 120 ms hover intent delay,
+  avoiding immediate state changes and duplicate text layout as scrolling passes under the pointer.
+- Verified viewport coverage across scroll bucket boundaries and viewport sizes with a standalone
+  Swift check. These are code-level reductions; interactive frame-time gains have not been measured.

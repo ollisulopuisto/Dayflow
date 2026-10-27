@@ -43,4 +43,16 @@ final class TimelineCardWindowTests: XCTestCase {
       XCTAssertGreaterThanOrEqual(range.upperBound, offset + 900, "offset \(offset)")
     }
   }
+
+  func testWeekWindowCoversTheActualViewportWithLessOverscan() {
+    for height in [CGFloat(240), 600, 1_200] {
+      for offset in stride(from: CGFloat(0), through: 3_000, by: 17) {
+        let bucket = TimelineCardWindow.bucket(layerMinY: -offset)
+        let range = TimelineCardWindow.range(bucket: bucket, viewportHeight: height, overscan: 100)
+        XCTAssertLessThanOrEqual(range.lowerBound, offset)
+        XCTAssertGreaterThanOrEqual(range.upperBound, offset + height)
+        XCTAssertEqual(range.upperBound - range.lowerBound, height + 500)
+      }
+    }
+  }
 }

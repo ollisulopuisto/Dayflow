@@ -27,9 +27,6 @@ struct WeekTimelineCardPalette {
 
 struct WeekTimelineActivityCard: View {
   @Environment(\.dayflowTheme) private var theme
-  // The expanded-height measurement lays the title out a second time, so only cards the pointer
-  // is on carry it. The hover-intent delay (120 ms) gives it time to land before the card expands.
-  @State private var pointerOver = false
 
   let cardId: String
   let title: String
@@ -149,15 +146,16 @@ struct WeekTimelineActivityCard: View {
         ? TimelineActivity.pendingAnalysisExplanation : ""
     )
     .pointingHandCursor(enabled: !isPendingAnalysis)
-    .hoverScaleEffect(scale: 1.01)
+    .scaleEffect(isHovered ? 1.01 : 1)
     .zIndex(isHovered ? 10 : (isSelected ? 2 : 0))
     .onHover { hovering in
-      pointerOver = hovering
       onHoverChanged(hovering)
     }
     // Hidden natural-height measurement published to parent via preference.
     .background(alignment: .topLeading) {
-      if pointerOver || isHovered {
+      // Measure only after hover intent is confirmed. Scrolling carries many cards under a
+      // stationary pointer; those brief visits should not lay out their titles twice.
+      if isHovered {
         expandedHeightMeasurement
       }
     }

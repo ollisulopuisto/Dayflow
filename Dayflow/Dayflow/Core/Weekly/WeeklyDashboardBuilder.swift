@@ -492,7 +492,8 @@ enum WeeklyDashboardBuilder {
   ) {
     let adjustedStart = start < 240 ? start + 1440 : start
     var adjustedEnd = end < 240 ? end + 1440 : end
-    if adjustedEnd <= adjustedStart {
+    // Equal minute-rounded timestamps carry no measurable duration, not a full day.
+    if adjustedEnd < adjustedStart {
       adjustedEnd += 1440
     }
     return (adjustedStart, adjustedEnd)

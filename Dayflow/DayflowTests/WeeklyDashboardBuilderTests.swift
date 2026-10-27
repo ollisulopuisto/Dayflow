@@ -3,6 +3,35 @@ import XCTest
 @testable import Dayflow
 
 final class WeeklyDashboardBuilderTests: XCTestCase {
+  func testEqualClockTimesDoNotBecomeTwentyFourHoursOfActivity() {
+    let weekRange = WeeklyDateRange.containing(Date(timeIntervalSince1970: 1_770_000_000))
+    let day = DateFormatter.yyyyMMdd.string(from: weekRange.weekStart)
+    let categories = [TimelineCategory(name: "Focus", colorHex: "4F8EF7", order: 0)]
+    let cards = [
+      card(day: day, appName: "Xcode", minutes: 0),
+      card(day: day, appName: "Xcode", minutes: 60),
+    ]
+    let snapshot = WeeklyDashboardBuilder.build(
+      cards: cards, previousWeekCards: [], categories: categories, weekRange: weekRange)
+
+    XCTAssertEqual(snapshot.donut.totalMinutes, 60)
+    XCTAssertEqual(snapshot.overview.totalFocusMinutes, 60)
+    XCTAssertEqual(snapshot.sankey.categories.reduce(0) { $0 + $1.minutes }, 60)
+    XCTAssertEqual(snapshot.sankey.apps.reduce(0) { $0 + $1.minutes }, 60)
+    XCTAssertEqual(snapshot.sankey.links.reduce(0) { $0 + $1.minutes }, 60)
+    XCTAssertEqual(snapshot.treemap.categories.flatMap(\.apps).reduce(0) { $0 + $1.duration }, 3600)
+  }
+
+  func testWeeklyClockRangesPreserveMidnightAndFourAMCrossings() {
+    for (start, end, minutes) in [
+      (540.0, 540.0, 0.0), (120.0, 120.0, 0.0),
+      (1_430.0, 10.0, 20.0), (230.0, 250.0, 20.0), (540.0, 600.0, 60.0),
+    ] {
+      let range = WeeklyDashboardBuilder.normalizedMinuteRange(start: start, end: end)
+      XCTAssertEqual(range.end - range.start, minutes)
+    }
+  }
+
   func testWeeklyDistributionExcludesIdleFromDonutTotal() {
     let weekRange = WeeklyDateRange.containing(Date(timeIntervalSince1970: 1_770_000_000))
     let day = DateFormatter.yyyyMMdd.string(from: weekRange.weekStart)

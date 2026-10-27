@@ -64,6 +64,19 @@ private struct WeekCardsLayerFramePreferenceKey: PreferenceKey {
   }
 }
 
+/// Measured in the scroll viewport, independently of the pane-space frame used by the footer.
+private struct WeekCardsLayerScrollOffsetPreferenceKey: PreferenceKey {
+  static var defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = nextValue()
+  }
+}
+
+private final class WeekScrollPosition {
+  var minY: CGFloat = 0
+  var updateScheduled = false
+}
+
 struct WeekTimelineGridView: View {
   @Binding var selectedDate: Date
   @Binding var selectedActivity: TimelineActivity?
@@ -95,6 +108,7 @@ struct WeekTimelineGridView: View {
   @State private var cardsLayerFrameBox = TimelineFrameBox()
   /// Scroll position in `TimelineCardWindow` buckets; cards far outside the viewport are not built.
   @State private var scrollBucket = 0
+  @State private var scrollPosition = WeekScrollPosition()
   private var cardsLayerFrame: CGRect { cardsLayerFrameBox.frame }
   @State private var refreshTimer: Timer?
   @State private var loadTask: Task<Void, Never>?
@@ -165,6 +179,8 @@ struct WeekTimelineGridView: View {
     GeometryReader { geometry in
       let gridWidth = max(0, geometry.size.width - WeekTimelineConfig.timeColumnWidth)
       let dayWidth = gridWidth / 7
+      let viewportHeight = max(
+        0, geometry.size.height - WeekTimelineConfig.weekHeaderHeight - WeekTimelineConfig.headerSpacing)
 
       VStack(alignment: .leading, spacing: WeekTimelineConfig.headerSpacing) {
         weekHeader(dayWidth: dayWidth)
@@ -172,8 +188,9 @@ struct WeekTimelineGridView: View {
 
         ScrollViewReader { proxy in
           ScrollView(.vertical, showsIndicators: false) {
-            timelineContent(dayWidth: dayWidth, gridWidth: gridWidth)
+            timelineContent(dayWidth: dayWidth, gridWidth: gridWidth, viewportHeight: viewportHeight)
           }
+          .coordinateSpace(name: "WeekTimelineViewport")
           .background(Color.clear)
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
           // Hidden until the first auto-scroll lands. The ScrollView is still
@@ -256,10 +273,18 @@ struct WeekTimelineGridView: View {
     .onPreferenceChange(WeekCardsLayerFramePreferenceKey.self) { frame in
       cardsLayerFrameBox.frame = frame
       updateWeeklyHoursIntersection()
+    }
+    .onPreferenceChange(WeekCardsLayerScrollOffsetPreferenceKey.self) { minY in
+      scrollPosition.minY = minY
+      let bucket = TimelineCardWindow.bucket(layerMinY: minY)
+      guard bucket != scrollBucket, !scrollPosition.updateScheduled else { return }
       // Deferred: preference callbacks run mid-layout, where a state write can trip AttributeGraph.
-      let bucket = TimelineCardWindow.bucket(layerMinY: frame.minY)
+      // Coalesce callbacks and read the latest offset in case scrolling reverses before this runs.
+      scrollPosition.updateScheduled = true
       DispatchQueue.main.async {
-        if bucket != scrollBucket { scrollBucket = bucket }
+        scrollPosition.updateScheduled = false
+        let latestBucket = TimelineCardWindow.bucket(layerMinY: scrollPosition.minY)
+        if latestBucket != scrollBucket { scrollBucket = latestBucket }
       }
     }
     .onChange(of: weeklyHoursFrame) {
@@ -305,7 +330,9 @@ struct WeekTimelineGridView: View {
     }
   }
 
-  private func timelineContent(dayWidth: CGFloat, gridWidth: CGFloat) -> some View {
+  private func timelineContent(
+    dayWidth: CGFloat, gridWidth: CGFloat, viewportHeight: CGFloat
+  ) -> some View {
     ZStack(alignment: .topLeading) {
       Color.clear
         .contentShape(Rectangle())
@@ -317,7 +344,7 @@ struct WeekTimelineGridView: View {
 
       HStack(spacing: 0) {
         timeColumn
-        weekCardsArea(dayWidth: dayWidth)
+        weekCardsArea(dayWidth: dayWidth, viewportHeight: viewportHeight)
       }
       .zIndex(hoveredCardID != nil ? 4 : 0)
 
@@ -336,12 +363,12 @@ struct WeekTimelineGridView: View {
   }
 
   @ViewBuilder
-  private func weekCardsArea(dayWidth: CGFloat) -> some View {
+  private func weekCardsArea(dayWidth: CGFloat, viewportHeight: CGFloat) -> some View {
     if hideCardsForModeSwitch {
       Color.clear
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     } else {
-      cardsLayer(dayWidth: dayWidth)
+      cardsLayer(dayWidth: dayWidth, viewportHeight: viewportHeight)
     }
   }
 
@@ -408,22 +435,23 @@ struct WeekTimelineGridView: View {
     )
   }
 
-  private func cardsLayer(dayWidth: CGFloat) -> some View {
+  private func cardsLayer(dayWidth: CGFloat, viewportHeight: CGFloat) -> some View {
     let cardWidth = weekCardWidth(for: dayWidth)
     // Built once per render: hover re-evaluates every card, and each lookup used to
     // search the categories and parse a hex colour per card.
     let paletteFor = paletteLookup()
     let cardWindow = TimelineCardWindow.range(
       bucket: scrollBucket,
-      viewportHeight: TimelineCardWindow.viewportHeight(
-        windowContentHeight: NSApp.keyWindow?.contentView?.bounds.height))
+      viewportHeight: viewportHeight,
+      overscan: 100)
     let searchMatches = TimelineSearch.matchingIDs(
       terms: TimelineSearch.terms(searchQuery), activities: positionedActivities.map(\.activity))
 
     return ZStack(alignment: .topLeading) {
       ForEach(
         positionedActivities.filter {
-          TimelineCardWindow.isVisible(y: $0.yPosition, height: $0.height, in: cardWindow)
+          TimelineCardWindow.isVisible(
+            y: $0.yPosition, height: effectiveHeight(for: $0), in: cardWindow)
         }
       ) { item in
         let cardXPosition = weekCardXPosition(for: item.columnIndex, dayWidth: dayWidth)
@@ -477,6 +505,10 @@ struct WeekTimelineGridView: View {
         Color.clear.preference(
           key: WeekCardsLayerFramePreferenceKey.self,
           value: proxy.frame(in: .named("TimelinePane"))
+        )
+        .preference(
+          key: WeekCardsLayerScrollOffsetPreferenceKey.self,
+          value: proxy.frame(in: .named("WeekTimelineViewport")).minY
         )
       }
     )

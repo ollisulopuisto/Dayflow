@@ -82,9 +82,11 @@ enum TimelineCardWindow {
   /// A band in layer coordinates. The bucket reads the offset from the layer's top in the pane,
   /// which is the real scroll offset minus the header above it (under 300 pt), so the band
   /// starts a margin early and runs a bucket plus two margins past the viewport.
-  static func range(bucket: Int, viewportHeight: CGFloat) -> ClosedRange<CGFloat> {
-    let top = CGFloat(bucket) * bucketSize - margin
-    return top...(top + viewportHeight + bucketSize + 2 * margin)
+  static func range(
+    bucket: Int, viewportHeight: CGFloat, overscan: CGFloat = TimelineCardWindow.margin
+  ) -> ClosedRange<CGFloat> {
+    let top = CGFloat(bucket) * bucketSize - overscan
+    return top...(top + viewportHeight + bucketSize + 2 * overscan)
   }
 
   static func isVisible(y: CGFloat, height: CGFloat, in range: ClosedRange<CGFloat>) -> Bool {
