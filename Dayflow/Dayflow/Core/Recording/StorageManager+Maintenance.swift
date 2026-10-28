@@ -463,16 +463,22 @@ extension StorageManager {
                     LIMIT 20
                 """)
 
-            for segment in oldSegments {
+            let validSegments = oldSegments.compactMap { segment -> (path: String, bytes: Int64)? in
               guard let path: String = segment["file_path"], path != activeSegmentPath else {
-                continue
+                return nil
               }
-              let bytes: Int64? = segment["bytes"]
+              let bytes: Int64 = segment["bytes"] ?? 0
+              return (path, bytes)
+            }
+
+            if !validSegments.isEmpty {
+              let paths = validSegments.map { $0.path }
+              let placeholders = Array(repeating: "?", count: paths.count).joined(separator: ",")
               try db.execute(
-                sql: "UPDATE screenshots SET is_deleted = 1 WHERE file_path = ? AND is_deleted = 0",
-                arguments: [path])
-              freedThisPass += bytes ?? 0
-              markedThisPass += 1
+                sql: "UPDATE screenshots SET is_deleted = 1 WHERE file_path IN (\(placeholders)) AND is_deleted = 0",
+                arguments: StatementArguments(paths))
+              freedThisPass += validSegments.reduce(0) { $0 + $1.bytes }
+              markedThisPass += validSegments.count
             }
           }
 
