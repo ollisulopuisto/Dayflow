@@ -77,19 +77,24 @@ extension StorageManager {
             """, arguments: StatementArguments(deleteIds))
       }
 
-      for fragment in fragments {
-        try db.execute(
-          sql: """
-                INSERT INTO timeline_review_ratings (start_ts, end_ts, rating)
-                VALUES (?, ?, ?)
-            """, arguments: [fragment.start, fragment.end, fragment.rating])
+      var allRatingsToInsert: [(start: Int, end: Int, rating: String)] = fragments
+      allRatingsToInsert.append((start: startTs, end: endTs, rating: rating))
+
+      let placeholders = Array(repeating: "(?, ?, ?)", count: allRatingsToInsert.count).joined(separator: ", ")
+      var insertArguments: [DatabaseValueConvertible?] = []
+      insertArguments.reserveCapacity(allRatingsToInsert.count * 3)
+
+      for item in allRatingsToInsert {
+        insertArguments.append(item.start)
+        insertArguments.append(item.end)
+        insertArguments.append(item.rating)
       }
 
       try db.execute(
         sql: """
               INSERT INTO timeline_review_ratings (start_ts, end_ts, rating)
-              VALUES (?, ?, ?)
-          """, arguments: [startTs, endTs, rating])
+              VALUES \(placeholders)
+          """, arguments: StatementArguments(insertArguments))
     }
   }
 
