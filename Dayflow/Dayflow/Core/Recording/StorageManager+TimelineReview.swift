@@ -77,19 +77,24 @@ extension StorageManager {
             """, arguments: StatementArguments(deleteIds))
       }
 
-      for fragment in fragments {
-        try db.execute(
-          sql: """
-                INSERT INTO timeline_review_ratings (start_ts, end_ts, rating)
-                VALUES (?, ?, ?)
-            """, arguments: [fragment.start, fragment.end, fragment.rating])
+      var allRatingsToInsert: [(start: Int, end: Int, rating: String)] = fragments
+      allRatingsToInsert.append((start: startTs, end: endTs, rating: rating))
+
+      let placeholders = Array(repeating: "(?, ?, ?)", count: allRatingsToInsert.count).joined(separator: ", ")
+      var insertArguments: [DatabaseValueConvertible?] = []
+      insertArguments.reserveCapacity(allRatingsToInsert.count * 3)
+
+      for item in allRatingsToInsert {
+        insertArguments.append(item.start)
+        insertArguments.append(item.end)
+        insertArguments.append(item.rating)
       }
 
       try db.execute(
         sql: """
               INSERT INTO timeline_review_ratings (start_ts, end_ts, rating)
-              VALUES (?, ?, ?)
-          """, arguments: [startTs, endTs, rating])
+              VALUES \(placeholders)
+          """, arguments: StatementArguments(insertArguments))
     }
   }
 
@@ -150,18 +155,13 @@ extension StorageManager {
         let rows = try Row.fetchAll(
           db,
           sql: """
-                SELECT start_ts, end_ts, category
+                SELECT start_ts, end_ts
                 FROM timeline_cards
                 WHERE start_ts >= ? AND start_ts < ?
                   AND is_deleted = 0
+                  AND LOWER(TRIM(category)) != 'system'
             """, arguments: [dayStartTs, dayEndTs])
         let cards = rows.compactMap { row -> (start: Int, end: Int)? in
-          let category: String = row["category"]
-          if category.trimmingCharacters(in: .whitespacesAndNewlines)
-            .caseInsensitiveCompare("System") == .orderedSame
-          {
-            return nil
-          }
           guard let start: Int = row["start_ts"], let end: Int = row["end_ts"], end > start else {
             invalidCount += 1
             return nil
