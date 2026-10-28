@@ -306,6 +306,37 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
     XCTAssertTrue(standardInput.contains(imagePath))
   }
 
+  func testClaudeCommandEscapesModelAndReasoningEffortContainingShellMetacharacters() {
+    let maliciousModel = "sonnet; touch /tmp/pwn"
+    let maliciousEffort = "medium' && echo pwn"
+    let parts = runner.buildClaudeCommandParts(
+      prompt: "Hello",
+      imagePaths: [],
+      model: maliciousModel,
+      reasoningEffort: maliciousEffort,
+      disableTools: false
+    )
+
+    XCTAssertEqual(try argument(after: "--model", in: parts), LoginShellRunner.shellEscape(maliciousModel))
+    XCTAssertEqual(try argument(after: "--effort", in: parts), LoginShellRunner.shellEscape(maliciousEffort))
+  }
+
+  func testClaudeStreamingCommandEscapesModelAndReasoningEffortContainingShellMetacharacters() {
+    let maliciousModel = "sonnet; touch /tmp/pwn"
+    let maliciousEffort = "medium' && echo pwn"
+    let maliciousSessionId = "session-123; id"
+    let parts = runner.buildClaudeStreamingCommandParts(
+      prompt: "Hello",
+      model: maliciousModel,
+      reasoningEffort: maliciousEffort,
+      sessionId: maliciousSessionId
+    )
+
+    XCTAssertEqual(try argument(after: "--model", in: parts), LoginShellRunner.shellEscape(maliciousModel))
+    XCTAssertEqual(try argument(after: "--effort", in: parts), LoginShellRunner.shellEscape(maliciousEffort))
+    XCTAssertEqual(try argument(after: "--resume", in: parts), LoginShellRunner.shellEscape(maliciousSessionId))
+  }
+
   func testLegacyClaudeAndCodexPromptDeliveryIsUnchanged() {
     let prompt = "ordinary prompt"
     let legacyClaudeParts = runner.buildClaudeCommandParts(
