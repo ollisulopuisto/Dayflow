@@ -169,6 +169,42 @@ final class TimelineActivityLoaderTests: XCTestCase {
     XCTAssertEqual(visible[1].title, "Writing")
   }
 
+  func testDisplayableCardsQueriesScreenshotsOnceForManyFailedCards() {
+    let store = StorageManager.shared
+    let baseTs = 8_000_000
+    var cards: [TimelineCard] = []
+
+    for i in 0..<25 {
+      guard
+        let shotId = store.saveScreenshot(
+          segmentPath: "/tmp/dayflow-count-\(i)-\(UUID().uuidString).mp4",
+          frameIndex: 0,
+          capturedAt: Date(timeIntervalSince1970: TimeInterval(baseTs + i)),
+          idleSecondsAtCapture: nil
+        ),
+        let batchId = store.saveBatchWithScreenshots(
+          startTs: baseTs + i, endTs: baseTs + i + 1, screenshotIds: [shotId])
+      else {
+        XCTFail("Failed to create batch \(i)")
+        return
+      }
+      cards.append(card(title: "Processing failed", batchId: batchId))
+    }
+    cards.append(card(title: "Writing", batchId: nil))
+
+    StorageManager.timedReadCountsForTesting = [:]
+    defer { StorageManager.timedReadCountsForTesting = nil }
+
+    let visible = TimelineActivityLoader.displayableCards(cards, storageManager: store)
+
+    // All screenshots are missing on disk, so only the ordinary card stays.
+    XCTAssertEqual(visible.map(\.title), ["Writing"])
+    let counts = StorageManager.timedReadCountsForTesting ?? [:]
+    // One batched read for 25 failed cards, and no per-card screenshotsForBatch.
+    XCTAssertEqual(counts["screenshotsForBatches"] ?? 0, 1)
+    XCTAssertEqual(counts["screenshotsForBatch"] ?? 0, 0)
+  }
+
   private func card(title: String, batchId: Int64?) -> TimelineCard {
     TimelineCard(
       recordId: nil,
