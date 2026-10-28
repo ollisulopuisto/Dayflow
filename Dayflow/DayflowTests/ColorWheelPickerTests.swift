@@ -111,11 +111,37 @@ final class ColorWheelPickerTests: XCTestCase {
     XCTAssertEqual(clampedNegLight.r, expectedNegLight.r, accuracy: accuracy)
   }
 
-  func testHSLToHexFormatting() {
+  func testHSLToHexPrimaryAndSecondaryColors() {
     XCTAssertEqual(hslToHex(0, 100, 50), "#FF0000")
     XCTAssertEqual(hslToHex(120, 100, 50), "#00FF00")
     XCTAssertEqual(hslToHex(240, 100, 50), "#0000FF")
+    XCTAssertEqual(hslToHex(60, 100, 50), "#FFFF00")
+    XCTAssertEqual(hslToHex(180, 100, 50), "#00FFFF")
+    XCTAssertEqual(hslToHex(300, 100, 50), "#FF00FF")
+  }
+
+  func testHSLToHexAchromaticGraysAndBoundaries() {
     XCTAssertEqual(hslToHex(0, 0, 0), "#000000")
     XCTAssertEqual(hslToHex(0, 0, 100), "#FFFFFF")
+    XCTAssertEqual(hslToHex(0, 0, 50), "#808080")
+  }
+
+  func testHSLToHexLeadingZeroPadding() {
+    // 3% lightness on saturated primary colors yields single-digit RGB byte values (< 16, e.g. 0x0F)
+    XCTAssertEqual(hslToHex(0, 100, 3), "#0F0000")
+    XCTAssertEqual(hslToHex(120, 100, 3), "#000F00")
+    XCTAssertEqual(hslToHex(240, 100, 3), "#00000F")
+  }
+
+  func testHSLToHexHueNormalizationAndClamping() {
+    // Hue normalization
+    XCTAssertEqual(hslToHex(-120, 100, 50), "#0000FF")
+    XCTAssertEqual(hslToHex(480, 100, 50), "#00FF00")
+
+    // Clamping saturation & lightness
+    XCTAssertEqual(hslToHex(0, 150, 50), "#FF0000")
+    XCTAssertEqual(hslToHex(0, -50, 50), "#808080")
+    XCTAssertEqual(hslToHex(0, 100, 200), "#FFFFFF")
+    XCTAssertEqual(hslToHex(0, 100, -50), "#000000")
   }
 }
