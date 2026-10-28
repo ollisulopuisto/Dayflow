@@ -175,22 +175,27 @@ extension StorageManager {
     day: String,
     db: Database
   ) throws {
+    guard !categories.isEmpty else { return }
+
+    let valuePlaceholders = Array(repeating: "(?, ?, ?, ?, ?, ?)", count: categories.count).joined(separator: ", ")
+    let sql = """
+          INSERT INTO day_goal_categories(
+              day, kind, category_id, category_name, category_color_hex, sort_order
+          )
+          VALUES \(valuePlaceholders)
+      """
+
+    var arguments: [DatabaseValueConvertible?] = []
+    arguments.reserveCapacity(categories.count * 6)
     for (index, category) in categories.enumerated() {
-      try db.execute(
-        sql: """
-              INSERT INTO day_goal_categories(
-                  day, kind, category_id, category_name, category_color_hex, sort_order
-              )
-              VALUES (?, ?, ?, ?, ?, ?)
-          """,
-        arguments: [
-          day,
-          kind.rawValue,
-          category.categoryID,
-          category.name,
-          category.colorHex,
-          index,
-        ])
+      arguments.append(day)
+      arguments.append(kind.rawValue)
+      arguments.append(category.categoryID)
+      arguments.append(category.name)
+      arguments.append(category.colorHex)
+      arguments.append(index)
     }
+
+    try db.execute(sql: sql, arguments: StatementArguments(arguments))
   }
 }
