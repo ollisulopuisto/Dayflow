@@ -44,7 +44,7 @@ struct TimelineRecordingProjectionWindow {
 
 enum TimelineActivityLoader {
   // Stored card titles are always the English sentinel, regardless of UI language.
-  private static let failedTitle = "Processing failed"
+  static let failedTitle = "Processing failed"
   private static let failureGroupingGapTolerance: TimeInterval = 60
 
   private static let timeFormatter: DateFormatter = {
@@ -173,11 +173,32 @@ enum TimelineActivityLoader {
     return hasRetrySourceScreenshots(for: batchId, storageManager: storageManager)
   }
 
-  private static func displayableCards(
+  static func displayableCards(
     _ cards: [TimelineCard],
     storageManager: StorageManaging
   ) -> [TimelineCard] {
-    cards.filter { shouldDisplay($0, storageManager: storageManager) }
+    let retryableBatchIds = retryableFailedBatchIds(in: cards, storageManager: storageManager)
+    return cards.filter { card in
+      guard card.title == failedTitle else { return true }
+      guard let batchId = card.batchId else { return false }
+      return retryableBatchIds.contains(batchId)
+    }
+  }
+
+  /// Batch ids of the failed cards whose batch still has at least one screenshot
+  /// file on disk (i.e. retryable), resolved with one batched read instead of a
+  /// screenshotsForBatch query (plus file checks) per failed card.
+  static func retryableFailedBatchIds(
+    in cards: [TimelineCard],
+    storageManager: StorageManaging
+  ) -> Set<Int64> {
+    let failedBatchIds = cards.compactMap { $0.title == failedTitle ? $0.batchId : nil }
+    guard !failedBatchIds.isEmpty else { return [] }
+
+    return Set(
+      storageManager.screenshotsForBatches(failedBatchIds).compactMap { batchId, screenshots in
+        screenshots.contains(where: \.isAvailable) ? batchId : nil
+      })
   }
 
   private static func hasRetrySourceScreenshots(

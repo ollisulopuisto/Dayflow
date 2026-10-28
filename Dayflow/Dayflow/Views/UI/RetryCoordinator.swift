@@ -106,6 +106,9 @@ final class RetryCoordinator: ObservableObject {
 
   nonisolated private static func failedBatchIds(for dayString: String) -> [Int64] {
     let cards = StorageManager.shared.fetchTimelineCards(forDay: dayString)
+    // One batched screenshot read for all failed cards, not a query per card.
+    let retryableBatchIds = TimelineActivityLoader.retryableFailedBatchIds(
+      in: cards, storageManager: StorageManager.shared)
     var seen = Set<Int64>()
     var ordered: [Int64] = []
 
@@ -113,8 +116,9 @@ final class RetryCoordinator: ObservableObject {
       // A batch already being retried automatically still shows its failed
       // card; skip it so two runs don't race.
       guard
-        TimelineActivityLoader.isRetryableFailedCard(card, storageManager: StorageManager.shared),
+        card.title == TimelineActivityLoader.failedTitle,
         let batchId = card.batchId,
+        retryableBatchIds.contains(batchId),
         !AnalysisManager.shared.isBatchInFlight(batchId)
       else { continue }
       guard !seen.contains(batchId) else { continue }

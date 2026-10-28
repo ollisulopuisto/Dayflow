@@ -502,15 +502,11 @@ final class AnalysisManager: AnalysisManaging {
       now.getDayInfoFor4AMBoundary().dayString,
       now.addingTimeInterval(-maxLookback).getDayInfoFor4AMBoundary().dayString,
     ])
-    var retryableBatchIds = Set<Int64>()
-    for day in days {
-      for card in store.fetchTimelineCards(forDay: day)
-      where TimelineActivityLoader.isRetryableFailedCard(card, storageManager: store) {
-        if let batchId = card.batchId {
-          retryableBatchIds.insert(batchId)
-        }
-      }
-    }
+    // One batched screenshot read across both days, not a query per failed card.
+    let retryableBatchIds = TimelineActivityLoader.retryableFailedBatchIds(
+      in: days.flatMap { store.fetchTimelineCards(forDay: $0) },
+      storageManager: store
+    )
 
     return recentFailedBatches.map(\.id).filter { retryableBatchIds.contains($0) }
   }

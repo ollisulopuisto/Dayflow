@@ -364,7 +364,24 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
     }
   }
 
+  #if DEBUG
+    /// Test hook counting timedRead calls by label, so tests can assert query
+    /// counts (e.g. a batched read stays one query no matter the card count).
+    /// nil disables counting. XCTest runs these tests serially.
+    static var timedReadCountsForTesting: [String: Int]?
+    private static let timedReadCountsLock = NSLock()
+
+    static func noteQueryForTesting(_ label: String) {
+      timedReadCountsLock.lock()
+      defer { timedReadCountsLock.unlock() }
+      timedReadCountsForTesting?[label, default: 0] += 1
+    }
+  #endif
+
   func timedRead<T>(_ label: String, _ block: (Database) throws -> T) throws -> T {
+    #if DEBUG
+      Self.noteQueryForTesting(label)
+    #endif
     let callStart = CFAbsoluteTimeGetCurrent()
     var execStart: CFAbsoluteTime = 0
     var execEnd: CFAbsoluteTime = 0
