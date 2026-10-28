@@ -788,6 +788,7 @@ extension GeminiDirectProvider {
 
       while coveredStart < inputRange.end && safetyCounter > 0 {
         safetyCounter -= 1
+        if safetyCounter <= 0 { break }
         // Find an output range that covers this point
         var foundCoverage = false
 
@@ -827,7 +828,7 @@ extension GeminiDirectProvider {
       }
 
       // Check if safety counter was exhausted
-      if safetyCounter == 0 {
+      if safetyCounter <= 0 {
         return (
           false,
           "Time coverage validation loop exceeded safety limit - possible infinite loop detected"

@@ -175,6 +175,7 @@ extension TimelineOutputSupporting {
       var safetyCounter = 10000
       while coveredStart < inputRange.end && safetyCounter > 0 {
         safetyCounter -= 1
+        if safetyCounter <= 0 { break }
         var foundCoverage = false
         for outputRange in outputRanges {
           if outputRange.start - flexibility <= coveredStart
@@ -203,7 +204,7 @@ extension TimelineOutputSupporting {
           }
         }
       }
-      if safetyCounter == 0 {
+      if safetyCounter <= 0 {
         return (
           false,
           "Time coverage validation loop exceeded safety limit - possible infinite loop detected"

@@ -108,6 +108,18 @@ final class CodexClaudeProviderTests: XCTestCase {
     XCTAssertTrue(result.isValid)
   }
 
+  func testValidateTimeCoverageSafetyCapExhaustionReturnsError() {
+    let existingCards = [card(start: "9:00 AM", end: "10:00 AM", title: "Input Card")]
+    let generatedCards = [card(start: "9:00 AM", end: "9:00 AM", title: "Non Progressing Card")]
+
+    let result = claudeProvider.validateTimeCoverage(
+      existingCards: existingCards,
+      newCards: generatedCards
+    )
+
+    XCTAssertFalse(result.isValid)
+  }
+
   func testLegacyCardCoverageAllowsThreeMinutesOfBoundaryDrift() {
     let existingCards = [card(start: "9:00 AM", end: "9:30 AM", title: "Existing")]
 
