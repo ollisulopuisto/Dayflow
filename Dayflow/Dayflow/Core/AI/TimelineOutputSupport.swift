@@ -154,6 +154,7 @@ extension TimelineOutputSupporting {
       let startMin = timeToMinutes(card.startTime)
       var endMin = timeToMinutes(card.endTime)
       if endMin < startMin { endMin += 24 * 60 }
+      guard endMin - startMin >= 0.1 else { continue }
       inputRanges.append(AgentCLITimeRange(start: startMin, end: endMin))
     }
     let mergedInputRanges = mergeOverlappingRanges(inputRanges)
@@ -271,6 +272,12 @@ extension TimelineOutputSupporting {
         let startSeconds = parseVideoTimestamp(startTime)
         let endSeconds = parseVideoTimestamp(endTime)
         durationMinutes = Double(endSeconds - startSeconds) / 60.0
+      }
+
+      if durationMinutes <= 0 {
+        let msg = String(
+          format: "Card %d '%@' has zero or negative duration", index + 1, card.title)
+        return (false, msg)
       }
 
       if durationMinutes < 10 && index < cards.count - 1 {
