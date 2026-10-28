@@ -756,6 +756,10 @@ extension GeminiDirectProvider {
       if endMin < startMin {  // Handle day rollover
         endMin += 24 * 60
       }
+      // Skip zero or very short duration cards (less than 0.1 minutes = 6 seconds)
+      guard endMin - startMin >= 0.1 else {
+        continue
+      }
       inputRanges.append(TimeRange(start: startMin, end: endMin))
     }
 
@@ -788,6 +792,7 @@ extension GeminiDirectProvider {
 
       while coveredStart < inputRange.end && safetyCounter > 0 {
         safetyCounter -= 1
+        if safetyCounter <= 0 { break }
         // Find an output range that covers this point
         var foundCoverage = false
 
@@ -797,9 +802,7 @@ extension GeminiDirectProvider {
             && coveredStart <= outputRange.end + flexibility
           {
             // Move coveredStart to the end of this output range (Fix #2: Force progress)
-            let newCoveredStart = outputRange.end
-            // Ensure we make at least minimal progress (0.01 minutes = 0.6 seconds)
-            coveredStart = max(coveredStart + 0.01, newCoveredStart)
+            coveredStart = outputRange.end
             foundCoverage = true
             break
           }
@@ -827,7 +830,7 @@ extension GeminiDirectProvider {
       }
 
       // Check if safety counter was exhausted
-      if safetyCounter == 0 {
+      if safetyCounter <= 0 {
         return (
           false,
           "Time coverage validation loop exceeded safety limit - possible infinite loop detected"
@@ -901,6 +904,14 @@ extension GeminiDirectProvider {
         let startSeconds = parseVideoTimestamp(startTime)
         let endSeconds = parseVideoTimestamp(endTime)
         durationMinutes = Double(endSeconds - startSeconds) / 60.0
+      }
+
+      // Check if card is zero or negative duration
+      if durationMinutes <= 0 {
+        return (
+          false,
+          "Card \(index + 1) '\(card.title)' has zero or negative duration"
+        )
       }
 
       // Check if card is too short (except for last card)

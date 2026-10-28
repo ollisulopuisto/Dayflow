@@ -54,19 +54,21 @@ enum FlippedTextLayerWorkaround {
     method_exchangeImplementations(layerOriginalMethod, swizzledMethod)
   }
 
-  fileprivate static func isSwiftUIDrawingLayer(_ layer: CALayer) -> Bool {
-    NSStringFromClass(type(of: layer)).contains("CGDrawingLayer")
+  static func isSwiftUIDrawingLayer(_ layer: CALayer) -> Bool {
+    let className = NSStringFromClass(type(of: layer))
+    return className.contains("DrawingLayer")
   }
 }
 
 extension CALayer {
   // Takes NSString to skip bridging on this hot path; the length check rejects
   // nearly every key before a full comparison.
-  @objc fileprivate func dayflow_didChangeValue(forKey key: NSString) {
+  @objc(dayflow_didChangeValueForKey:)
+  fileprivate func dayflow_didChangeValue(forKey key: NSString?) {
     // Implementations are exchanged, so this calls the original.
     dayflow_didChangeValue(forKey: key)
 
-    guard key.length == 18, key.isEqual(to: "contentsAreFlipped"),
+    guard let key = key, key.length == 18, key.isEqual(to: "contentsAreFlipped"),
       FlippedTextLayerWorkaround.isSwiftUIDrawingLayer(self)
     else { return }
     setNeedsDisplay()

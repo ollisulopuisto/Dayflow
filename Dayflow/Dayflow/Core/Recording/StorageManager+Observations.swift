@@ -6,18 +6,35 @@ extension StorageManager {
   func saveObservations(batchId: Int64, observations: [Observation]) {
     guard !observations.isEmpty else { return }
     try? timedWrite("saveObservations(\(observations.count)_items)") { db in
-      for obs in observations {
-        try db.execute(
-          sql: """
-                INSERT INTO observations(
-                    batch_id, start_ts, end_ts, observation, metadata, llm_model
-                )
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-          arguments: [
-            batchId, obs.startTs, obs.endTs, obs.observation,
-            obs.metadata, obs.llmModel,
-          ])
+      let batchChunkSize = 100
+      for chunkStart in stride(from: 0, to: observations.count, by: batchChunkSize) {
+        let chunkEnd = min(chunkStart + batchChunkSize, observations.count)
+        let chunkObservations = observations[chunkStart..<chunkEnd]
+
+        let valuePlaceholders = Array(
+          repeating: "(?, ?, ?, ?, ?, ?)",
+          count: chunkObservations.count
+        ).joined(separator: ", ")
+
+        let sql = """
+              INSERT INTO observations(
+                  batch_id, start_ts, end_ts, observation, metadata, llm_model
+              )
+              VALUES \(valuePlaceholders)
+          """
+
+        var arguments: [DatabaseValueConvertible?] = []
+        arguments.reserveCapacity(chunkObservations.count * 6)
+        for obs in chunkObservations {
+          arguments.append(batchId)
+          arguments.append(obs.startTs)
+          arguments.append(obs.endTs)
+          arguments.append(obs.observation)
+          arguments.append(obs.metadata)
+          arguments.append(obs.llmModel)
+        }
+
+        try db.execute(sql: sql, arguments: StatementArguments(arguments))
       }
     }
   }

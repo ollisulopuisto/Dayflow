@@ -21,7 +21,6 @@ extension MainView {
     contentStack
       .padding([.top, .trailing, .bottom], 15)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
       .background(Color.clear)
       .ignoresSafeArea()
       .blur(radius: goalFlowPresentation == nil ? 0 : 10)

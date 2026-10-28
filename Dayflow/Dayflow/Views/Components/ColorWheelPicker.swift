@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-private func hslToRGB(_ h: Double, _ s: Double, _ l: Double) -> (r: Double, g: Double, b: Double) {
+func hslToRGB(_ h: Double, _ s: Double, _ l: Double) -> (r: Double, g: Double, b: Double) {
   // Normalize hue to [0, 360)
   var H = h.truncatingRemainder(dividingBy: 360)
   if H < 0 { H += 360 }
