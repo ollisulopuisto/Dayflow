@@ -96,17 +96,21 @@ struct PausePillView: View {
   var body: some View {
     HStack(spacing: isStatusPresented ? statusSpacing : 0) {
       if isStatusPresented {
-        Text(statusText)
-          .font(pillLabelFont)
-          .foregroundColor(theme.accent)
-          .tracking(-0.36)
-          .monospacedDigit()
-          .lineLimit(1)
-          .fixedSize()
-          .opacity(statusOpacity)
-          .offset(y: statusY)
-          .blur(radius: statusBlurVal)
-          .allowsHitTesting(false)
+        // Ticks once per second while visible so the countdown stays current
+        // without PauseManager broadcasting objectWillChange to every observer.
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+          Text(statusText)
+            .font(pillLabelFont)
+            .foregroundColor(theme.accent)
+            .tracking(-0.36)
+            .monospacedDigit()
+            .lineLimit(1)
+            .fixedSize()
+            .opacity(statusOpacity)
+            .offset(y: statusY)
+            .blur(radius: statusBlurVal)
+            .allowsHitTesting(false)
+        }
       }
 
       pill
