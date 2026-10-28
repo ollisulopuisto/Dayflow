@@ -8,25 +8,54 @@ enum CLIVersionTelemetry {
   private static let staleAfter: TimeInterval = 24 * 60 * 60
   private static var lastRefresh: Date?
 
-  /// Dayflow runs for weeks at a time and the CLIs update underneath it, so
-  /// the heartbeat calls this to re-probe about once a day.
-  static func refreshIfStale() {
-    if let lastRefresh, Date().timeIntervalSince(lastRefresh) < staleAfter { return }
-    refresh()
+  private enum DefaultsKey {
+    static let lastRefresh = "cliVersionTelemetry.lastRefresh"
+    static let lastProperties = "cliVersionTelemetry.lastProperties"
   }
 
-  static func refresh() {
+  /// Dayflow runs for weeks at a time and the CLIs update underneath it, so
+  /// the heartbeat calls this to re-probe about once a day. The timestamp and
+  /// last-known versions persist across launches, so a relaunch inside the TTL
+  /// registers the cached versions instead of spawning fresh login-shell probes.
+  static func refreshIfStale(now: Date = Date(), defaults: UserDefaults = .standard) {
+    registerLastKnownProperties(defaults: defaults)
+    let persisted = defaults.object(forKey: DefaultsKey.lastRefresh) as? Date
+    guard isStale(lastRefresh: lastRefresh ?? persisted, now: now) else { return }
+    refresh(now: now, defaults: defaults)
+  }
+
+  static func refresh(now: Date = Date(), defaults: UserDefaults = .standard) {
     guard AnalyticsService.shared.isOptedIn else { return }
-    lastRefresh = Date()
+    lastRefresh = now
+    defaults.set(now, forKey: DefaultsKey.lastRefresh)
 
     // Probing spawns login shells, which can take seconds with a heavy shell config.
     Task.detached(priority: .utility) {
       let properties = probe()
       await MainActor.run {
+        defaults.set(properties, forKey: DefaultsKey.lastProperties)
         AnalyticsService.shared.registerSuperProperties(properties)
         AnalyticsService.shared.setPersonProperties(properties)
       }
     }
+  }
+
+  /// Re-registers the versions from the previous probe so analytics keep
+  /// carrying them before this launch's probe lands. No-op before the first
+  /// successful probe or when analytics are opted out.
+  private static func registerLastKnownProperties(defaults: UserDefaults) {
+    guard AnalyticsService.shared.isOptedIn,
+      let properties = defaults.dictionary(forKey: DefaultsKey.lastProperties) as? [String: String],
+      !properties.isEmpty
+    else { return }
+    AnalyticsService.shared.registerSuperProperties(properties)
+    AnalyticsService.shared.setPersonProperties(properties)
+  }
+
+  /// The pure staleness decision, separated for tests. nil means never probed.
+  nonisolated static func isStale(lastRefresh: Date?, now: Date) -> Bool {
+    guard let lastRefresh else { return true }
+    return now.timeIntervalSince(lastRefresh) >= staleAfter
   }
 
   private nonisolated static func probe() -> [String: String] {
