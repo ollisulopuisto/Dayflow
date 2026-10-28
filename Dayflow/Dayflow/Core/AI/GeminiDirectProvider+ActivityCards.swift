@@ -756,6 +756,10 @@ extension GeminiDirectProvider {
       if endMin < startMin {  // Handle day rollover
         endMin += 24 * 60
       }
+      // Skip zero or very short duration cards (less than 0.1 minutes = 6 seconds)
+      guard endMin - startMin >= 0.1 else {
+        continue
+      }
       inputRanges.append(TimeRange(start: startMin, end: endMin))
     }
 
@@ -901,6 +905,14 @@ extension GeminiDirectProvider {
         let startSeconds = parseVideoTimestamp(startTime)
         let endSeconds = parseVideoTimestamp(endTime)
         durationMinutes = Double(endSeconds - startSeconds) / 60.0
+      }
+
+      // Check if card is zero or negative duration
+      if durationMinutes <= 0 {
+        return (
+          false,
+          "Card \(index + 1) '\(card.title)' has zero or negative duration"
+        )
       }
 
       // Check if card is too short (except for last card)
