@@ -130,12 +130,19 @@ extension StorageManager {
           """, arguments: [startTs, endTs])
       batchId = db.lastInsertedRowID
 
-      for id in screenshotIds {
-        try db.execute(
-          sql: """
-                INSERT INTO batch_screenshots(batch_id, screenshot_id)
-                VALUES (?, ?)
-            """, arguments: [batchId, id])
+      let batchSize = 400
+      for i in stride(from: 0, to: screenshotIds.count, by: batchSize) {
+        let end = min(i + batchSize, screenshotIds.count)
+        let slice = screenshotIds[i..<end]
+        let valuePlaceholders = Array(repeating: "(?, ?)", count: slice.count).joined(separator: ", ")
+        let sql = "INSERT INTO batch_screenshots(batch_id, screenshot_id) VALUES \(valuePlaceholders)"
+        var arguments: [Int64] = []
+        arguments.reserveCapacity(slice.count * 2)
+        for id in slice {
+          arguments.append(batchId)
+          arguments.append(id)
+        }
+        try db.execute(sql: sql, arguments: StatementArguments(arguments))
       }
     }
     return batchId == 0 ? nil : batchId
