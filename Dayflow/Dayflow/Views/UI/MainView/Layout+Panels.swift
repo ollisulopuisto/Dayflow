@@ -232,6 +232,7 @@ extension MainView {
             weekRange: timelineWeekRange,
             onSelectActivity: selectTimelineActivity,
             onClearSelection: { clearTimelineSelection() },
+            onActivitiesLoaded: { loadWeeklyTrackedMinutes(trigger: "weekGridLoad") },
             weeklyHoursFrame: weeklyHoursFrame,
             weeklyHoursIntersectsCard: $weeklyHoursIntersectsCard,
             hideCardsForModeSwitch: hideWeekCardsDuringModeSwitch,

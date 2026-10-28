@@ -101,6 +101,11 @@ struct WeekTimelineGridView: View {
   // Opt-in fake data for #Preview; nil in production so loadActivities() runs normally.
   var previewPositionedActivities: [WeekPositionedActivity]? = nil
 
+  /// Called after a real (non-preview) load commits. The grid reloads on a 60 s
+  /// timer as analysis completes new cards; the "hours tracked this week"
+  /// footer hooks this so it cannot go stale behind the grid. Nil in previews.
+  var onActivitiesLoaded: (() -> Void)? = nil
+
   @State private var positionedActivities: [WeekPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
   /// Changes on every scroll frame and is only read when checking the footer overlap,
@@ -730,6 +735,8 @@ struct WeekTimelineGridView: View {
         }
 
         updateWeeklyHoursIntersection(visibleWeekRange: requestedWeekRange)
+
+        onActivitiesLoaded?()
 
         let commitMs = Int((CFAbsoluteTimeGetCurrent() - commitStart) * 1000)
         let totalMs = Int((CFAbsoluteTimeGetCurrent() - overallStart) * 1000)
