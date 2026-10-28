@@ -23,6 +23,18 @@ final class CodexClaudeProviderTests: XCTestCase {
     )
   }
 
+  func testReasoningEffortEscapingPreventsCommandInjection() {
+    let maliciousEffort = "medium' && touch /tmp/pwned #"
+    let escaped = LoginShellRunner.shellEscape("model_reasoning_effort=\(maliciousEffort)")
+    XCTAssertEqual(escaped, "'model_reasoning_effort=medium'\\'' && touch /tmp/pwned #'")
+  }
+
+  func testMCPServerDisablingEscapingPreventsCommandInjection() {
+    let maliciousServer = "server' && touch /tmp/pwned #"
+    let escaped = LoginShellRunner.shellEscape("mcp_servers.\(maliciousServer).enabled=false")
+    XCTAssertEqual(escaped, "'mcp_servers.server'\\'' && touch /tmp/pwned #.enabled=false'")
+  }
+
   func testClaudeStreamingResumeKeepsExplicitEffort() {
     let parts = runner.buildClaudeStreamingCommandParts(
       prompt: "Fix the cards",

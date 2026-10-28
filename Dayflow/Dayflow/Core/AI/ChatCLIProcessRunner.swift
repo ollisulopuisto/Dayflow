@@ -622,7 +622,7 @@ struct ChatCLIProcessRunner {
       }
       if let model = model { cmdParts.append(contentsOf: ["-m", LoginShellRunner.shellEscape(model)]) }
       if let effort = reasoningEffort {
-        cmdParts.append(contentsOf: ["-c", "model_reasoning_effort=\(LoginShellRunner.shellEscape(effort))"])
+        cmdParts.append(contentsOf: ["-c", LoginShellRunner.shellEscape("model_reasoning_effort=\(effort)")])
       }
       for override in codexConfigOverrides {
         cmdParts.append(contentsOf: ["-c", LoginShellRunner.shellEscape(override)])
@@ -638,7 +638,7 @@ struct ChatCLIProcessRunner {
           executableURL: codexExecutable!.executableURL
         )
         for serverName in mcpServers {
-          cmdParts.append(contentsOf: ["--config", "mcp_servers.\(LoginShellRunner.shellEscape(serverName)).enabled=false"])
+          cmdParts.append(contentsOf: ["--config", LoginShellRunner.shellEscape("mcp_servers.\(serverName).enabled=false")])
         }
       }
       cmdParts.append(contentsOf: ["-c", "rmcp_client=false", "-c", "web_search=disabled"])
@@ -1445,7 +1445,7 @@ struct ChatCLIProcessRunner {
       }
       if let model = model { cmdParts.append(contentsOf: ["-m", LoginShellRunner.shellEscape(model)]) }
       if let effort = reasoningEffort {
-        cmdParts.append(contentsOf: ["-c", "model_reasoning_effort=\(LoginShellRunner.shellEscape(effort))"])
+        cmdParts.append(contentsOf: ["-c", LoginShellRunner.shellEscape("model_reasoning_effort=\(effort)")])
       }
       for override in codexConfigOverrides {
         cmdParts.append(contentsOf: ["-c", LoginShellRunner.shellEscape(override)])
@@ -1468,7 +1468,7 @@ struct ChatCLIProcessRunner {
           executableURL: codexExecutable!.executableURL
         )
         for serverName in mcpServers {
-          cmdParts.append(contentsOf: ["--config", "mcp_servers.\(LoginShellRunner.shellEscape(serverName)).enabled=false"])
+          cmdParts.append(contentsOf: ["--config", LoginShellRunner.shellEscape("mcp_servers.\(serverName).enabled=false")])
         }
       }
       cmdParts.append(contentsOf: ["-c", "rmcp_client=false", "-c", "web_search=disabled"])
