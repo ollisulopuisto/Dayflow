@@ -232,12 +232,12 @@ extension MainView {
             weekRange: timelineWeekRange,
             onSelectActivity: selectTimelineActivity,
             onClearSelection: { clearTimelineSelection() },
-            onActivitiesLoaded: { loadWeeklyTrackedMinutes(trigger: "weekGridLoad") },
             weeklyHoursFrame: weeklyHoursFrame,
             weeklyHoursIntersectsCard: $weeklyHoursIntersectsCard,
             hideCardsForModeSwitch: hideWeekCardsDuringModeSwitch,
             mutedCategoryKeys: mutedCategoryKeys,
-            searchQuery: timelineSearchText
+            searchQuery: timelineSearchText,
+            onActivitiesLoaded: { loadWeeklyTrackedMinutes(trigger: "weekGridLoad") }
           )
           // Week is the zoomed-OUT view (7 days). Entering Week from Day
           // feels like pulling back: start at 1.05 (slightly too large) and
