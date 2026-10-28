@@ -38,7 +38,7 @@ final class GeminiActivityCardsTests: XCTestCase {
 
     // Negative duration card
     let negativeDurationCards = [
-      makeCard(start: "9:30 AM", end: "9:15 AM", title: "Negative duration card")
+      makeCard(start: "09:30", end: "09:15", title: "Negative duration card")
     ]
 
     let negativeResult = provider.validateTimeline(negativeDurationCards)

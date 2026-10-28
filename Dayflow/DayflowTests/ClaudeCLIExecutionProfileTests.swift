@@ -23,12 +23,12 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
     )
     XCTAssertEqual(try argument(after: "--model", in: parts), LoginShellRunner.shellEscape("sonnet"))
     XCTAssertEqual(try argument(after: "--effort", in: parts), LoginShellRunner.shellEscape("low"))
-    XCTAssertEqual(try argument(after: "--tools", in: parts), "Read")
+    XCTAssertEqual(try argument(after: "--tools", in: parts), LoginShellRunner.shellEscape("Read"))
     XCTAssertEqual(
       try argument(after: "--allowedTools", in: parts),
       LoginShellRunner.shellEscape("Read(//tmp/contact-sheet.jpg)")
     )
-    XCTAssertEqual(try argument(after: "--name", in: parts), "dayflow-transcription")
+    XCTAssertEqual(try argument(after: "--name", in: parts), LoginShellRunner.shellEscape("dayflow-transcription"))
     XCTAssertEqual(
       try argument(after: "--settings", in: parts),
       LoginShellRunner.shellEscape(#"{"alwaysThinkingEnabled":false,"effortLevel":"low"}"#)
@@ -112,7 +112,7 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
     XCTAssertEqual(try argument(after: "--resume", in: correction), LoginShellRunner.shellEscape(sessionID))
     XCTAssertFalse(correction.contains("--session-id"))
     XCTAssertFalse(correction.contains("--no-session-persistence"))
-    XCTAssertEqual(try argument(after: "--tools", in: correction), "Read")
+    XCTAssertEqual(try argument(after: "--tools", in: correction), LoginShellRunner.shellEscape("Read"))
     XCTAssertEqual(
       try argument(after: "--allowedTools", in: correction),
       LoginShellRunner.shellEscape("Read(//tmp/contact-sheet.jpg)")
@@ -126,7 +126,7 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
       try argument(after: "--settings", in: correction),
       try argument(after: "--settings", in: initial)
     )
-    XCTAssertEqual(try argument(after: "--name", in: correction), "dayflow-transcription")
+    XCTAssertEqual(try argument(after: "--name", in: correction), LoginShellRunner.shellEscape("dayflow-transcription"))
   }
 
   func testExistingClaudeCommandOnlyAddsRequestedReasoningEffort() throws {
