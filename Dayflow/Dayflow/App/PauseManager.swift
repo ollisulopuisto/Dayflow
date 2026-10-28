@@ -189,7 +189,8 @@ final class PauseManager: ObservableObject {
   private func startTimer() {
     timer?.invalidate()
 
-    // Fire every second to update the countdown display
+    // Fire every second to auto-resume on expiry. The countdown display is
+    // driven by a TimelineView inside PausePillView, not by this timer.
     timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
       Task { @MainActor [weak self] in
         self?.timerTick()
@@ -208,10 +209,10 @@ final class PauseManager: ObservableObject {
   }
 
   private func timerTick() {
-    // Trigger UI update by notifying observers
-    objectWillChange.send()
-
-    // Check if pause has expired
+    // No objectWillChange broadcast here: it invalidated every observing view
+    // (MainView and the timeline grids) once per second for the whole pause,
+    // while only PausePillView shows the countdown. The pill pulls countdown
+    // updates from its own TimelineView, so this tick only handles expiry.
     checkAndResumeIfExpired()
   }
 
