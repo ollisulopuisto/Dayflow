@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.7.17] - 2026-10-28
+
+### Fixed
+- Recording status: show the permission result without waiting for storage cleanup and scans.
+- CLI argument handling and zero-duration activity processing.
+- Timeline text rendering and activity coverage handling.
+
+### Performance
+- Batch database operations for recordings, observations, chat, goals, and review ratings.
+- Improve timeline review category filtering and batch screenshot reads for failed cards.
+- Reduce redraws during timed pauses and retain CLI version telemetry caching across launches.
+
+### Tests
+- Expand clipboard formatting, card sorting, network access, color, and duration coverage.
+
 ## [2.7.16] - 2026-10-27
 
 ### Performance
