@@ -150,18 +150,13 @@ extension StorageManager {
         let rows = try Row.fetchAll(
           db,
           sql: """
-                SELECT start_ts, end_ts, category
+                SELECT start_ts, end_ts
                 FROM timeline_cards
                 WHERE start_ts >= ? AND start_ts < ?
                   AND is_deleted = 0
+                  AND LOWER(TRIM(category)) != 'system'
             """, arguments: [dayStartTs, dayEndTs])
         let cards = rows.compactMap { row -> (start: Int, end: Int)? in
-          let category: String = row["category"]
-          if category.trimmingCharacters(in: .whitespacesAndNewlines)
-            .caseInsensitiveCompare("System") == .orderedSame
-          {
-            return nil
-          }
           guard let start: Int = row["start_ts"], let end: Int = row["end_ts"], end > start else {
             invalidCount += 1
             return nil
