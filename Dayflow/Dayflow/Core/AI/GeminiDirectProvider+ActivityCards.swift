@@ -797,9 +797,7 @@ extension GeminiDirectProvider {
             && coveredStart <= outputRange.end + flexibility
           {
             // Move coveredStart to the end of this output range (Fix #2: Force progress)
-            let newCoveredStart = outputRange.end
-            // Ensure we make at least minimal progress (0.01 minutes = 0.6 seconds)
-            coveredStart = max(coveredStart + 0.01, newCoveredStart)
+            coveredStart = outputRange.end
             foundCoverage = true
             break
           }

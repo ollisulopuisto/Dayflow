@@ -180,8 +180,7 @@ extension TimelineOutputSupporting {
           if outputRange.start - flexibility <= coveredStart
             && coveredStart <= outputRange.end + flexibility
           {
-            let newCoveredStart = outputRange.end
-            coveredStart = max(coveredStart + 0.01, newCoveredStart)
+            coveredStart = outputRange.end
             foundCoverage = true
             break
           }
