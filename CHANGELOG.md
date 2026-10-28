@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.18] - 2026-10-28
+
+### Fixed
+- Week grid: keep the footer weekly tracked-activity total in sync with the grid.
+
+### Performance
+- Shrink launch window-background assets.
+
 ## [2.7.17] - 2026-10-28
 
 ### Fixed
