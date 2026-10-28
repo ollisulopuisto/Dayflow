@@ -331,6 +331,16 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
     )
   }
 
+  func testLoginShellEscapingForCLIArguments() {
+    let effortWithInjection = "high; echo payload"
+    let escapedEffortOption = LoginShellRunner.shellEscape("model_reasoning_effort=\(effortWithInjection)")
+    XCTAssertEqual(escapedEffortOption, "'model_reasoning_effort=high; echo payload'")
+
+    let serverNameWithInjection = "test_server; rm -rf /"
+    let escapedMCPOption = LoginShellRunner.shellEscape("mcp_servers.\(serverNameWithInjection).enabled=false")
+    XCTAssertEqual(escapedMCPOption, "'mcp_servers.test_server; rm -rf /.enabled=false'")
+  }
+
   private func argument(after flag: String, in parts: [String]) throws -> String {
     let index = try XCTUnwrap(parts.firstIndex(of: flag))
     let valueIndex = parts.index(after: index)
