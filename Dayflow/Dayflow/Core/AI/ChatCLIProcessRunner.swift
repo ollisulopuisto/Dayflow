@@ -200,8 +200,8 @@ struct ClaudeCLIExecutionProfile: Sendable {
       LoginShellRunner.shellEscape(settings),
       "--system-prompt",
       LoginShellRunner.shellEscape(systemPrompt),
-      "--tools", tools,
-      "--name", name,
+      "--tools", LoginShellRunner.shellEscape(tools),
+      "--name", LoginShellRunner.shellEscape(name),
     ]
     arguments.append(contentsOf: persistenceArguments)
     if let allowedReadPath, kind == .flowAgent {

@@ -147,6 +147,51 @@ final class ChatCLIProcessRunnerTests: XCTestCase {
     )
   }
 
+  func testLoginShellRunnerShellEscape() {
+    let injectionPayload = "model'; touch /tmp/pwned; echo '"
+    let escaped = LoginShellRunner.shellEscape(injectionPayload)
+    XCTAssertEqual(escaped, "'model'\\'' touch /tmp/pwned; echo '\n'".trimmingCharacters(in: .newlines))
+    XCTAssertTrue(escaped.hasPrefix("'"))
+    XCTAssertTrue(escaped.hasSuffix("'"))
+
+    let specialChars = "hello $WORLD `whoami` \"double\" 'single' ; & |"
+    let escapedSpecial = LoginShellRunner.shellEscape(specialChars)
+    XCTAssertEqual(escapedSpecial, "'hello $WORLD `whoami` \"double\" '\''single'\'' ; & |'")
+  }
+
+  func testClaudeCommandPartsShellEscape() {
+    let injectionModel = "gpt-4o'; echo 'vulnerable"
+    let injectionSession = "session123'; rm -rf /; echo '"
+    let injectionEffort = "high'; touch /tmp/test; echo '"
+    let injectionPrompt = "Hello world'; whoami; echo '"
+
+    let cmdParts = runner.buildClaudeCommandParts(
+      prompt: injectionPrompt,
+      imagePaths: [],
+      model: injectionModel,
+      reasoningEffort: injectionEffort,
+      disableTools: false,
+      sessionMode: .resume(id: injectionSession)
+    )
+
+    XCTAssertTrue(cmdParts.contains(LoginShellRunner.shellEscape(injectionModel)))
+    XCTAssertTrue(cmdParts.contains(LoginShellRunner.shellEscape(injectionSession)))
+    XCTAssertTrue(cmdParts.contains(LoginShellRunner.shellEscape(injectionEffort)))
+    XCTAssertTrue(cmdParts.contains(LoginShellRunner.shellEscape(injectionPrompt)))
+
+    let streamingCmdParts = runner.buildClaudeStreamingCommandParts(
+      prompt: injectionPrompt,
+      model: injectionModel,
+      reasoningEffort: injectionEffort,
+      sessionId: injectionSession
+    )
+
+    XCTAssertTrue(streamingCmdParts.contains(LoginShellRunner.shellEscape(injectionModel)))
+    XCTAssertTrue(streamingCmdParts.contains(LoginShellRunner.shellEscape(injectionSession)))
+    XCTAssertTrue(streamingCmdParts.contains(LoginShellRunner.shellEscape(injectionEffort)))
+    XCTAssertTrue(streamingCmdParts.contains(LoginShellRunner.shellEscape(injectionPrompt)))
+  }
+
   private func makeFallbackConfigURL() throws -> URL {
     try makeTempDirectory()
       .appendingPathComponent(".codex", isDirectory: true)
