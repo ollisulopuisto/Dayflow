@@ -42,20 +42,28 @@ extension StorageManager {
         sql: "DELETE FROM chat_messages WHERE conversation_id = ?",
         arguments: [record.id.uuidString])
 
-      for (index, message) in messages.enumerated() {
-        try db.execute(
-          sql: """
+      if !messages.isEmpty {
+        let chunkSize = 100
+        let enumeratedMessages = Array(messages.enumerated())
+        for chunkStart in stride(from: 0, to: enumeratedMessages.count, by: chunkSize) {
+          let chunk = enumeratedMessages[chunkStart..<min(chunkStart + chunkSize, enumeratedMessages.count)]
+          let valuePlaceholders = Array(repeating: "(?, ?, ?, ?, ?, ?)", count: chunk.count).joined(separator: ", ")
+          let sql = """
                 INSERT INTO chat_messages (id, conversation_id, role, content, created_at, sort_order)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-          arguments: [
-            message.id.uuidString,
-            record.id.uuidString,
-            message.role.rawValue,
-            message.content,
-            Int(message.timestamp.timeIntervalSince1970),
-            index,
-          ])
+                VALUES \(valuePlaceholders)
+            """
+          var arguments: [DatabaseValueConvertible?] = []
+          arguments.reserveCapacity(chunk.count * 6)
+          for (index, message) in chunk {
+            arguments.append(message.id.uuidString)
+            arguments.append(record.id.uuidString)
+            arguments.append(message.role.rawValue)
+            arguments.append(message.content)
+            arguments.append(Int(message.timestamp.timeIntervalSince1970))
+            arguments.append(index)
+          }
+          try db.execute(sql: sql, arguments: StatementArguments(arguments))
+        }
       }
     }
   }

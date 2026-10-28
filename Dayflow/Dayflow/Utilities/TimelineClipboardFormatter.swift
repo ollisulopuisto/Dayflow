@@ -211,7 +211,7 @@ struct TimelineClipboardFormatter {
     return lines.joined(separator: "\n")
   }
 
-  private static func cardSort(lhs: TimelineCard, rhs: TimelineCard) -> Bool {
+  static func cardSort(lhs: TimelineCard, rhs: TimelineCard) -> Bool {
     if lhs.day != rhs.day {
       return lhs.day < rhs.day
     }

@@ -154,6 +154,7 @@ extension TimelineOutputSupporting {
       let startMin = timeToMinutes(card.startTime)
       var endMin = timeToMinutes(card.endTime)
       if endMin < startMin { endMin += 24 * 60 }
+      guard endMin - startMin >= 0.1 else { continue }
       inputRanges.append(AgentCLITimeRange(start: startMin, end: endMin))
     }
     let mergedInputRanges = mergeOverlappingRanges(inputRanges)
@@ -175,13 +176,13 @@ extension TimelineOutputSupporting {
       var safetyCounter = 10000
       while coveredStart < inputRange.end && safetyCounter > 0 {
         safetyCounter -= 1
+        if safetyCounter <= 0 { break }
         var foundCoverage = false
         for outputRange in outputRanges {
           if outputRange.start - flexibility <= coveredStart
             && coveredStart <= outputRange.end + flexibility
           {
-            let newCoveredStart = outputRange.end
-            coveredStart = max(coveredStart + 0.01, newCoveredStart)
+            coveredStart = outputRange.end
             foundCoverage = true
             break
           }
@@ -203,7 +204,7 @@ extension TimelineOutputSupporting {
           }
         }
       }
-      if safetyCounter == 0 {
+      if safetyCounter <= 0 {
         return (
           false,
           "Time coverage validation loop exceeded safety limit - possible infinite loop detected"
@@ -271,6 +272,12 @@ extension TimelineOutputSupporting {
         let startSeconds = parseVideoTimestamp(startTime)
         let endSeconds = parseVideoTimestamp(endTime)
         durationMinutes = Double(endSeconds - startSeconds) / 60.0
+      }
+
+      if durationMinutes <= 0 {
+        let msg = String(
+          format: "Card %d '%@' has zero or negative duration", index + 1, card.title)
+        return (false, msg)
       }
 
       if durationMinutes < 10 && index < cards.count - 1 {
