@@ -1,9 +1,10 @@
 # Changelog
 
-## [2.7.18] - 2026-10-28
+## [2.7.19] - 2026-10-29
 
 ### Fixed
 - Week grid: keep the footer weekly tracked-activity total in sync with the grid.
+- Swift argument order for the week-grid callback (broke the 2.7.18 release build, which was never published).
 
 ### Performance
 - Shrink launch window-background assets.
