@@ -167,6 +167,38 @@ extension StorageManager {
     }) ?? []
   }
 
+  func screenshotsForBatches(_ batchIds: [Int64]) -> [Int64: [Screenshot]] {
+    let uniqueIds = Array(Set(batchIds))
+    guard !uniqueIds.isEmpty else { return [:] }
+
+    // Chunk the IN (...) list the same way saveBatchWithScreenshots chunks its
+    // inserts, staying well under SQLite's variable limit.
+    let batchChunkSize = 400
+    var result: [Int64: [Screenshot]] = [:]
+    for chunkStart in stride(from: 0, to: uniqueIds.count, by: batchChunkSize) {
+      let chunkEnd = min(chunkStart + batchChunkSize, uniqueIds.count)
+      let chunk = Array(uniqueIds[chunkStart..<chunkEnd])
+      let placeholders = Array(repeating: "?", count: chunk.count).joined(separator: ", ")
+      let rows =
+        (try? timedRead("screenshotsForBatches") { db in
+          try Row.fetchAll(
+            db,
+            sql: """
+                  SELECT bs.batch_id AS batch_id, s.* FROM batch_screenshots bs
+                  JOIN screenshots s ON s.id = bs.screenshot_id
+                  WHERE bs.batch_id IN (\(placeholders))
+                    AND s.is_deleted = 0
+                  ORDER BY s.captured_at ASC
+              """, arguments: StatementArguments(chunk))
+        }) ?? []
+      for row in rows {
+        let batchId: Int64 = row["batch_id"]
+        result[batchId, default: []].append(screenshot(from: row))
+      }
+    }
+    return result
+  }
+
   func fetchScreenshotsInTimeRange(startTs: Int, endTs: Int) -> [Screenshot] {
     (try? timedRead("fetchScreenshotsInTimeRange") { db in
       try Row.fetchAll(

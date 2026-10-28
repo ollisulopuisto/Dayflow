@@ -65,4 +65,102 @@ final class StorageManagerScreenshotsTests: XCTestCase {
       XCTAssertEqual(screenshots.map(\.id), shotIds)
     }
   }
+
+  func testScreenshotsForBatchesEmptyInput() {
+    XCTAssertTrue(StorageManager.shared.screenshotsForBatches([]).isEmpty)
+  }
+
+  func testScreenshotsForBatchesGroupsAndSortsByBatch() {
+    let store = StorageManager.shared
+    let baseTs = 4_000_000
+    var ids: [Int64] = []
+    for i in 0..<4 {
+      guard
+        let id = store.saveScreenshot(
+          segmentPath: "/tmp/dayflow-grouped-\(i).mp4",
+          frameIndex: 0,
+          capturedAt: Date(timeIntervalSince1970: TimeInterval(baseTs + i)),
+          idleSecondsAtCapture: nil
+        )
+      else {
+        XCTFail("Failed to insert screenshot \(i)")
+        return
+      }
+      ids.append(id)
+    }
+
+    // Two batches with interleaved capture times.
+    guard
+      let batchA = store.saveBatchWithScreenshots(
+        startTs: baseTs, endTs: baseTs + 3, screenshotIds: [ids[0], ids[2]]),
+      let batchB = store.saveBatchWithScreenshots(
+        startTs: baseTs + 1, endTs: baseTs + 4, screenshotIds: [ids[1], ids[3]])
+    else {
+      XCTFail("Failed to create batches")
+      return
+    }
+
+    let grouped = store.screenshotsForBatches([batchA, batchB])
+    XCTAssertEqual(grouped[batchA]?.map(\.id), [ids[0], ids[2]])
+    XCTAssertEqual(grouped[batchB]?.map(\.id), [ids[1], ids[3]])
+  }
+
+  func testScreenshotsForBatchesExcludesSoftDeletedAndUnknownBatches() {
+    let store = StorageManager.shared
+    let baseTs = 5_000_000
+    guard
+      let keptId = store.saveScreenshot(
+        segmentPath: "/tmp/dayflow-deleted-kept.mp4",
+        frameIndex: 0,
+        capturedAt: Date(timeIntervalSince1970: TimeInterval(baseTs)),
+        idleSecondsAtCapture: nil
+      ),
+      let deletedId = store.saveScreenshot(
+        segmentPath: "/tmp/dayflow-deleted-gone.mp4",
+        frameIndex: 0,
+        capturedAt: Date(timeIntervalSince1970: TimeInterval(baseTs + 1)),
+        idleSecondsAtCapture: nil
+      ),
+      let batchId = store.saveBatchWithScreenshots(
+        startTs: baseTs, endTs: baseTs + 2, screenshotIds: [keptId, deletedId])
+    else {
+      XCTFail("Failed to set up screenshots")
+      return
+    }
+    store.markScreenshotsDeleted(segmentPath: "/tmp/dayflow-deleted-gone.mp4")
+
+    let grouped = store.screenshotsForBatches([batchId, 999_999_999])
+    XCTAssertEqual(grouped[batchId]?.map(\.id), [keptId])
+    XCTAssertNil(grouped[999_999_999])
+  }
+
+  func testScreenshotsForBatchesMultiChunk() {
+    let store = StorageManager.shared
+    let baseTs = 6_000_000
+    var batchIds: [Int64] = []
+
+    // 450 batches cross the 400-per-query chunk boundary.
+    for i in 0..<450 {
+      guard
+        let shotId = store.saveScreenshot(
+          segmentPath: "/tmp/dayflow-multichunk-\(i).mp4",
+          frameIndex: 0,
+          capturedAt: Date(timeIntervalSince1970: TimeInterval(baseTs + i)),
+          idleSecondsAtCapture: nil
+        ),
+        let batchId = store.saveBatchWithScreenshots(
+          startTs: baseTs + i, endTs: baseTs + i + 1, screenshotIds: [shotId])
+      else {
+        XCTFail("Failed to create batch \(i)")
+        return
+      }
+      batchIds.append(batchId)
+    }
+
+    let grouped = store.screenshotsForBatches(batchIds)
+    XCTAssertEqual(grouped.count, 450)
+    for batchId in batchIds {
+      XCTAssertEqual(grouped[batchId]?.count, 1)
+    }
+  }
 }

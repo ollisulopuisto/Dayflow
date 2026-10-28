@@ -126,6 +126,11 @@ protocol StorageManaging: Sendable {
   /// Screenshots that belong to one batch, sorted by capture time
   func screenshotsForBatch(_ batchId: Int64) -> [Screenshot]
 
+  /// Screenshots for many batches in one chunked read, grouped by batch and
+  /// sorted by capture time within each batch. Replaces per-batch
+  /// `screenshotsForBatch` loops (N+1) when filtering many cards at once.
+  func screenshotsForBatches(_ batchIds: [Int64]) -> [Int64: [Screenshot]]
+
   /// Fetch screenshots within a time range (for timelapse generation)
   func fetchScreenshotsInTimeRange(startTs: Int, endTs: Int) -> [Screenshot]
 }

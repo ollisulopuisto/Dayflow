@@ -173,11 +173,25 @@ enum TimelineActivityLoader {
     return hasRetrySourceScreenshots(for: batchId, storageManager: storageManager)
   }
 
-  private static func displayableCards(
+  static func displayableCards(
     _ cards: [TimelineCard],
     storageManager: StorageManaging
   ) -> [TimelineCard] {
-    cards.filter { shouldDisplay($0, storageManager: storageManager) }
+    // One batched screenshot read for every failed card on the timeline,
+    // instead of a screenshotsForBatch query (plus file checks) per card.
+    let failedBatchIds = cards.compactMap { $0.title == failedTitle ? $0.batchId : nil }
+    guard !failedBatchIds.isEmpty else { return cards }
+
+    let retryableBatchIds = Set(
+      storageManager.screenshotsForBatches(failedBatchIds).compactMap { batchId, screenshots in
+        screenshots.contains(where: \.isAvailable) ? batchId : nil
+      })
+
+    return cards.filter { card in
+      guard card.title == failedTitle else { return true }
+      guard let batchId = card.batchId else { return false }
+      return retryableBatchIds.contains(batchId)
+    }
   }
 
   private static func hasRetrySourceScreenshots(

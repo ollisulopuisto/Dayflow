@@ -127,6 +127,67 @@ final class TimelineActivityLoaderTests: XCTestCase {
   private func date(minute: Int) -> Date {
     Date(timeIntervalSinceReferenceDate: TimeInterval(minute * 60))
   }
+
+  func testDisplayableCardsKeepsOnlyRetryableFailedCards() throws {
+    let store = StorageManager.shared
+
+    // A failed card is retryable only when at least one of its batch's
+    // screenshot files still exists on disk.
+    let livePath = NSTemporaryDirectory() + "dayflow-loader-live-\(UUID().uuidString).mp4"
+    XCTAssertTrue(FileManager.default.createFile(atPath: livePath, contents: Data()))
+    defer { try? FileManager.default.removeItem(atPath: livePath) }
+    let missingPath = "/tmp/dayflow-loader-missing-\(UUID().uuidString).mp4"
+
+    guard
+      let liveShot = store.saveScreenshot(
+        segmentPath: livePath, frameIndex: 0,
+        capturedAt: Date(timeIntervalSince1970: 7_000_000), idleSecondsAtCapture: nil),
+      let missingShot = store.saveScreenshot(
+        segmentPath: missingPath, frameIndex: 0,
+        capturedAt: Date(timeIntervalSince1970: 7_000_100), idleSecondsAtCapture: nil),
+      let liveBatch = store.saveBatchWithScreenshots(
+        startTs: 7_000_000, endTs: 7_000_060, screenshotIds: [liveShot]),
+      let deadBatch = store.saveBatchWithScreenshots(
+        startTs: 7_000_100, endTs: 7_000_160, screenshotIds: [missingShot])
+    else {
+      XCTFail("Failed to set up screenshots and batches")
+      return
+    }
+
+    let cards = [
+      card(title: "Processing failed", batchId: liveBatch),
+      card(title: "Processing failed", batchId: deadBatch),
+      card(title: "Processing failed", batchId: nil),
+      card(title: "Writing", batchId: nil),
+    ]
+
+    let visible = TimelineActivityLoader.displayableCards(cards, storageManager: store)
+
+    XCTAssertEqual(visible.count, 2)
+    XCTAssertEqual(visible[0].batchId, liveBatch)
+    XCTAssertEqual(visible[0].title, "Processing failed")
+    XCTAssertEqual(visible[1].title, "Writing")
+  }
+
+  private func card(title: String, batchId: Int64?) -> TimelineCard {
+    TimelineCard(
+      recordId: nil,
+      batchId: batchId,
+      startTimestamp: "10:00 AM",
+      endTimestamp: "10:15 AM",
+      category: "System",
+      subcategory: "",
+      title: title,
+      summary: "",
+      detailedSummary: "",
+      day: "20261028",
+      distractions: nil,
+      videoSummaryURL: nil,
+      otherVideoSummaryURLs: nil,
+      appSites: nil,
+      isBackupGenerated: false
+    )
+  }
 }
 
 final class SidebarShortcutTests: XCTestCase {
