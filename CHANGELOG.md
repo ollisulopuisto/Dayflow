@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [Unreleased]
+## [2.7.20] - 2026-10-29
 
 ### Changed
 - Release scripts now name the DMG `Dayflow-<version>.dmg` by default so downloaded installers are distinguishable; `DMG_NAME` still overrides.
