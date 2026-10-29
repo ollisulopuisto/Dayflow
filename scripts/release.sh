@@ -30,7 +30,6 @@ CONFIG=${CONFIG:-Release}
 # Optional: override Keychain account name for sign_update; defaults to "ed25519"
 SIGN_ACCOUNT=${SIGN_ACCOUNT:-}
 MSV=${MSV:-13.0}
-DMG_NAME=${DMG_NAME:-"${APP_NAME}.dmg"}
 
 MODE=bump_minor
 DRY_RUN=0
@@ -117,7 +116,13 @@ NEW_BUILD=$((CURRENT_BUILD + 1))
 echo "Current version: $CURRENT_SHORT ($CURRENT_BUILD)"
 echo "New version:     $NEW_SHORT ($NEW_BUILD)"
 
+# Default the DMG name to the new version so downloads are distinguishable;
+# an explicit DMG_NAME still wins. release_dmg.sh applies the same default
+# from the (already bumped) project version.
+DMG_NAME=${DMG_NAME:-"${APP_NAME}-${NEW_SHORT}.dmg"}
+
 if [[ $DRY_RUN -eq 1 ]]; then
+  echo "DMG name:        $DMG_NAME"
   echo "Dry run. No changes made."; exit 0
 fi
 

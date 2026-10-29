@@ -14,7 +14,7 @@ set -euo pipefail
 #   ENTITLEMENTS     - Entitlements plist path (default: Dayflow/Dayflow/Dayflow.entitlements)
 #   SIGN_ID          - Codesign identity (e.g. "Developer ID Application: Your Name (TEAMID)")
 #   VOL_NAME         - DMG volume name (defaults to APP_NAME)
-#   DMG_NAME         - Output DMG name (defaults to "${APP_NAME}.dmg")
+#   DMG_NAME         - Output DMG name (defaults to "${APP_NAME}-<marketing version>.dmg")
 #   NOTARY_PROFILE   - Saved notarytool keychain profile (optional)
 #   NOTARY_APPLE_ID  - Apple ID for notarytool (optional)
 #   NOTARY_TEAM_ID   - Team ID for notarytool (optional)
@@ -36,7 +36,6 @@ DERIVED_DATA=${DERIVED_DATA:-build}
 APP_NAME=${APP_NAME:-Dayflow}
 ENTITLEMENTS=${ENTITLEMENTS:-Dayflow/Dayflow/Dayflow.entitlements}
 VOL_NAME=${VOL_NAME:-$APP_NAME}
-DMG_NAME=${DMG_NAME:-"${APP_NAME}.dmg"}
 
 APP_PATH="${DERIVED_DATA}/Build/Products/${CONFIG}/${APP_NAME}.app"
 # Work in a non-iCloud temporary directory to avoid fileprovider xattrs
@@ -49,6 +48,15 @@ PROJECT_PATH=${PROJECT_PATH:-Dayflow/Dayflow.xcodeproj}
 if [[ ! -d "$PROJECT_PATH" ]]; then
   echo "ERROR: Xcode project not found at $PROJECT_PATH" >&2
   exit 1
+fi
+
+# Default the DMG name to the project's marketing version so downloads are
+# distinguishable; an explicit DMG_NAME still wins. When driven by
+# release.sh, the version bump has already landed in the project, so both
+# scripts derive the same name.
+if [[ -z "${DMG_NAME:-}" ]]; then
+  DMG_VERSION=$(grep -m1 -E "MARKETING_VERSION = " "${PROJECT_PATH}/project.pbxproj" 2>/dev/null | sed -E 's/.*MARKETING_VERSION = ([^;]+);/\1/' || true)
+  DMG_NAME="${APP_NAME}${DMG_VERSION:+-${DMG_VERSION}}.dmg"
 fi
 
 echo "[1/7] Building ${APP_NAME} (${SCHEME}|${CONFIG}) using project ${PROJECT_PATH} with code signing disabled…"
