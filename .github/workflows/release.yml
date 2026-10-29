@@ -16,7 +16,6 @@ env:
   CONFIG: Release
   PROJECT_PATH: Dayflow/Dayflow.xcodeproj
   DERIVED_DATA: build
-  DMG_NAME: Dayflow.dmg
   # Background image for the DMG window (committed in the repo)
   DMG_BG: docs/assets/dmg-background.png
 
@@ -28,6 +27,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      #-----------------------------------------------------------------------------
+      # Resolve the versioned DMG name from the project's marketing version so
+      # downloaded installers are distinguishable. Writes DMG_NAME for all later
+      # steps (env context in run blocks is interpolated per step at runtime).
+      #-----------------------------------------------------------------------------
+      - name: Resolve versioned DMG name
+        run: |
+          VERSION=$(grep -m1 -E "MARKETING_VERSION = " "${{ env.PROJECT_PATH }}/project.pbxproj" | sed -E 's/.*MARKETING_VERSION = ([^;]+);/\1/')
+          if [[ -z "$VERSION" ]]; then
+            echo "ERROR: MARKETING_VERSION not found in ${{ env.PROJECT_PATH }}/project.pbxproj" >&2
+            exit 1
+          fi
+          echo "DMG_NAME=${{ env.APP_NAME }}-${VERSION}.dmg" >> "$GITHUB_ENV"
+          echo "DMG name: ${{ env.APP_NAME }}-${VERSION}.dmg"
 
       #-----------------------------------------------------------------------------
       # Install tools: create-dmg (not pre-installed on GH Actions macOS runners)
