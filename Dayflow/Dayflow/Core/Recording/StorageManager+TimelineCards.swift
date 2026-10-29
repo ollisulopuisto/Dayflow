@@ -752,7 +752,7 @@ extension StorageManager {
     let startTs = Int(from.timeIntervalSince1970)
     let endTs = Int(to.timeIntervalSince1970)
 
-    let totalSeconds: Double? = try? timedRead("fetchTotalMinutesTracked") { db in
+    let cardSeconds: Double? = try? timedRead("fetchTotalMinutesTracked") { db in
       // Count only the part of each card that overlaps the requested range.
       try Double.fetchOne(
         db,
@@ -767,7 +767,29 @@ extension StorageManager {
       )
     }
 
-    return (totalSeconds ?? 0) / 60.0
+    // Time captured but still waiting for analysis shows in the week grid as
+    // "Waiting for analysis" blocks; count it too so the footer matches what
+    // is visible. Merge only overlapping/touching intervals (no gap bridging)
+    // so overlapping batch and capture spans are never double counted.
+    let pendingIntervals = fetchPendingCaptureIntervals(
+      from: startTs, to: endTs, groupingGapSeconds: 5 * 60)
+    var pendingSeconds = 0
+    var openInterval: (start: Int, end: Int)?
+    for interval in pendingIntervals {
+      if let current = openInterval, interval.start <= current.end {
+        openInterval = (current.start, max(current.end, interval.end))
+      } else {
+        if let current = openInterval {
+          pendingSeconds += current.end - current.start
+        }
+        openInterval = interval
+      }
+    }
+    if let current = openInterval {
+      pendingSeconds += current.end - current.start
+    }
+
+    return ((cardSeconds ?? 0) + Double(pendingSeconds)) / 60.0
   }
 
   /// Returns total minutes of tracked activities for the week containing the given date.

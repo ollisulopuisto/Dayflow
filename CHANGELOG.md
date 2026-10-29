@@ -2,8 +2,14 @@
 
 ## [Unreleased]
 
+## [Unreleased]
+
 ### Changed
 - Release scripts now name the DMG `Dayflow-<version>.dmg` by default so downloaded installers are distinguishable; `DMG_NAME` still overrides.
+
+### Fixed
+- Week totals: count capture time still waiting for analysis, so the "N hours tracked this week" footer matches the visible week-grid blocks.
+
 
 ## [2.7.19] - 2026-10-29
 
