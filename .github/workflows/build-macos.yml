@@ -5,7 +5,21 @@ on:
     branches:
       - main
       - koti-batching
+    paths-ignore:
+      - '**/*.md'
+      - 'CHANGELOG.md'
+      - 'docs/**'
   workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip unit tests for an urgent hotfix artifact build'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -28,6 +42,7 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
       - name: Run unit tests
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) }}
         run: >-
           xcodebuild
           -project Dayflow/Dayflow.xcodeproj
@@ -38,6 +53,9 @@ jobs:
           -derivedDataPath build
           CODE_SIGNING_ALLOWED=NO
           test
+      - name: Skip unit tests for urgent build
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
+        run: echo 'Unit tests skipped by explicit workflow_dispatch input; artifact build continues.'
       - name: Package app
         run: |
           ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip

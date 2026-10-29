@@ -28,6 +28,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A manual release dispatch must target a version tag. This prevents a
+      # dispatch from main from trying to publish a release named "main".
+      - name: Validate release ref
+        run: |
+          case "$GITHUB_REF" in
+            refs/tags/v*) ;;
+            *)
+              echo "ERROR: Release builds must run from a v* version tag (got $GITHUB_REF)." >&2
+              exit 1
+              ;;
+          esac
+
       #-----------------------------------------------------------------------------
       # Resolve the versioned DMG name from the project's marketing version so
       # downloaded installers are distinguishable. Writes DMG_NAME for all later
