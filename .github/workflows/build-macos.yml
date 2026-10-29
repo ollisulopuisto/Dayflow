@@ -32,15 +32,6 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Build Dayflow
-        run: >-
-          xcodebuild
-          -project Dayflow/Dayflow.xcodeproj
-          -scheme Dayflow
-          -configuration Release
-          -derivedDataPath build
-          CODE_SIGNING_ALLOWED=NO
-          build
       - name: Run unit tests
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) }}
         run: >-
@@ -56,7 +47,18 @@ jobs:
       - name: Skip unit tests for urgent build
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
         run: echo 'Unit tests skipped by explicit workflow_dispatch input; artifact build continues.'
+      - name: Build Dayflow release artifact
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: >-
+          xcodebuild
+          -project Dayflow/Dayflow.xcodeproj
+          -scheme Dayflow
+          -configuration Release
+          -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO
+          build
       - name: Package app
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Dayflow.app Dayflow-macos.zip
           hdiutil create \
@@ -66,6 +68,7 @@ jobs:
             -format UDZO \
             Dayflow-macos.dmg
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           name: Dayflow-macos-${{ github.sha }}
           path: |

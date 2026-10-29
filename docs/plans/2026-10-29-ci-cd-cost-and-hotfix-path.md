@@ -4,7 +4,7 @@
 
 **Goal:** Reduce wasted macOS CI minutes and make an explicit no-tests hotfix build path available without weakening the normal test run.
 
-**Architecture:** Keep the existing full build, unit-test, and artifact job for relevant branch pushes. Cancel superseded runs, skip app CI for documentation-only changes, and add an opt-in `skip_tests` input for manual artifact builds. Keep tag-triggered releases as the fastest DMG path and reject unsafe manual release dispatches from branches.
+**Architecture:** Keep unit tests on relevant branch pushes, without repeating a separate Release build and artifact package on every push. Cancel superseded runs, skip app CI for documentation-only changes, and add an opt-in `skip_tests` input for manual Release artifact builds. Keep tag-triggered releases as the fastest DMG path and reject unsafe manual release dispatches from branches.
 
 **Tech Stack:** GitHub Actions, Xcode build and XCTest, Markdown documentation.
 
@@ -15,7 +15,7 @@
 **Files:**
 - Modify: `.github/workflows/build-macos.yml`
 
-Add branch-scoped concurrency cancellation and ignore documentation-only changes for push runs. Keep the normal build and test steps intact.
+Add branch-scoped concurrency cancellation and ignore documentation-only changes for push runs. Run tests on normal pushes; reserve Release build and packaging for manual builds and tagged releases to avoid the duplicate configuration build on every commit.
 
 ### Task 2: Add an explicit urgent build switch
 
