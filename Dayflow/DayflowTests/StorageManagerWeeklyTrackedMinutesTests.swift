@@ -2,8 +2,10 @@ import XCTest
 import GRDB
 @testable import Dayflow
 
-/// Pins the SQL semantics behind the "N hours of activities tracked this week"
-/// footer: only the in-range overlap of each non-deleted, non-System card counts.
+/// Pins the semantics behind the "N hours of activities tracked this week"
+/// footer: the in-range overlap of each non-deleted, non-System card counts,
+/// plus capture time still waiting for analysis (the grid shows it as
+/// "Waiting for analysis" blocks, so the footer must match).
 /// The footer goes stale when nothing refreshes it (fixed by wiring it to the
 /// week grid's load); this test guards the query itself.
 final class StorageManagerWeeklyTrackedMinutesTests: XCTestCase {
@@ -28,6 +30,10 @@ final class StorageManagerWeeklyTrackedMinutesTests: XCTestCase {
       try db.execute(
         sql: "DELETE FROM timeline_cards WHERE title LIKE 'weekly-total-test-%'")
       try db.execute(sql: "DELETE FROM analysis_batches WHERE id = ?", arguments: [batchId])
+      try db.execute(
+        sql: "DELETE FROM analysis_batches WHERE batch_end_ts >= ? AND batch_start_ts <= ?",
+        arguments: [rangeStartTs, rangeEndTs])
+      try db.execute(sql: "DELETE FROM screenshots WHERE file_path LIKE 'weekly-total-test-%'")
     }
   }
 
@@ -76,5 +82,35 @@ final class StorageManagerWeeklyTrackedMinutesTests: XCTestCase {
     insertCard("weekly-total-test-system", startTs: rangeStartTs + 60, endTs: rangeStartTs + 3660, category: "System")
 
     XCTAssertEqual(trackedMinutes(), 10, accuracy: 0.01)
+  }
+
+  func testPendingAnalysisBatchTimeIsCounted() {
+    // 10-min analysed card + a pending batch straddling the range end (60 of 90 min inside).
+    insertCard("weekly-total-test-card", startTs: rangeStartTs + 60, endTs: rangeStartTs + 660)
+    try? store.db.write { db in
+      try db.execute(
+        sql: "INSERT INTO analysis_batches(batch_start_ts, batch_end_ts, status) VALUES (?, ?, 'pending')",
+        arguments: [rangeEndTs - 3600, rangeEndTs + 1800])
+    }
+
+    XCTAssertEqual(trackedMinutes(), 10 + 60, accuracy: 0.01)
+  }
+
+  func testUnbatchedCapturesCountedAndNonPendingBatchesAreNot() {
+    // A completed batch contributes no pending time (its cards count instead),
+    // and the setUp batch (status 'test') must not count either.
+    try? store.db.write { db in
+      try db.execute(
+        sql: "INSERT INTO analysis_batches(batch_start_ts, batch_end_ts, status) VALUES (?, ?, 'completed')",
+        arguments: [rangeStartTs + 7200, rangeStartTs + 9000])
+      // Three unbatched captures 2 min apart: one 4-min pending span.
+      for ts in [rangeStartTs + 3600, rangeStartTs + 3720, rangeStartTs + 3840] {
+        try db.execute(
+          sql: "INSERT INTO screenshots(captured_at, file_path) VALUES (?, ?)",
+          arguments: [ts, "weekly-total-test-\(ts).png"])
+      }
+    }
+
+    XCTAssertEqual(trackedMinutes(), 4, accuracy: 0.01)
   }
 }
