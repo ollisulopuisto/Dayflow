@@ -98,7 +98,7 @@ If you choose a cloud provider, activity data needed for analysis is sent to tha
 
 ### Download
 
-Download the latest `Dayflow.dmg` from GitHub Releases:
+Download the latest release DMG (`Dayflow-<version>.dmg`) from GitHub Releases:
 
 <p>
   <a href="https://www.dayflow.so/api/download?source=github_readme_install">
