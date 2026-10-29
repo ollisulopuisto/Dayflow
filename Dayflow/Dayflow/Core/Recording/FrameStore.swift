@@ -33,6 +33,9 @@ final class FrameStore: @unchecked Sendable {
   private var readers: [String: SegmentReader] = [:]
   private var readerOrder: [String] = []
   private let readerCacheLimit = 4
+  private let readerIdleTimeout: TimeInterval = 30
+  private var readerCleanupWorkItem: DispatchWorkItem?
+  private var readerCleanupGeneration: UInt64 = 0
 
   private init() {}
 
@@ -145,6 +148,7 @@ final class FrameStore: @unchecked Sendable {
 
     readLock.lock()
     defer { readLock.unlock() }
+    scheduleReaderCleanupLocked()
 
     guard let reader = reader(forPath: screenshot.filePath),
       let pixelBuffer = reader.frame(at: frameIndex)
@@ -169,9 +173,53 @@ final class FrameStore: @unchecked Sendable {
     readerOrder.append(path)
     while readerOrder.count > readerCacheLimit {
       let evicted = readerOrder.removeFirst()
-      readers.removeValue(forKey: evicted)
+      readers.removeValue(forKey: evicted)?.close()
     }
     return created
+  }
+
+  /// Closes cached decoder sessions after the app stops reading frames.
+  /// The short idle window preserves reuse while a batch or playback is active.
+  func releaseReadResources() {
+    readLock.lock()
+    defer { readLock.unlock() }
+
+    readerCleanupGeneration &+= 1
+    readerCleanupWorkItem?.cancel()
+    readerCleanupWorkItem = nil
+    closeReadersLocked()
+  }
+
+  /// Must be called with `readLock` held.
+  private func scheduleReaderCleanupLocked() {
+    readerCleanupGeneration &+= 1
+    let generation = readerCleanupGeneration
+    readerCleanupWorkItem?.cancel()
+
+    let workItem = DispatchWorkItem { [weak self] in
+      self?.releaseReadResourcesIfIdle(generation: generation)
+    }
+    readerCleanupWorkItem = workItem
+    DispatchQueue.global(qos: .utility).asyncAfter(
+      deadline: .now() + readerIdleTimeout, execute: workItem)
+  }
+
+  private func releaseReadResourcesIfIdle(generation: UInt64) {
+    readLock.lock()
+    defer { readLock.unlock() }
+    guard generation == readerCleanupGeneration else { return }
+
+    readerCleanupWorkItem = nil
+    closeReadersLocked()
+  }
+
+  /// Must be called with `readLock` held.
+  private func closeReadersLocked() {
+    for reader in readers.values {
+      reader.close()
+    }
+    readers.removeAll(keepingCapacity: false)
+    readerOrder.removeAll(keepingCapacity: false)
   }
 
   private func legacyJPEGImage(at url: URL, maxPixelSize: Int?) -> CGImage? {
@@ -359,6 +407,10 @@ private final class SegmentReader {
 
   private static let maxSequentialSkip = 8
 
+  deinit {
+    close()
+  }
+
   init?(url: URL) {
     let asset = AVURLAsset(url: url)
     guard let track = Self.loadVideoTrack(from: asset) else { return nil }
@@ -390,9 +442,7 @@ private final class SegmentReader {
   }
 
   private func restart(from index: Int) -> Bool {
-    reader?.cancelReading()
-    reader = nil
-    output = nil
+    close()
 
     guard let newReader = try? AVAssetReader(asset: asset) else { return false }
     let newOutput = AVAssetReaderTrackOutput(
@@ -410,6 +460,15 @@ private final class SegmentReader {
     output = newOutput
     nextIndex = index
     return true
+  }
+
+  func close() {
+    if reader?.status == .reading || reader?.status == .unknown {
+      reader?.cancelReading()
+    }
+    reader = nil
+    output = nil
+    nextIndex = 0
   }
 
   /// Blocks until the video track is loaded. Callers are already off the main thread.

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.7.21] - 2026-10-29
+
+### Changed
+- Explicitly close cached HEVC frame readers on eviction, after 30 seconds idle, when recording stops, and during app shutdown.
+
 ## [2.7.20] - 2026-10-29
 
 ### Changed

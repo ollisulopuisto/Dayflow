@@ -264,6 +264,7 @@ final class ScreenRecorder: NSObject, @unchecked Sendable {
       self.cachedDisplay = nil
       self.currentDisplayID = nil
       FrameStore.shared.finishCurrentSegment()
+      FrameStore.shared.releaseReadResources()
 
       if self.state != .paused {
         self.transition(to: .idle, context: "stopped")
@@ -797,6 +798,7 @@ final class ScreenRecorder: NSObject, @unchecked Sendable {
       object: nil, queue: nil
     ) { _ in
       FrameStore.shared.finishCurrentSegment()
+      FrameStore.shared.releaseReadResources()
     }
   }
 
