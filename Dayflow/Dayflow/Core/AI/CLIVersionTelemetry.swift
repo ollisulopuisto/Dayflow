@@ -55,7 +55,11 @@ enum CLIVersionTelemetry {
   /// The pure staleness decision, separated for tests. nil means never probed.
   nonisolated static func isStale(lastRefresh: Date?, now: Date) -> Bool {
     guard let lastRefresh else { return true }
-    return now.timeIntervalSince(lastRefresh) >= staleAfter
+    // A persisted wall-clock timestamp can be in the future after a clock
+    // correction. Re-probe once rather than suppressing telemetry until that
+    // future date plus the TTL. A successful refresh replaces the timestamp.
+    let age = now.timeIntervalSince(lastRefresh)
+    return age < 0 || age >= staleAfter
   }
 
   private nonisolated static func probe() -> [String: String] {
