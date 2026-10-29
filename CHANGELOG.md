@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Release scripts now name the DMG `Dayflow-<version>.dmg` by default so downloaded installers are distinguishable; `DMG_NAME` still overrides.
+
 ## [2.7.19] - 2026-10-29
 
 ### Fixed
