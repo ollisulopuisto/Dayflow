@@ -7,7 +7,8 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/build_local.sh [--open] [--unsigned] [<git-ref>]
+Usage: scripts/build_local.sh [--open] [--unsigned] [--team <team-id>]
+                              [--bundle-id <identifier>] [<git-ref>]
 
 Builds Dayflow in the Release configuration with Xcode automatic signing.
 Without a git ref, builds the current working tree. With a ref such as
@@ -18,12 +19,15 @@ Options:
   --open   Open the built Dayflow.app after a successful build
   --unsigned  Build without signing (compile-only use; screen-capture permission
               may not persist between builds)
+  --team <id>  Sign with this Apple Development team instead of the project team
+  --bundle-id  Use this bundle identifier (required with a different team)
   -h       Show this help
 
 Examples:
   ./scripts/build_local.sh
   git fetch origin --tags
   ./scripts/build_local.sh --open v2.7.21
+  ./scripts/build_local.sh --team ABCDE12345 --bundle-id com.example.DayflowLocal --open v2.7.21
   ./scripts/build_local.sh --unsigned v2.7.21
 
 The app is written to:
@@ -33,6 +37,8 @@ USAGE
 
 OPEN_APP=0
 UNSIGNED=0
+TEAM_OVERRIDE=
+BUNDLE_ID_OVERRIDE=
 REF=HEAD
 REF_SET=0
 
@@ -45,6 +51,22 @@ while [[ $# -gt 0 ]]; do
     --unsigned)
       UNSIGNED=1
       shift
+      ;;
+    --team)
+      if [[ $# -lt 2 ]]; then
+        printf 'ERROR: --team requires a team ID.\n' >&2
+        exit 2
+      fi
+      TEAM_OVERRIDE=$2
+      shift 2
+      ;;
+    --bundle-id)
+      if [[ $# -lt 2 ]]; then
+        printf 'ERROR: --bundle-id requires an identifier.\n' >&2
+        exit 2
+      fi
+      BUNDLE_ID_OVERRIDE=$2
+      shift 2
       ;;
     -h|--help)
       usage
@@ -125,13 +147,28 @@ fi
 
 if [[ "$UNSIGNED" -eq 0 ]]; then
   PROJECT_FILE="${SOURCE_ROOT}/Dayflow/Dayflow.xcodeproj/project.pbxproj"
-  TEAM_ID=$(grep -m1 -E 'DEVELOPMENT_TEAM = ' "$PROJECT_FILE" | sed -E 's/.*DEVELOPMENT_TEAM = ([^;]+);/\1/')
+  PROJECT_TEAM_ID=$(grep -m1 -E 'DEVELOPMENT_TEAM = ' "$PROJECT_FILE" | sed -E 's/.*DEVELOPMENT_TEAM = ([^;]+);/\1/')
+  TEAM_ID=${TEAM_OVERRIDE:-$PROJECT_TEAM_ID}
+  if [[ -n "$TEAM_OVERRIDE" && ! "$TEAM_OVERRIDE" =~ ^[A-Z0-9]{10}$ ]]; then
+    printf 'ERROR: Invalid Apple Developer team ID: %s\n' "$TEAM_OVERRIDE" >&2
+    exit 2
+  fi
+  if [[ -n "$TEAM_OVERRIDE" && "$TEAM_ID" != "$PROJECT_TEAM_ID" && -z "$BUNDLE_ID_OVERRIDE" ]]; then
+    printf 'ERROR: --bundle-id is required when using a different signing team.\n' >&2
+    printf 'Choose a unique bundle ID for your Personal Team.\n' >&2
+    exit 2
+  fi
+  if [[ -n "$BUNDLE_ID_OVERRIDE" && ! "$BUNDLE_ID_OVERRIDE" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]]; then
+    printf 'ERROR: Invalid bundle identifier: %s\n' "$BUNDLE_ID_OVERRIDE" >&2
+    exit 2
+  fi
   if [[ -n "$TEAM_ID" ]] && ! security find-identity -v -p codesigning 2>/dev/null \
     | grep -E "(Apple|Mac) Development:.*\\(${TEAM_ID}\\)" >/dev/null; then
     cat >&2 <<EOF
 ERROR: No valid Apple/Mac Development signing identity for team ${TEAM_ID}.
-In Xcode, open Settings > Accounts, select the Teleport Labs team, choose
-Manage Certificates, and add a Mac Development certificate. Then retry.
+In Xcode, open Settings > Accounts, select that team, choose Manage
+Certificates, and add a Mac Development (or Apple Development) certificate.
+Then retry.
 
 Use --unsigned only for a compile check. macOS can treat unsigned rebuilds as
 different apps and repeatedly request Screen Recording permission.
@@ -154,6 +191,11 @@ XCODEBUILD_ARGS=(
 )
 if [[ "$UNSIGNED" -eq 1 ]]; then
   XCODEBUILD_ARGS+=(CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO)
+else
+  XCODEBUILD_ARGS+=(-allowProvisioningUpdates "DEVELOPMENT_TEAM=$TEAM_ID")
+  if [[ -n "$BUNDLE_ID_OVERRIDE" ]]; then
+    XCODEBUILD_ARGS+=("PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID_OVERRIDE")
+  fi
 fi
 xcodebuild "${XCODEBUILD_ARGS[@]}" build
 

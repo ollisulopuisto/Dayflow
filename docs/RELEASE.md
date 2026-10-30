@@ -48,12 +48,20 @@ git fetch origin --tags
 The script prints the resulting `Dayflow.app` path. It stores DerivedData under
 `~/Library/Developer/Xcode/DerivedData/Dayflow-local-<commit>`. The script builds
 the app bundle only; it does not create a DMG or publish a release. If Xcode
-reports a signing error, make sure your Apple account has access to the
-configured Teleport Labs team, then in Xcode open **Settings → Accounts**,
-select the team, choose **Manage Certificates**, and add a **Mac Development**
-certificate. A stable development identity helps macOS retain Screen Recording
-permission across rebuilds. For a compile-only build that does not need stable
-permissions, pass `--unsigned`.
+reports a signing error, add a development certificate for your team in Xcode
+under **Settings → Accounts → Manage Certificates**. A free Personal Team is
+enough for a local development build, but not for a Developer ID release.
+Get its team ID from `security find-identity -v -p codesigning`. If you use a
+different team than the project, choose a unique bundle ID and pass both:
+
+```sh
+./scripts/build_local.sh --team YOURTEAMID --bundle-id com.example.DayflowLocal --open v2.7.21
+```
+
+This local bundle ID has separate app data and privacy permissions from the
+released app. Keep the same development identity and bundle ID across rebuilds
+so macOS can retain Screen Recording permission. For a compile-only build that
+does not need stable permissions, pass `--unsigned`.
 
 ## Required repository secrets
 
