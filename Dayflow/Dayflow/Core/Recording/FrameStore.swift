@@ -621,15 +621,6 @@ private final class SegmentReader {
     return true
   }
 
-  func close() {
-    if reader?.status == .reading || reader?.status == .unknown {
-      reader?.cancelReading()
-    }
-    reader = nil
-    output = nil
-    nextIndex = 0
-  }
-
   /// Blocks until the video track is loaded. Callers are already off the main thread.
   private static func loadVideoTrack(from asset: AVURLAsset) -> (AVAssetTrack, CGSize)? {
     final class Result: @unchecked Sendable {
