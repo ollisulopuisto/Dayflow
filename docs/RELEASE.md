@@ -48,8 +48,12 @@ git fetch origin --tags
 The script prints the resulting `Dayflow.app` path. It stores DerivedData under
 `~/Library/Developer/Xcode/DerivedData/Dayflow-local-<commit>`. The script builds
 the app bundle only; it does not create a DMG or publish a release. If Xcode
-reports a signing error, open the project in Xcode and choose your Apple
-Development team under Signing & Capabilities.
+reports a signing error, make sure your Apple account has access to the
+configured Teleport Labs team, then in Xcode open **Settings → Accounts**,
+select the team, choose **Manage Certificates**, and add a **Mac Development**
+certificate. A stable development identity helps macOS retain Screen Recording
+permission across rebuilds. For a compile-only build that does not need stable
+permissions, pass `--unsigned`.
 
 ## Required repository secrets
 

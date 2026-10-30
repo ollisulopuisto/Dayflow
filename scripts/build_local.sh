@@ -7,7 +7,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/build_local.sh [--open] [<git-ref>]
+Usage: scripts/build_local.sh [--open] [--unsigned] [<git-ref>]
 
 Builds Dayflow in the Release configuration with Xcode automatic signing.
 Without a git ref, builds the current working tree. With a ref such as
@@ -16,12 +16,15 @@ current checkout untouched.
 
 Options:
   --open   Open the built Dayflow.app after a successful build
+  --unsigned  Build without signing (compile-only use; screen-capture permission
+              may not persist between builds)
   -h       Show this help
 
 Examples:
   ./scripts/build_local.sh
   git fetch origin --tags
   ./scripts/build_local.sh --open v2.7.21
+  ./scripts/build_local.sh --unsigned v2.7.21
 
 The app is written to:
   ~/Library/Developer/Xcode/DerivedData/Dayflow-local-<commit>/Build/Products/Release/Dayflow.app
@@ -29,6 +32,7 @@ USAGE
 }
 
 OPEN_APP=0
+UNSIGNED=0
 REF=HEAD
 REF_SET=0
 
@@ -36,6 +40,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --open)
       OPEN_APP=1
+      shift
+      ;;
+    --unsigned)
+      UNSIGNED=1
       shift
       ;;
     -h|--help)
@@ -115,18 +123,39 @@ else
   COMMIT=$(git -C "$REPO_ROOT" rev-parse --verify HEAD)
 fi
 
+if [[ "$UNSIGNED" -eq 0 ]]; then
+  PROJECT_FILE="${SOURCE_ROOT}/Dayflow/Dayflow.xcodeproj/project.pbxproj"
+  TEAM_ID=$(grep -m1 -E 'DEVELOPMENT_TEAM = ' "$PROJECT_FILE" | sed -E 's/.*DEVELOPMENT_TEAM = ([^;]+);/\1/')
+  if [[ -n "$TEAM_ID" ]] && ! security find-identity -v -p codesigning 2>/dev/null \
+    | grep -E "(Apple|Mac) Development:.*\\(${TEAM_ID}\\)" >/dev/null; then
+    cat >&2 <<EOF
+ERROR: No valid Apple/Mac Development signing identity for team ${TEAM_ID}.
+In Xcode, open Settings > Accounts, select the Teleport Labs team, choose
+Manage Certificates, and add a Mac Development certificate. Then retry.
+
+Use --unsigned only for a compile check. macOS can treat unsigned rebuilds as
+different apps and repeatedly request Screen Recording permission.
+EOF
+    exit 1
+  fi
+fi
+
 : "${HOME:?HOME must be set to locate Xcode DerivedData}"
 DERIVED_DATA=${DERIVED_DATA:-"${HOME}/Library/Developer/Xcode/DerivedData/Dayflow-local-${COMMIT:0:12}"}
 APP_PATH="${DERIVED_DATA}/Build/Products/Release/Dayflow.app"
 
 printf 'Building Dayflow from %s (%s)\n' "$REF" "$COMMIT"
 printf 'DerivedData: %s\n' "$DERIVED_DATA"
-xcodebuild \
+XCODEBUILD_ARGS=(
   -project "${SOURCE_ROOT}/Dayflow/Dayflow.xcodeproj" \
   -scheme Dayflow \
   -configuration Release \
-  -derivedDataPath "$DERIVED_DATA" \
-  build
+  -derivedDataPath "$DERIVED_DATA"
+)
+if [[ "$UNSIGNED" -eq 1 ]]; then
+  XCODEBUILD_ARGS+=(CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO)
+fi
+xcodebuild "${XCODEBUILD_ARGS[@]}" build
 
 if [[ ! -d "$APP_PATH" ]]; then
   printf 'ERROR: Build succeeded but app was not found at %s\n' "$APP_PATH" >&2
