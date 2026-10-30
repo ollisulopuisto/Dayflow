@@ -688,6 +688,33 @@ final class MainWindowController {
 
     openWindowAction(id: "main")
   }
+
+  /// Releases decoder, thumbnail, web view, and database caches when the app is hidden or
+  /// launched headlessly. The SwiftUI scene remains available for reopening the window.
+  func purgeUIMemory() {
+    SupportChatSession.releaseAllWebViews()
+    ScreenshotThumbnailCache.shared.clear()
+    ThumbnailCache.shared.clear()
+    ScreenshotFilmstripGenerator.shared.clear()
+    FaviconService.shared.clearCache()
+    FrameStore.shared.clearReaders()
+    StorageManager.shared.shrinkMemory()
+    URLCache.shared.removeAllCachedResponses()
+
+    var count: UInt32 = 0
+    var zonesList: UnsafeMutablePointer<vm_address_t>?
+    if malloc_get_all_zones(mach_task_self_, nil, &zonesList, &count) == 0,
+      let zones = zonesList
+    {
+      for index in 0..<Int(count) {
+        if let zone = UnsafeMutableRawPointer(bitPattern: UInt(zones[index])) {
+          let zone = zone.assumingMemoryBound(to: malloc_zone_t.self)
+          _ = malloc_zone_pressure_relief(zone, Int.max)
+        }
+      }
+    }
+    _ = malloc_zone_pressure_relief(malloc_default_zone(), Int.max)
+  }
 }
 
 /// Full-window gradient behind the main app (Figma: dark linear / light radial).
