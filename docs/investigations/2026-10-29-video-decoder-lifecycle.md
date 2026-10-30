@@ -41,11 +41,15 @@ allocation.
 
 `git diff --check` passed. This development environment has Command Line Tools
 but no full Xcode installation, so the macOS target could not be built or tested
-locally. The DMG's tag-triggered GitHub Actions workflow is expected to perform
-the release build.
+locally. The tag-triggered GitHub Actions workflow completed successfully for
+`v2.7.21` (run [40948327739](https://github.com/ollisulopuisto/Dayflow/actions/runs/40948327739)).
+It built the app, created the DMG, and published the release at 2026-10-30
+04:38 Europe/Helsinki. The uploaded `Dayflow-2.7.21.dmg` is 104,059,183 bytes
+with SHA-256 `5c32728c95cfe662d54dae748fb8e26c88331cf889220081ca1a2f4b2f07f092`.
 
-Runtime validation on the M2 MacBook remains necessary. Compare decoder memory,
-threads, and ports for capture alone, analysis, timeline previews, and playback;
-then pause capture and wait beyond the 30-second idle timeout. Repeat capture
-and analysis cycles to check for regrowth. No memory bound or release behavior
-has yet been confirmed on hardware.
+The build passed, but this does not confirm that the suspected decoder retention
+is fixed. Runtime validation on the M2 MacBook remains necessary. Compare decoder
+memory, threads, and ports for capture alone, analysis, timeline previews, and
+playback; then pause capture and wait beyond the 30-second idle timeout. Repeat
+capture and analysis cycles to check for regrowth. No memory bound or release
+behavior has yet been confirmed on hardware.
