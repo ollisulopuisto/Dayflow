@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [2.7.22] - 2026-10-30
+
+### Performance
+- Reduce memory footprint to 22 MB and eliminate CPU spikes via zero-copy capture and APFS remuxing.
+- Integrate upstream PR 407 memory reductions.
+
+### Fixed
+- Fix duplicate FrameStore.close() redeclaration from the upstream PR 407 merge, which broke the release build.
+- Deduplicate CLI person-property publications.
+- Refresh persisted CLI probe cache after wall-clock rollback.
+
+### Changed
+- Support Personal Team local builds; add a local Xcode build helper and document local Mac signing requirements.
+
+
 ## [2.7.21] - 2026-10-29
 
 ### Changed
