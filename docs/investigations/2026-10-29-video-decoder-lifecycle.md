@@ -53,3 +53,20 @@ memory, threads, and ports for capture alone, analysis, timeline previews, and
 playback; then pause capture and wait beyond the 30-second idle timeout. Repeat
 capture and analysis cycles to check for regrowth. No memory bound or release
 behavior has yet been confirmed on hardware.
+
+## PR #407 integration follow-up (2026-10-30)
+
+The integration branch ports direct `CMSampleBuffer`/`CVPixelBuffer` capture,
+downscaled frame decoding for thumbnails, bounded one-reader caching, and the
+PR's explicit cache release paths. The fork's 30-second generation-checked idle
+cleanup and delayed launch housekeeping are retained; these avoid decoder churn
+during batches and avoid doing the integrity scan on the launch path. First-run
+capture remains at the fork's 60-second interval.
+
+The PR's manually managed `NSWindow` lifecycle was not carried over because the
+fork uses a SwiftUI `Window` scene. Its memory-purge behavior is adapted to the
+fork's controller and runs when the app is hidden/headless. These changes are
+code-review findings only at this stage: no build or runtime memory validation
+has been performed for this integration branch. Re-run the M2 capture/analysis/
+preview/playback cycle above against the resulting build before treating memory
+as bounded or the decoder allocation as fixed.
