@@ -7,6 +7,7 @@ import Foundation
 enum CLIVersionTelemetry {
   private static let staleAfter: TimeInterval = 24 * 60 * 60
   private static var lastRefresh: Date?
+  private static var publication = CLIVersionTelemetryPublication()
 
   private enum DefaultsKey {
     static let lastRefresh = "cliVersionTelemetry.lastRefresh"
@@ -34,8 +35,7 @@ enum CLIVersionTelemetry {
       let properties = probe()
       await MainActor.run {
         defaults.set(properties, forKey: DefaultsKey.lastProperties)
-        AnalyticsService.shared.registerSuperProperties(properties)
-        AnalyticsService.shared.setPersonProperties(properties)
+        publish(properties, freshProbe: true)
       }
     }
   }
@@ -44,12 +44,17 @@ enum CLIVersionTelemetry {
   /// carrying them before this launch's probe lands. No-op before the first
   /// successful probe or when analytics are opted out.
   private static func registerLastKnownProperties(defaults: UserDefaults) {
-    guard AnalyticsService.shared.isOptedIn,
-      let properties = defaults.dictionary(forKey: DefaultsKey.lastProperties) as? [String: String],
+    guard let properties = defaults.dictionary(forKey: DefaultsKey.lastProperties) as? [String: String],
       !properties.isEmpty
     else { return }
-    AnalyticsService.shared.registerSuperProperties(properties)
-    AnalyticsService.shared.setPersonProperties(properties)
+    publish(properties, freshProbe: false)
+  }
+
+  private static func publish(_ properties: [String: String], freshProbe: Bool) {
+    publication.publish(properties, freshProbe: freshProbe,
+      optedIn: AnalyticsService.shared.isOptedIn,
+      register: { AnalyticsService.shared.registerSuperProperties($0) },
+      setPerson: { AnalyticsService.shared.setPersonProperties($0) })
   }
 
   /// The pure staleness decision, separated for tests. nil means never probed.
@@ -81,5 +86,32 @@ enum CLIVersionTelemetry {
       let range = versionSummary.range(of: #"\d+(?:\.\d+){1,3}"#, options: .regularExpression)
     else { return "unknown" }
     return String(versionSummary[range])
+  }
+}
+
+/// Per-process publication state, independent of probes and the network SDK.
+/// Cached versions restore event context; only fresh probes update the person.
+struct CLIVersionTelemetryPublication {
+  private var registered: [String: String]?
+  private var person: [String: String]?
+
+  mutating func publish(
+    _ properties: [String: String], freshProbe: Bool, optedIn: Bool,
+    register: ([String: String]) -> Void, setPerson: ([String: String]) -> Void
+  ) {
+    guard optedIn else {
+      registered = nil
+      person = nil
+      return
+    }
+    guard !properties.isEmpty else { return }
+    if registered != properties {
+      register(properties)
+      registered = properties
+    }
+    if freshProbe && person != properties {
+      setPerson(properties)
+      person = properties
+    }
   }
 }
