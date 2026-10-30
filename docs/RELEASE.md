@@ -33,6 +33,24 @@ matching `v*` (e.g. `v2.7.8`) to this repository triggers the
 The release appears at:
 `https://github.com/ollisulopuisto/Dayflow/releases/tag/vX.Y.Z`
 
+## Building locally
+
+Use `scripts/build_local.sh` to build the app with the Release configuration
+and Xcode's automatic signing. With no ref, it builds the current working tree,
+including uncommitted edits. Pass a tag or commit to build that exact revision
+in a temporary detached worktree without switching the current checkout:
+
+```sh
+git fetch origin --tags
+./scripts/build_local.sh --open v2.7.21
+```
+
+The script prints the resulting `Dayflow.app` path. It stores DerivedData under
+`~/Library/Developer/Xcode/DerivedData/Dayflow-local-<commit>`. The script builds
+the app bundle only; it does not create a DMG or publish a release. If Xcode
+reports a signing error, open the project in Xcode and choose your Apple
+Development team under Signing & Capabilities.
+
 ## Required repository secrets
 
 Configure these in the repository settings → Secrets and variables → Actions:
