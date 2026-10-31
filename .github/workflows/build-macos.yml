@@ -66,6 +66,7 @@ jobs:
             -scheme Dayflow \
             -configuration Debug \
             -destination "platform=macOS" \
+            -skip-testing:DayflowUITests \
             "${test_args[@]}" \
             test
       - name: Skip unit tests for urgent build

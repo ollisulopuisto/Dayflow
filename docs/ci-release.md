@@ -6,7 +6,7 @@ Pushes to `main` and `koti-batching` run XCTest suites selected from the changed
 
 A weekly scheduled run executes the full `DayflowTests` suite to catch outdated impact mappings. Manual runs also use the full suite unless the explicit urgent `skip_tests` option is selected. Documentation-only changes do not start the macOS runner. If a newer commit arrives on the same branch while a build is queued or running, GitHub cancels the older run.
 
-Tests remain in one `xcodebuild test` invocation, so the app and test bundle compile once per run. This avoids paying for multiple macOS runners/builds just to shard test execution. The weekly full run is the backstop for the focused per-push selections.
+Tests remain in one `xcodebuild test` invocation, so the app and unit-test bundle compile once per run. CI skips the separate UI-test target, whose runner is not configured for this headless workflow. This avoids paying for multiple macOS runners/builds just to shard test execution. The weekly full unit-test run is the backstop for the focused per-push selections.
 
 ## Urgent build without waiting for unit tests
 
