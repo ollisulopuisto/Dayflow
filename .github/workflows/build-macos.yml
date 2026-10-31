@@ -16,6 +16,9 @@ on:
         type: boolean
         required: false
         default: false
+  schedule:
+    # Run the complete XCTest suite weekly to catch stale impact mappings.
+    - cron: '0 3 * * 1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,18 +35,39 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # A one-commit push compares against its first parent; deeper batches
+          # fall back to the full suite when the base is not present locally.
+          fetch-depth: 2
+      - name: Select affected XCTest suites
+        id: test-selection
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) }}
+        run: python3 scripts/ci/select_xcode_test_suites.py >> "$GITHUB_OUTPUT"
       - name: Run unit tests
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) }}
-        run: >-
-          xcodebuild
-          -project Dayflow/Dayflow.xcodeproj
-          -scheme Dayflow
-          -configuration Debug
-          -destination 'platform=macOS'
-          -only-testing:DayflowTests
-          -derivedDataPath build
-          CODE_SIGNING_ALLOWED=NO
-          test
+        env:
+          TEST_MODE: ${{ steps.test-selection.outputs.mode }}
+          TEST_SUITES: ${{ steps.test-selection.outputs.suites }}
+          TEST_REASON: ${{ steps.test-selection.outputs.reason }}
+        run: |
+          set -euo pipefail
+          echo "Test selection: $TEST_MODE ($TEST_REASON)"
+          test_args=()
+          if [[ "$TEST_MODE" == selected ]]; then
+            IFS="," read -r -a suites <<< "$TEST_SUITES"
+            for suite in "${suites[@]}"; do
+              test_args+=("-only-testing:DayflowTests/$suite")
+            done
+          fi
+          xcodebuild \
+            -project Dayflow/Dayflow.xcodeproj \
+            -scheme Dayflow \
+            -configuration Debug \
+            -destination "platform=macOS" \
+            "${test_args[@]}" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            test
       - name: Skip unit tests for urgent build
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
         run: echo 'Unit tests skipped by explicit workflow_dispatch input; artifact build continues.'
