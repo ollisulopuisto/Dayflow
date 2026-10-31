@@ -1,9 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [2.7.23] - 2026-10-31
 
 ### Fixed
-- Mark active screen recording as user-initiated while allowing idle system sleep, so macOS does not defer or App Nap capture work; release the activity on pause (sleep/lock) and stop.
+- Keep active screen recording from being deferred or App Napped, while allowing idle system sleep; release the activity on pause (sleep/lock) and stop.
+
+### Tests
+- Cover App Nap activity acquisition, recorder state transitions, pause/resume, failed acquisition, and cleanup on deinitialization.
+
+## [Unreleased]
 
 ## [2.7.22] - 2026-10-30
 
