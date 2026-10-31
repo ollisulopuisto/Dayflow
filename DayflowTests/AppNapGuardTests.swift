@@ -5,7 +5,7 @@ import XCTest
 final class AppNapGuardTests: XCTestCase {
 
   private final class FakePower {
-    var begins: [(NSActivityOptions, String)] = []
+    var begins: [(ProcessInfo.ActivityOptions, String)] = []
     var ends = 0
 
     func makeGuard() -> AppNapGuard {

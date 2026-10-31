@@ -16,11 +16,11 @@ import Foundation
 final class AppNapGuard {
 
   private var token: NSObjectProtocol?
-  private let beginActivity: (NSActivityOptions, String) -> NSObjectProtocol?
+  private let beginActivity: (ProcessInfo.ActivityOptions, String) -> NSObjectProtocol?
   private let endActivity: (NSObjectProtocol) -> Void
 
   init(
-    beginActivity: @escaping (NSActivityOptions, String) -> NSObjectProtocol? = {
+    beginActivity: @escaping (ProcessInfo.ActivityOptions, String) -> NSObjectProtocol? = {
       ProcessInfo.processInfo.beginActivity(options: $0, reason: $1)
     },
     endActivity: @escaping (NSObjectProtocol) -> Void = {
