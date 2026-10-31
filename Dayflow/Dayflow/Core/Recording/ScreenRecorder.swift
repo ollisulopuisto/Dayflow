@@ -49,7 +49,7 @@ private let recorderDebugLogging = false
 // MARK: - State Machine
 
 /// Explicit state machine for the recorder lifecycle
-private enum RecorderState: Equatable {
+enum RecorderState: Equatable {
   case idle  // Not capturing
   case starting  // Initiating capture setup
   case capturing  // Active screenshot timer running
@@ -68,6 +68,16 @@ private enum RecorderState: Equatable {
     switch self {
     case .idle, .paused: return true
     case .starting, .capturing: return false
+    }
+  }
+
+  /// App Nap must stay disabled only while capture is being started or is active.
+  func updateAppNapGuard(_ napGuard: AppNapGuard) {
+    switch self {
+    case .starting, .capturing:
+      napGuard.hold(reason: "Dayflow is recording screen activity")
+    case .idle, .paused:
+      napGuard.release()
     }
   }
 }
@@ -215,11 +225,7 @@ final class ScreenRecorder: NSObject, @unchecked Sendable {
     let oldState = state
     state = newState
 
-    if newState == .starting || newState == .capturing {
-      napGuard.hold(reason: "Dayflow is recording screen activity")
-    } else {
-      napGuard.release()
-    }
+    newState.updateAppNapGuard(napGuard)
 
     let message =
       context.map { "\(oldState.description) → \(newState.description) (\($0))" }
