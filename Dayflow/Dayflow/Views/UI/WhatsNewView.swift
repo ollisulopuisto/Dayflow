@@ -1549,14 +1549,14 @@ private final class WheelPassthroughWebView: WKWebView {
 struct WhatsNewView_Previews: PreviewProvider {
   static var previews: some View {
     Group {
-      if let note = WhatsNewConfiguration.configuredRelease {
+      if let note = WhatsNewConfiguration.latestRelease() {
         WhatsNewView(
           releaseNote: note,
           onDismiss: { print("Dismissed") }
         )
         .frame(width: 1200, height: 800)
       } else {
-        Text("Configure WhatsNewConfiguration.configuredRelease to preview.")
+        Text("No bundled changelog sections to preview.")
           .frame(width: 780, height: 400)
       }
     }
