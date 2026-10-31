@@ -52,7 +52,9 @@ jobs:
         run: |
           set -euo pipefail
           echo "Test selection: $TEST_MODE ($TEST_REASON)"
-          test_args=()
+          # Keep the array non-empty: macOS system Bash treats expanding an
+          # empty array under `set -u` as an unbound variable.
+          test_args=(-derivedDataPath build CODE_SIGNING_ALLOWED=NO)
           if [[ "$TEST_MODE" == selected ]]; then
             IFS="," read -r -a suites <<< "$TEST_SUITES"
             for suite in "${suites[@]}"; do
@@ -65,8 +67,6 @@ jobs:
             -configuration Debug \
             -destination "platform=macOS" \
             "${test_args[@]}" \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
             test
       - name: Skip unit tests for urgent build
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
