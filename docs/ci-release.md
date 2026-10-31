@@ -2,7 +2,11 @@
 
 ## Routine CI
 
-Pushes to `main` and `koti-batching` run the unit-test suite only. The test command builds the Debug app and test bundle once. Routine pushes do not also build the separate Release app or package an artifact. Documentation-only changes do not start this runner. If a newer commit arrives on the same branch while a build is queued or running, GitHub cancels the older run so the latest commit gets the runner.
+Pushes to `main` and `koti-batching` run XCTest suites selected from the changed paths. The selector always includes a small smoke set, adds the directly affected area, and falls back to all tests for unknown source/configuration changes or when it cannot identify the push range. Test changes run the classes declared in the changed test files.
+
+A weekly scheduled run executes the full `DayflowTests` suite to catch outdated impact mappings. Manual runs also use the full suite unless the explicit urgent `skip_tests` option is selected. Documentation-only changes do not start the macOS runner. If a newer commit arrives on the same branch while a build is queued or running, GitHub cancels the older run.
+
+Tests remain in one `xcodebuild test` invocation, so the app and test bundle compile once per run. This avoids paying for multiple macOS runners/builds just to shard test execution. The weekly full run is the backstop for the focused per-push selections.
 
 ## Urgent build without waiting for unit tests
 
