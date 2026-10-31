@@ -15,6 +15,7 @@ struct AppRootView: View {
   @State private var whatsNewNote: ReleaseNote? = nil
   @State private var activeWhatsNewVersion: String? = nil
   @State private var shouldMarkWhatsNewSeen = false
+  @State private var whatsNewExplicitDismiss = false
   @State private var goalFlowPresentation: DayGoalFlowPresentation? = nil
   @State private var isShowingGettingStartedTour = false
   @State private var isGettingStartedTourReplay = false
@@ -51,7 +52,7 @@ struct AppRootView: View {
       guard let release = WhatsNewConfiguration.latestRelease() else { return }
       whatsNewNote = release
       activeWhatsNewVersion = release.version
-      shouldMarkWhatsNewSeen = release.version == currentAppVersion
+      shouldMarkWhatsNewSeen = false
 
       // Analytics: track manual view
       AnalyticsService.shared.capture(
@@ -225,12 +226,17 @@ struct AppRootView: View {
   }
 
   private func closeWhatsNew() {
+    // The view's own close control is the explicit dismissal; the sheet's
+    // onDismiss alone also fires for non-explicit dismissal paths.
+    whatsNewExplicitDismiss = true
     whatsNewNote = nil
   }
 
   private func handleWhatsNewDismissed() {
     guard let version = activeWhatsNewVersion else { return }
-    if shouldMarkWhatsNewSeen {
+    // The acknowledged version is recorded only on the explicit close, never
+    // for a non-explicit dismissal and never for the manual full-history view.
+    if shouldMarkWhatsNewSeen && whatsNewExplicitDismiss {
       WhatsNewConfiguration.markReleaseAsSeen(version: version)
       AnalyticsService.shared.capture(
         "whats_new_viewed",
@@ -247,11 +253,8 @@ struct AppRootView: View {
       ])
     activeWhatsNewVersion = nil
     shouldMarkWhatsNewSeen = false
+    whatsNewExplicitDismiss = false
     showGitHubStarPromptIfEligible(source: "launch")
-  }
-
-  private var currentAppVersion: String {
-    Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
   }
 }
 
