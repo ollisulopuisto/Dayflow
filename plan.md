@@ -6,9 +6,9 @@ No local Xcode: CI (`.github/workflows/build-macos.yml`) builds and runs Dayflow
 and is the only compiler and test runner. Last green run on this tree: 319 unit tests passed.
 
 ## Done
-- App Nap: `AppNapGuard` holds a `.background` `ProcessInfo` activity while the recorder
-  is starting/capturing (released on pause/stop), so a backgrounded Dayflow can no
-  longer be napped mid-recording (branch `instinct/app-nap-recording`, PR open).
+- App Nap: `AppNapGuard` holds a `.userInitiatedAllowingIdleSystemSleep` `ProcessInfo`
+  activity while the recorder is starting/capturing (released on pause/stop), so
+  capture work is not deferred while idle system sleep remains allowed.
   Unit tests in DayflowTests/AppNapGuardTests.swift; CI is the only compiler.
 
 - Upstream v2.7.5 merged.
