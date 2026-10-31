@@ -18,14 +18,14 @@ final class AppNapGuardTests: XCTestCase {
     }
   }
 
-  func testHoldBeginsABackgroundActivityWithTheReason() {
+  func testHoldBeginsUserInitiatedActivityAllowingIdleSystemSleep() {
     let power = FakePower()
     let guard_ = power.makeGuard()
 
     guard_.hold(reason: "recording")
 
     XCTAssertEqual(power.begins.count, 1)
-    XCTAssertEqual(power.begins.first?.0, .background)
+    XCTAssertEqual(power.begins.first?.0, .userInitiatedAllowingIdleSystemSleep)
     XCTAssertEqual(power.begins.first?.1, "recording")
     XCTAssertTrue(guard_.isHolding)
   }
