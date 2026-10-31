@@ -146,6 +146,12 @@ final class ScreenRecorder: NSObject, @unchecked Sendable {
   // MARK: - Properties
 
   private let q = DispatchQueue(label: "com.dayflow.recorder", qos: .userInitiated)
+
+  /// Holds App Nap off while capturing; without it the OS could throttle or
+  /// suspend this always-in-the-background recorder and silently gap the
+  /// timeline. Released on pause (sleep/lock) and stop, so the Mac naps and
+  /// sleeps normally whenever nothing is being recorded.
+  private let napGuard = AppNapGuard()
   private var captureTimer: DispatchSourceTimer?
   private var sub: AnyCancellable?
   private var activeDisplaySub: AnyCancellable?
@@ -208,6 +214,12 @@ final class ScreenRecorder: NSObject, @unchecked Sendable {
   private func transition(to newState: RecorderState, context: String? = nil) {
     let oldState = state
     state = newState
+
+    if newState == .starting || newState == .capturing {
+      napGuard.hold(reason: "Dayflow is recording screen activity")
+    } else {
+      napGuard.release()
+    }
 
     let message =
       context.map { "\(oldState.description) → \(newState.description) (\($0))" }
