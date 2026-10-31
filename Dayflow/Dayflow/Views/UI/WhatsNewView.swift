@@ -96,24 +96,26 @@ enum WhatsNewWeeklyFeedback: String, CaseIterable, Identifiable {
 enum WhatsNewConfiguration {
   private static let seenKey = "lastSeenWhatsNewVersion"
 
-  /// Override with the specific release number you want to show.
-  private static let versionOverride: String? = "2.7.0"
+  private static var currentAppVersion: String {
+    Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+  }
 
-  /// Update this content before shipping each release. Return nil to disable the modal entirely.
-  static var configuredRelease: ReleaseNote? {
-    ReleaseNote(
-      version: targetVersion,
-      title: String(localized: "Claude users now run on Haiku 5.5"),
-      highlights: [
-        String(
-          localized:
-            "Anthropic released Claude Haiku 5.5 last week, and Claude users now run on it. Expect increased quality and a 90% reduction in cost. Dayflow now only consumes roughly a dollar a week of your usage limits (under 1% of the usage limits on the $20 plan)."
-        ),
-        String(
-          localized:
-            "We're ramping up letting people off the Flow waitlist. If you've joined, look forward to hearing from us soon!"
-        ),
-      ],
+  /// Builds the modal content from the bundled changelog. With several
+  /// sections each bullet carries its version; with one the version sits in
+  /// the header alone.
+  private static func makeNote(sections: [ChangelogSection], version: String, title: String)
+    -> ReleaseNote
+  {
+    var highlights: [String] = []
+    for section in sections {
+      for item in section.items {
+        highlights.append(sections.count > 1 ? "\(section.version) · \(item)" : item)
+      }
+    }
+    return ReleaseNote(
+      version: version,
+      title: title,
+      highlights: highlights,
       socialPreview: nil,
       previewIntro: nil,
       previewImageNames: [],
@@ -124,51 +126,49 @@ enum WhatsNewConfiguration {
     )
   }
 
-  /// Returns the configured release when it matches the app version and hasn't been shown yet.
+  /// Returns the after-upgrade modal content, or nil when there is nothing to
+  /// show. Brand-new installs seed the marker and skip the modal until the
+  /// next upgrade (unchanged behavior). A downgrade or reinstall of an older
+  /// build shows nothing and leaves the marker untouched.
   static func pendingReleaseForCurrentBuild() -> ReleaseNote? {
-    guard let release = configuredRelease else { return nil }
-    guard isVersion(release.version, lessThanOrEqualTo: currentAppVersion) else { return nil }
+    let current = currentAppVersion
+    guard !current.isEmpty else { return nil }
     let defaults = UserDefaults.standard
     let lastSeen = defaults.string(forKey: seenKey)
 
     // First run: seed seen version so new installs skip the modal until next upgrade.
     if lastSeen == nil || lastSeen?.isEmpty == true {
-      defaults.set(release.version, forKey: seenKey)
+      defaults.set(current, forKey: seenKey)
       return nil
     }
 
-    return lastSeen == release.version ? nil : release
+    guard ChangelogNotes.compareVersions(current, lastSeen!) > 0 else { return nil }
+    let pending = ChangelogNotes.sectionsSince(
+      ChangelogNotes.load(), current: current, lastSeen: lastSeen!)
+    guard !pending.isEmpty else { return nil }
+    return makeNote(
+      sections: pending, version: current, title: String(localized: "Version \(current)"))
   }
 
-  /// Returns the latest configured release, regardless of the running app version.
+  /// Full released history for the manually opened "View Release Notes" menu
+  /// item, regardless of what has been acknowledged.
   static func latestRelease() -> ReleaseNote? {
-    configuredRelease
+    let sections = ChangelogNotes.load()
+    guard !sections.isEmpty else { return nil }
+    return makeNote(
+      sections: sections, version: currentAppVersion, title: String(localized: "Release notes"))
   }
 
+  /// Records the acknowledged version. The marker only moves forward, so a
+  /// downgrade can never erase a newer acknowledgement.
   static func markReleaseAsSeen(version: String) {
-    UserDefaults.standard.set(version, forKey: seenKey)
-  }
-
-  private static var targetVersion: String {
-    versionOverride ?? currentAppVersion
-  }
-
-  private static var currentAppVersion: String {
-    Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-  }
-
-  /// Compare two semantic version strings. Returns true if lhs <= rhs.
-  private static func isVersion(_ lhs: String, lessThanOrEqualTo rhs: String) -> Bool {
-    let lhsParts = lhs.split(separator: ".").compactMap { Int($0) }
-    let rhsParts = rhs.split(separator: ".").compactMap { Int($0) }
-
-    for i in 0..<max(lhsParts.count, rhsParts.count) {
-      let lhsVal = i < lhsParts.count ? lhsParts[i] : 0
-      let rhsVal = i < rhsParts.count ? rhsParts[i] : 0
-      if lhsVal < rhsVal { return true }
-      if lhsVal > rhsVal { return false }
+    let defaults = UserDefaults.standard
+    if let existing = defaults.string(forKey: seenKey),
+      ChangelogNotes.compareVersions(version, existing) <= 0
+    {
+      return
     }
-    return true  // equal
+    defaults.set(version, forKey: seenKey)
   }
 }
 
