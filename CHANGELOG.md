@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Hold a `ProcessInfo` activity (`.background`) while the recorder is starting or capturing, so macOS App Nap can no longer throttle or suspend the backgrounded app and silently gap the recorded timeline; released on pause (sleep/lock) and stop so the Mac naps and sleeps normally otherwise.
+
 ## [2.7.22] - 2026-10-30
 
 ### Performance

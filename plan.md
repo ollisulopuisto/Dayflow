@@ -6,6 +6,11 @@ No local Xcode: CI (`.github/workflows/build-macos.yml`) builds and runs Dayflow
 and is the only compiler and test runner. Last green run on this tree: 319 unit tests passed.
 
 ## Done
+- App Nap: `AppNapGuard` holds a `.background` `ProcessInfo` activity while the recorder
+  is starting/capturing (released on pause/stop), so a backgrounded Dayflow can no
+  longer be napped mid-recording (branch `instinct/app-nap-recording`, PR open).
+  Unit tests in DayflowTests/AppNapGuardTests.swift; CI is the only compiler.
+
 - Upstream v2.7.5 merged.
 - Kotlin batching branch merged (Studio queue, week and canvas performance,
   Hour/Month zoom, treemap, privacy filters, CI changes).
