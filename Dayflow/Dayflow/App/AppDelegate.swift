@@ -305,10 +305,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     if isInitialLaunchSuppressed {
       return false
     }
+    applySavedDockIconPreference()
     if !flag {
       MainWindowController.shared.showMainWindow()
     }
-    return true
+    NSApp.activate(ignoringOtherApps: true)
+    return false
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

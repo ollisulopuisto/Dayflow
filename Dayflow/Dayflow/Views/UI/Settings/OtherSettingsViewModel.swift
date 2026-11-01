@@ -24,6 +24,12 @@ final class OtherSettingsViewModel: ObservableObject {
       UserDefaults.standard.set(openWindowOnLaunch, forKey: "openWindowOnLaunch")
     }
   }
+  @Published var showMenuBarIcon: Bool {
+    didSet {
+      guard showMenuBarIcon != oldValue else { return }
+      UserDefaults.standard.set(showMenuBarIcon, forKey: "showMenuBarIcon")
+    }
+  }
   @Published var showTimelineAppIcons: Bool {
     didSet {
       guard showTimelineAppIcons != oldValue else { return }
@@ -70,6 +76,7 @@ final class OtherSettingsViewModel: ObservableObject {
     showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
     openWindowOnLaunch =
       UserDefaults.standard.object(forKey: "openWindowOnLaunch") as? Bool ?? false
+    showMenuBarIcon = UserDefaults.standard.showMenuBarIcon
     showTimelineAppIcons =
       UserDefaults.standard.object(forKey: "showTimelineAppIcons") as? Bool ?? true
     showDailyGoalPopups = DayGoalPreferences.showDailyGoalPopups

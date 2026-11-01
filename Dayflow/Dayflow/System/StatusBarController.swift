@@ -18,6 +18,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
   /// The live controller, so floating cards (like the Daily brief notice) can
   /// sit under the menu bar icon.
   private(set) static weak var current: StatusBarController?
+  private var visibilityCancellable: AnyCancellable?
 
   override init() {
     super.init()
@@ -40,6 +41,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         self?.updateIcon(isRecording: isRecording)
       }
 
+    visibilityCancellable = UserDefaults.standard.publisher(for: \.showMenuBarIcon)
+      .sink { [weak self] isVisible in
+        self?.statusItem.isVisible = isVisible
+      }
+
     // Only instantiate FlowSessionMirror on launch if a persisted session is active.
     if FlowSessionMirror.isInstantiated || FlowSessionMirror.hasPersistedActiveSession {
       bindFlowSessionIfNeeded()
@@ -55,6 +61,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
       .sink { [weak self] _ in
         self?.flowSessionChanged()
       }
+
   }
 
   /// Where the menu bar icon is on screen, or nil when macOS is hiding it.
@@ -282,5 +289,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
   @objc private func quitDayflow() {
     AppDelegate.permitTermination(reason: "menu_bar_quit")
     NSApp.terminate(nil)
+  }
+}
+
+extension UserDefaults {
+  // KVO needs the property name to match the defaults key.
+  @objc dynamic var showMenuBarIcon: Bool {
+    object(forKey: "showMenuBarIcon") as? Bool ?? true
   }
 }
