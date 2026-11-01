@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.7.24] - 2026-11-01
+
+### Added
+- Configure concurrent frame transcription for local models and use SiliconFlow as an OpenAI-compatible provider.
+- Copy daily and weekly timelines as Markdown.
+
+### Fixed
+- Detect Screen Recording permission through ScreenCaptureKit and keep launch-at-login status checks off the main thread.
+- Improve local-provider configuration cleanup, model connection checks, and activity-card boundary validation.
+- Improve daily recap filtering and weekly dashboard summaries.
+
+### Performance
+- Build universal arm64 and x86_64 releases and bound local-model frame loading during analysis.
+
 ## [2.7.23] - 2026-10-31
 
 ### Fixed
