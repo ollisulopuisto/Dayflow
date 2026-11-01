@@ -94,7 +94,11 @@ def in_window(zone_name: str = TIMEZONE, start_text: str = WINDOW_START,
 
 
 def build_request(job: dict) -> dict:
-    local_zone = ZoneInfo(job.get("timezone") or TIMEZONE)
+    # Validate and fall back safely so invalid timezones cannot crash the worker loop.
+    try:
+        local_zone = ZoneInfo(str(job.get("timezone") or TIMEZONE))
+    except (ZoneInfoNotFoundError, ValueError, TypeError):
+        local_zone = ZoneInfo(TIMEZONE)
     screenshots = sorted(job["screenshots"], key=lambda shot: shot["captured_at"])
     content: list[dict] = [{
         "type": "text",
@@ -425,6 +429,7 @@ class Handler(BaseHTTPRequestHandler):
             if not body["screenshots"] or len(body["screenshots"]) > 15:
                 return self.respond(400, {"error": "a job must contain 1 to 15 screenshots"})
             try:
+                ZoneInfo(str(body["timezone"]))
                 ZoneInfo(body.get("schedule_timezone", TIMEZONE))
                 for key in ("window_start", "window_end"):
                     hour, minute = map(int, body.get(key, "07:00").split(":"))

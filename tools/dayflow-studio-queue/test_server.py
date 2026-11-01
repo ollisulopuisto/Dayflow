@@ -274,6 +274,42 @@ class PromptTests(unittest.TestCase):
         self.assertIn("10 minutes", text)
         self.assertIn("Do not create one card per screenshot", text)
 
+    def test_build_request_falls_back_safely_on_invalid_timezone(self) -> None:
+        server = load_server()
+        job = make_job()
+        job["timezone"] = "Invalid/Bogus_Timezone"
+        # Should not raise ZoneInfoNotFoundError
+        req = server.build_request(job)
+        self.assertIn("messages", req)
+
+
+class EndpointValidationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = load_server()
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), self.server.Handler)
+        self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    def tearDown(self) -> None:
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+    def test_job_submission_with_invalid_timezone_is_rejected(self) -> None:
+        import urllib.request
+        import urllib.error
+        job = make_job("bad-tz-job")
+        job["timezone"] = "Invalid/Bogus_Timezone"
+        req = urllib.request.Request(
+            f"{self.url}/v1/jobs",
+            data=json.dumps(job).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req)
+        self.assertEqual(ctx.exception.code, 400)
+        self.assertFalse((self.server.PENDING / "bad-tz-job.json").exists())
+
 
 class AuthTests(unittest.TestCase):
     def setUp(self) -> None:
