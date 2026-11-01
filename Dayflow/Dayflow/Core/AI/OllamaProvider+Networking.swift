@@ -97,7 +97,8 @@ extension OllamaProvider {
       var didLogTiming = false
       var apiStart: Date?
       do {
-        let urlRequest = try makeChatURLRequest(request, url: url)
+        let urlRequest = try makeChatURLRequest(
+          request, url: url, timeoutInterval: requestTimeout)
 
         let start = Date()
         apiStart = start

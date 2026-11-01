@@ -70,6 +70,13 @@ final class OllamaProvider {
     return OllamaPromptPreferences.load()
   }
 
+  // Per-request idle timeout. Default to 180s; override via
+  // `defaults write teleportlabs.com.Dayflow llmLocalRequestTimeout <seconds>`.
+  var requestTimeout: TimeInterval {
+    let configured = UserDefaults.standard.double(forKey: "llmLocalRequestTimeout")
+    return configured > 0 ? configured : 180
+  }
+
   init(endpoint: String = "http://localhost:1234") {
     self.endpoint = endpoint
     self.injectedRuntimeConfiguration = nil
