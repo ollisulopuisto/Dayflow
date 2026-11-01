@@ -26,7 +26,6 @@ struct ChatView: View {
 
   @ObservedObject var chatService = ChatService.shared
   @StateObject var scrollModel = ChatScrollModel()
-  @State var inputText = ""
   @State var showWorkDetails = false
   @State var isInputFocused = false
   @State var composerFocusToken = 0
@@ -58,6 +57,11 @@ struct ChatView: View {
   @State var chatFeedbackShareLogs = true
   @State var chatFeedbackMode: TimelineFeedbackMode = .form
   @Environment(\.accessibilityReduceMotion) var reduceMotion
+
+  var inputText: String {
+    get { chatService.draftInputText }
+    nonmutating set { chatService.draftInputText = newValue }
+  }
 
   var body: some View {
     ZStack {
