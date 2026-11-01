@@ -45,21 +45,24 @@ struct ScreenRecordingPermissionView: View {
     }
     .onAppear {
       // If already granted, mark as granted; otherwise start in notRequested
-      if CGPreflightScreenCaptureAccess() {
-        permissionState = .granted
-        Task { @MainActor in AppDelegate.allowTermination = false }
-      } else {
-        permissionState = .notRequested
-        Task { @MainActor in AppDelegate.permitTermination(reason: "screen_permission_step") }
+      Task {
+        if await hasScreenRecordingPermission() {
+          permissionState = .granted
+          AppDelegate.allowTermination = false
+        } else {
+          permissionState = .notRequested
+          AppDelegate.permitTermination(reason: "screen_permission_step")
+        }
       }
     }
     // Re-check when app becomes active again (e.g., returning from System Settings)
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification))
     { _ in
       // Only transition to granted here; avoid flipping notChecked to denied automatically
-      if CGPreflightScreenCaptureAccess() {
+      Task {
+        guard await hasScreenRecordingPermission() else { return }
         permissionState = .granted
-        Task { @MainActor in AppDelegate.allowTermination = false }
+        AppDelegate.allowTermination = false
       }
     }
     .onDisappear {
@@ -300,16 +303,28 @@ struct ScreenRecordingPermissionView: View {
 
     // This will prompt and register the app with TCC; may return false
     _ = CGRequestScreenCaptureAccess()
-    if CGPreflightScreenCaptureAccess() {
-      permissionState = .granted
-      AnalyticsService.shared.capture("screen_permission_granted")
-      Task { @MainActor in AppDelegate.allowTermination = false }
-    } else {
-      permissionState = .needsAction
-      AnalyticsService.shared.capture("screen_permission_denied")
-      Task { @MainActor in AppDelegate.permitTermination(reason: "screen_permission_step") }
+    Task {
+      if await hasScreenRecordingPermission() {
+        permissionState = .granted
+        AnalyticsService.shared.capture("screen_permission_granted")
+        AppDelegate.allowTermination = false
+      } else {
+        permissionState = .needsAction
+        AnalyticsService.shared.capture("screen_permission_denied")
+        AppDelegate.permitTermination(reason: "screen_permission_step")
+      }
+      isCheckingPermission = false
     }
-    isCheckingPermission = false
+  }
+
+  private func hasScreenRecordingPermission() async -> Bool {
+    do {
+      _ = try await SCShareableContent.excludingDesktopWindows(
+        false, onScreenWindowsOnly: true)
+      return true
+    } catch {
+      return false
+    }
   }
 
   private func openSystemSettings() {

@@ -354,11 +354,17 @@ struct OnboardingFlow: View {
       step.next()
       savedStepRawValue = step.rawValue
 
-      // Only try to start recording if we already have permission
-      // (No SCShareableContent probe: the recorder retries if capture can't start.)
-      if CGPreflightScreenCaptureAccess() {
-        Task { @MainActor in
-          AppState.shared.setRecording(true, analyticsReason: "onboarding")
+      // ScreenCaptureKit reports the actual TCC state more reliably than
+      // CGPreflightScreenCaptureAccess on recent macOS versions.
+      Task {
+        do {
+          _ = try await SCShareableContent.excludingDesktopWindows(
+            false, onScreenWindowsOnly: true)
+          await MainActor.run {
+            AppState.shared.setRecording(true, analyticsReason: "onboarding")
+          }
+        } catch {
+          // The recorder will remain paused until permission is granted.
         }
       }
     case .completion:
