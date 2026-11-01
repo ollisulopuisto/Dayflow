@@ -50,6 +50,12 @@ final class ProvidersSettingsViewModel: ObservableObject {
   @Published var localTestBaseURL = ""
   @Published var localTestModelID = ""
   @Published var localTestAPIKey = ""
+  @Published var localMaxConcurrency: Int {
+    didSet {
+      guard oldValue != localMaxConcurrency else { return }
+      UserDefaults.standard.set(localMaxConcurrency, forKey: "llmLocalMaxConcurrency")
+    }
+  }
   @Published var showLocalModelUpgradeBanner = false
   @Published var isShowingLocalModelUpgradeSheet = false
   @Published var upgradeStatusMessage: String?
@@ -157,6 +163,9 @@ final class ProvidersSettingsViewModel: ObservableObject {
     localTestModelID = localModelId
     localTestAPIKey = localAPIKey
 
+    let storedConcurrency = UserDefaults.standard.integer(forKey: "llmLocalMaxConcurrency")
+    localMaxConcurrency = storedConcurrency > 0 ? min(storedConcurrency, 16) : 1
+
     if let configuration = OpenAICompatiblePreferences.load() {
       openAICompatiblePreset = configuration.preset
       openAICompatibleBaseURL = configuration.baseURL
@@ -223,6 +232,8 @@ final class ProvidersSettingsViewModel: ObservableObject {
     localBaseURL = UserDefaults.standard.string(forKey: "llmLocalBaseURL") ?? localBaseURL
     localModelId = UserDefaults.standard.string(forKey: "llmLocalModelId") ?? localModelId
     localAPIKey = UserDefaults.standard.string(forKey: "llmLocalAPIKey") ?? localAPIKey
+    let storedConcurrency = UserDefaults.standard.integer(forKey: "llmLocalMaxConcurrency")
+    localMaxConcurrency = storedConcurrency > 0 ? min(storedConcurrency, 16) : 1
     let raw = UserDefaults.standard.string(forKey: "llmLocalEngine") ?? localEngine.rawValue
     localEngine = LocalEngine(rawValue: raw) ?? localEngine
     localTestBaseURL = localBaseURL
@@ -668,12 +679,13 @@ final class ProvidersSettingsViewModel: ObservableObject {
       UserDefaults.standard.removeObject(forKey: "llmLocalModelId")
       UserDefaults.standard.removeObject(forKey: "llmLocalEngine")
       UserDefaults.standard.removeObject(forKey: "llmLocalAPIKey")
+      localMaxConcurrency = 1
+      UserDefaults.standard.removeObject(forKey: "llmLocalMaxConcurrency")
       LocalModelPreferences.clearPreset()
       resetLocalProviderFieldsAfterRemoval()
     case .chatGPT, .claude:
       UserDefaults.standard.removeObject(forKey: "chatgpt_claudeSetupComplete")
       UserDefaults.standard.removeObject(forKey: "chatCLIPreferredTool")
-      preferredCLITool = nil
     case .openAICompatible, .dayflow:
       return
     }

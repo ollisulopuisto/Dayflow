@@ -7,7 +7,7 @@ import AppKit
 import Foundation
 
 extension OllamaProvider {
-  private struct FrameData {
+  private struct FrameData: Sendable {
     let screenshot: Screenshot
     let timestamp: TimeInterval  // Seconds from batch start
   }
@@ -66,6 +66,15 @@ extension OllamaProvider {
       )
       return nil
     }
+  }
+
+  private func describeFrameResult(_ frame: FrameData, batchId: Int64?) async -> (
+    TimeInterval, String
+  )? {
+    guard let description = await getSimpleFrameDescription(frame, batchId: batchId) else {
+      return nil
+    }
+    return (frame.timestamp, description)
   }
 
   private func parseVideoTimestamp(_ timestamp: String) -> Int {
@@ -480,16 +489,38 @@ extension OllamaProvider {
     let lastTs = sampledScreenshots.last!.capturedAt
     let durationSeconds = TimeInterval(lastTs - firstTs)
 
-    // Describe each screenshot
-    var frameDescriptions: [(timestamp: TimeInterval, description: String)] = []
+    // Load and describe a bounded number of frames at a time. Loading stays
+    // sequential because FrameStore owns shared readers; requests can overlap.
     defer { FrameStore.shared.clearReaders() }
-
-    for screenshot in sampledScreenshots {
-      let frameData = loadScreenshotAsFrameData(screenshot, relativeTo: firstTs)
-      if let description = await getSimpleFrameDescription(frameData, batchId: batchId) {
-        frameDescriptions.append((timestamp: frameData.timestamp, description: description))
+    let concurrency = max(1, maxConcurrency)
+    var cursor = 0
+    var frameDescriptions = await withTaskGroup(
+      of: (TimeInterval, String)?.self,
+      returning: [(timestamp: TimeInterval, description: String)].self
+    ) { group in
+      while cursor < sampledScreenshots.count && cursor < concurrency {
+        let screenshot = sampledScreenshots[cursor]
+        let frameData = loadScreenshotAsFrameData(screenshot, relativeTo: firstTs)
+        group.addTask { await self.describeFrameResult(frameData, batchId: batchId) }
+        cursor += 1
       }
+
+      var collected: [(timestamp: TimeInterval, description: String)] = []
+      while let result = await group.next() {
+        if let (timestamp, description) = result {
+          collected.append((timestamp: timestamp, description: description))
+        }
+        if cursor < sampledScreenshots.count {
+          let screenshot = sampledScreenshots[cursor]
+          let frameData = loadScreenshotAsFrameData(screenshot, relativeTo: firstTs)
+          group.addTask { await self.describeFrameResult(frameData, batchId: batchId) }
+          cursor += 1
+        }
+      }
+      return collected
     }
+
+    frameDescriptions.sort { $0.timestamp < $1.timestamp }
 
     guard !frameDescriptions.isEmpty else {
       throw NSError(

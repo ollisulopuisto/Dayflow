@@ -147,6 +147,14 @@ struct SettingsProvidersTabView: View {
       SettingsRow(label: String(localized: "Endpoint")) {
         SettingsMetadata(text: viewModel.localBaseURL)
       }
+      SettingsRow(label: "Max concurrent requests") {
+        HStack(spacing: 8) {
+          SettingsMetadata(text: "\(viewModel.localMaxConcurrency)")
+          Stepper("", value: $viewModel.localMaxConcurrency, in: 1...16)
+            .labelsHidden()
+            .fixedSize()
+        }
+      }
       let hasKey = !viewModel.localAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       SettingsRow(label: String(localized: "API key"), showsDivider: false) {
         SettingsMetadata(

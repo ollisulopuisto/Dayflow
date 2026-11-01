@@ -6,7 +6,7 @@
 import AppKit
 import Foundation
 
-final class OllamaProvider {
+final class OllamaProvider: @unchecked Sendable {
   let endpoint: String
   private let injectedRuntimeConfiguration: OpenAICompatibleRuntimeConfiguration?
   let screenshotInterval: TimeInterval = 10  // seconds between screenshots
@@ -75,6 +75,16 @@ final class OllamaProvider {
   var requestTimeout: TimeInterval {
     let configured = UserDefaults.standard.double(forKey: "llmLocalRequestTimeout")
     return configured > 0 ? configured : 180
+  }
+
+  // How many describe_frame requests to run against the local server at once.
+  // The server caps this itself (LM Studio "Max Concurrent Predictions", Ollama
+  // OLLAMA_NUM_PARALLEL) and doesn't expose the limit over HTTP, so keep this ≤
+  // that value. Default 1 (sequential). Override via
+  // `defaults write teleportlabs.com.Dayflow llmLocalMaxConcurrency <n>`.
+  var maxConcurrency: Int {
+    let configured = UserDefaults.standard.integer(forKey: "llmLocalMaxConcurrency")
+    return configured > 0 ? min(configured, 16) : 1
   }
 
   init(endpoint: String = "http://localhost:1234") {
