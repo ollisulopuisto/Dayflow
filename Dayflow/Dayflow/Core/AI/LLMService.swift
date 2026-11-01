@@ -726,6 +726,39 @@ final class LLMService: LLMServicing {
     )
   }
 
+  /// Codex can return only a new segment after a capture gap while reporting the whole lookback
+  /// window. Restrict deletion to generated card bounds so disconnected history is preserved.
+  static func cardReplacementStartTime(
+    activeProviderID: LLMProviderID,
+    generatedCards: [ActivityCardData],
+    batchStartTime: Date,
+    windowStartTime: Date
+  ) -> Date {
+    guard activeProviderID == .chatGPT, !generatedCards.isEmpty else { return windowStartTime }
+    // The fallback may return cards out of chronological order. Resolve every card before
+    // narrowing the range, and preserve the old window if any timestamp is invalid.
+    guard let intervals = try? generatedCards.map({
+      try ClaudeOutputValidator.resolveActivityCardInterval(
+        $0, nearest: Int(batchStartTime.timeIntervalSince1970))
+    }), let earliest = intervals.map(\.lowerBound).min()
+    else { return windowStartTime }
+    return Date(timeIntervalSince1970: TimeInterval(earliest))
+  }
+
+  static func cardReplacementEndTime(
+    activeProviderID: LLMProviderID,
+    generatedCards: [ActivityCardData],
+    batchEndTime: Date
+  ) -> Date {
+    guard activeProviderID == .chatGPT, !generatedCards.isEmpty else { return batchEndTime }
+    guard let intervals = try? generatedCards.map({
+      try ClaudeOutputValidator.resolveActivityCardInterval(
+        $0, nearest: Int(batchEndTime.timeIntervalSince1970))
+    }), let latest = intervals.map(\.upperBound).max()
+    else { return batchEndTime }
+    return max(batchEndTime, Date(timeIntervalSince1970: TimeInterval(latest)))
+  }
+
   // Keep the existing processBatch implementation for backward compatibility
   func processBatch(
     _ batchId: Int64, progressHandler: ((LLMProcessingStep) -> Void)? = nil,
@@ -1047,11 +1080,26 @@ final class LLMService: LLMServicing {
         // Note: card generation log is not persisted per-batch yet
 
         // Replace old cards with new ones in the time range
-        let replacementRange = Self.cardReplacementRange(
+        var replacementRange = Self.cardReplacementRange(
           rewriteSpan: rewriteSpan,
           windowStartTime: windowStartTime,
           batchEndTime: currentTime
         )
+        if activeContext.id == .chatGPT, !cards.isEmpty {
+          replacementRange = (
+            Self.cardReplacementStartTime(
+              activeProviderID: activeContext.id,
+              generatedCards: cards,
+              batchStartTime: batchStartTime,
+              windowStartTime: windowStartTime
+            ),
+            Self.cardReplacementEndTime(
+              activeProviderID: activeContext.id,
+              generatedCards: cards,
+              batchEndTime: currentTime
+            )
+          )
+        }
         // A model shown only connected cards never saw cards that newer batches started after
         // this one began, so a retry finishing late must not delete them. Providers shown the
         // whole window saw those cards and rewrote them, so theirs are replaced as before.
