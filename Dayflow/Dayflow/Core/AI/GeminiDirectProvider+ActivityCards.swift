@@ -915,8 +915,9 @@ extension GeminiDirectProvider {
         )
       }
 
-      // Check if card is too short (except for last card)
-      if durationMinutes < 10 && index < cards.count - 1 {
+      // Short transitions are valid, but non-final cards still need at least a minute.
+      if durationMinutes < 1 && index < cards.count - 1 {
+
         return (
           false,
           "Card \(index + 1) '\(card.title)' is only \(String(format: "%.1f", durationMinutes)) minutes long"
