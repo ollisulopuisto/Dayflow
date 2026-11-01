@@ -27,6 +27,7 @@ final class ChatService: ObservableObject {
   @Published private(set) var workStatus: ChatWorkStatus?
   @Published private(set) var currentSuggestions: [String] = []
   @Published private(set) var conversations: [ChatConversationRecord] = []
+  @Published var draftInputText = ""
   @Published var showDebugPanel = false
 
   private(set) var currentConversationID: UUID?
@@ -88,6 +89,7 @@ final class ChatService: ObservableObject {
     messages = []
     conversationHistory = []
     recentSuggestionHistory = []
+    draftInputText = ""
     streamingText = ""
     error = nil
     workStatus = nil

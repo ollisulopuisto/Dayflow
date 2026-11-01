@@ -39,13 +39,9 @@ final class LaunchAtLoginManager: ObservableObject {
   }
 
   /// Re-sync with System Settings, e.g. if the user adds/removes Dayflow manually.
-  /// This is the synchronous version for use in setEnabled() after user action.
-  func refreshStatus() {
-    apply(status: SMAppService.mainApp.status)
-  }
-
-  /// Async version that runs the XPC call off the main actor to avoid blocking
-  private func refreshStatusAsync() async {
+  /// Callers should fire-and-forget via `Task { await refreshStatusAsync() }` or
+  /// the SwiftUI `.task {}` modifier — never call this directly from a synchronous context.
+  func refreshStatusAsync() async {
     // Run XPC call on background thread
     let status = await Task.detached(priority: .utility) {
       SMAppService.mainApp.status

@@ -6,13 +6,27 @@
 import Foundation
 
 extension OllamaProvider {
+  /// Default output cap kept low because long generations are slow on local hardware.
+  static let defaultMaxOutputTokens = 4000
+
+  /// Override for reasoning models that need more headroom (#246):
+  /// `defaults write teleportlabs.com.Dayflow llmLocalMaxOutputTokens -int 32000`
+  static var configuredMaxOutputTokens: Int {
+    let configured = UserDefaults.standard.integer(forKey: "llmLocalMaxOutputTokens")
+    return configured > 0 ? configured : defaultMaxOutputTokens
+  }
+
   struct ChatRequest: Codable {
     let model: String
     let messages: [ChatMessage]
     var temperature: Double = 0.7
-    var max_tokens: Int = 4000
+    var max_tokens: Int = OllamaProvider.configuredMaxOutputTokens
     var stream: Bool = false
     var reasoning: Reasoning? = nil
+    // Suppresses reasoning on hybrid models where the engine supports it.
+    var reasoning_effort: String? = nil
+    // SiliconFlow uses this OpenAI-compatible extension for Qwen reasoning models.
+    var enable_thinking: Bool? = nil
 
     struct Reasoning: Codable {
       let effort: String
@@ -43,6 +57,30 @@ extension OllamaProvider {
 
     struct ResponseMessage: Codable {
       let content: String
+
+      private enum CodingKeys: String, CodingKey {
+        case content
+      }
+
+      private struct ContentPart: Decodable {
+        let text: String?
+      }
+
+      init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let text = try? container.decode(String.self, forKey: .content) {
+          content = text
+        } else if let parts = try? container.decode([ContentPart].self, forKey: .content) {
+          content = parts.compactMap(\.text).joined()
+        } else {
+          content = try container.decode(String.self, forKey: .content)
+        }
+      }
+
+      func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(content, forKey: .content)
+      }
     }
   }
 
@@ -56,6 +94,17 @@ extension OllamaProvider {
       throw NSError(
         domain: "OllamaProvider", code: 15,
         userInfo: [NSLocalizedDescriptionKey: "Invalid local endpoint URL"])
+    }
+
+    var request = request
+    if localEngine == "ollama" || localEngine == "lmstudio" {
+      // Ollama's and LM Studio's OpenAI-compatible endpoints enable thinking by
+      // default for hybrid reasoning models (e.g. Qwen3.5, Qwen3-VL) with no
+      // model-level way to turn it off, which makes each vision call 5-10x slower
+      // and can blow the 60s request timeout. Both honor "none" (verified on
+      // Ollama 0.32.14 and LM Studio 0.4.21); non-thinking models ignore the
+      // field. Custom endpoints are left untouched: some providers reject "none".
+      request.reasoning_effort = "none"
     }
 
     var urlRequest = URLRequest(url: resolvedURL)
@@ -87,7 +136,8 @@ extension OllamaProvider {
       var didLogTiming = false
       var apiStart: Date?
       do {
-        let urlRequest = try makeChatURLRequest(request, url: url)
+        let urlRequest = try makeChatURLRequest(
+          request, url: url, timeoutInterval: requestTimeout)
 
         let start = Date()
         apiStart = start
@@ -254,7 +304,7 @@ extension OllamaProvider {
   // Helper method for text-only requests
   func callTextAPI(
     _ prompt: String, operation: String, expectJSON: Bool = false, batchId: Int64? = nil,
-    maxRetries: Int = 3, maxTokens: Int = 4000
+    maxRetries: Int = 3, maxTokens: Int = OllamaProvider.configuredMaxOutputTokens
   ) async throws -> String {
     let systemPrompt =
       expectJSON
@@ -272,7 +322,8 @@ extension OllamaProvider {
       ],
       temperature: 0.7,
       max_tokens: maxTokens,
-      stream: false
+      stream: false,
+      enable_thinking: enableThinkingParameter
     )
 
     let response = try await callChatAPI(
@@ -290,7 +341,8 @@ extension OllamaProvider {
 // MARK: - Text Generation
 
 extension OllamaProvider {
-  func generateText(prompt: String, maxTokens: Int = 4000) async throws
+  func generateText(prompt: String, maxTokens: Int = OllamaProvider.configuredMaxOutputTokens)
+    async throws
     -> (text: String, log: LLMCall)
   {
     let callStart = Date()

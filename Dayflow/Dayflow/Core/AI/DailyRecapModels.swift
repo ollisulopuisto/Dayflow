@@ -283,6 +283,21 @@ struct DailyStandupDraft: Codable, Equatable, Sendable {
     return String(data: data, encoding: .utf8)
   }
 
+  mutating func cleanGeneratedMarkdown() {
+    highlightsTitle = DailyStandupMarkdownCleaner.clean(highlightsTitle) ?? highlightsTitle
+    highlights = highlights.compactMap { item in
+      guard let text = DailyStandupMarkdownCleaner.clean(item.text) else { return nil }
+      return DailyBulletItem(id: item.id, text: text)
+    }
+    tasksTitle = DailyStandupMarkdownCleaner.clean(tasksTitle) ?? tasksTitle
+    tasks = tasks.compactMap { item in
+      guard let text = DailyStandupMarkdownCleaner.clean(item.text) else { return nil }
+      return DailyBulletItem(id: item.id, text: text)
+    }
+    blockersTitle = DailyStandupMarkdownCleaner.clean(blockersTitle) ?? blockersTitle
+    blockersBody = DailyStandupMarkdownCleaner.clean(blockersBody) ?? blockersBody
+  }
+
   var hasGeneratedContent: Bool {
     !highlights.isEmpty || !tasks.isEmpty
       || !blockersBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

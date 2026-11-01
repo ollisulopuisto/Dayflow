@@ -18,6 +18,7 @@ final class ProvidersSettingsViewModel: ObservableObject {
   @Published var localEngine: LocalEngine {
     didSet {
       guard oldValue != localEngine else { return }
+      guard !suppressLocalSettingsPersistence else { return }
       UserDefaults.standard.set(localEngine.rawValue, forKey: "llmLocalEngine")
       LocalModelPreferences.syncPreset(for: localEngine, modelId: localModelId)
       refreshUpgradeBannerState()
@@ -26,12 +27,14 @@ final class ProvidersSettingsViewModel: ObservableObject {
   @Published var localBaseURL: String {
     didSet {
       guard oldValue != localBaseURL else { return }
+      guard !suppressLocalSettingsPersistence else { return }
       UserDefaults.standard.set(localBaseURL, forKey: "llmLocalBaseURL")
     }
   }
   @Published var localModelId: String {
     didSet {
       guard oldValue != localModelId else { return }
+      guard !suppressLocalSettingsPersistence else { return }
       UserDefaults.standard.set(localModelId, forKey: "llmLocalModelId")
       LocalModelPreferences.syncPreset(for: localEngine, modelId: localModelId)
       refreshUpgradeBannerState()
@@ -40,12 +43,19 @@ final class ProvidersSettingsViewModel: ObservableObject {
   @Published var localAPIKey: String {
     didSet {
       guard oldValue != localAPIKey else { return }
+      guard !suppressLocalSettingsPersistence else { return }
       persistLocalAPIKey(localAPIKey)
     }
   }
   @Published var localTestBaseURL = ""
   @Published var localTestModelID = ""
   @Published var localTestAPIKey = ""
+  @Published var localMaxConcurrency: Int {
+    didSet {
+      guard oldValue != localMaxConcurrency else { return }
+      UserDefaults.standard.set(localMaxConcurrency, forKey: "llmLocalMaxConcurrency")
+    }
+  }
   @Published var showLocalModelUpgradeBanner = false
   @Published var isShowingLocalModelUpgradeSheet = false
   @Published var upgradeStatusMessage: String?
@@ -127,6 +137,7 @@ final class ProvidersSettingsViewModel: ObservableObject {
 
   private var savedGeminiModel: GeminiModel
   private var pendingSetupRole: ProviderRoutingRole?
+  private var suppressLocalSettingsPersistence = false
 
   init() {
     let preference = GeminiModelPreference.load()
@@ -152,13 +163,16 @@ final class ProvidersSettingsViewModel: ObservableObject {
     localTestModelID = localModelId
     localTestAPIKey = localAPIKey
 
+    let storedConcurrency = UserDefaults.standard.integer(forKey: "llmLocalMaxConcurrency")
+    localMaxConcurrency = storedConcurrency > 0 ? min(storedConcurrency, 16) : 1
+
     if let configuration = OpenAICompatiblePreferences.load() {
       openAICompatiblePreset = configuration.preset
       openAICompatibleBaseURL = configuration.baseURL
       openAICompatibleModelID = configuration.modelID
     }
     openAICompatibleAPIKey =
-      KeychainManager.shared.retrieve(for: OpenAICompatiblePreferences.keychainProvider) ?? ""
+      OpenAICompatiblePreferences.apiKey(for: openAICompatiblePreset) ?? ""
   }
 
   func handleOnAppear() {
@@ -218,6 +232,8 @@ final class ProvidersSettingsViewModel: ObservableObject {
     localBaseURL = UserDefaults.standard.string(forKey: "llmLocalBaseURL") ?? localBaseURL
     localModelId = UserDefaults.standard.string(forKey: "llmLocalModelId") ?? localModelId
     localAPIKey = UserDefaults.standard.string(forKey: "llmLocalAPIKey") ?? localAPIKey
+    let storedConcurrency = UserDefaults.standard.integer(forKey: "llmLocalMaxConcurrency")
+    localMaxConcurrency = storedConcurrency > 0 ? min(storedConcurrency, 16) : 1
     let raw = UserDefaults.standard.string(forKey: "llmLocalEngine") ?? localEngine.rawValue
     localEngine = LocalEngine(rawValue: raw) ?? localEngine
     localTestBaseURL = localBaseURL
@@ -232,7 +248,7 @@ final class ProvidersSettingsViewModel: ObservableObject {
     openAICompatibleBaseURL = configuration.baseURL
     openAICompatibleModelID = configuration.modelID
     openAICompatibleAPIKey =
-      KeychainManager.shared.retrieve(for: OpenAICompatiblePreferences.keychainProvider) ?? ""
+      OpenAICompatiblePreferences.apiKey(for: openAICompatiblePreset) ?? ""
   }
 
   func refreshCLIReadiness() {
@@ -592,9 +608,7 @@ final class ProvidersSettingsViewModel: ObservableObject {
       if configuration.preset == .custom {
         return true
       }
-      let key =
-        KeychainManager.shared.retrieve(
-          for: OpenAICompatiblePreferences.keychainProvider) ?? ""
+      let key = OpenAICompatiblePreferences.apiKey(for: configuration.preset) ?? ""
       return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     case .local:
       let baseURL = (UserDefaults.standard.string(forKey: "llmLocalBaseURL") ?? "")
@@ -626,6 +640,72 @@ final class ProvidersSettingsViewModel: ObservableObject {
 
   func isBackupProvider(_ providerId: LLMProviderID) -> Bool {
     routing.secondary == providerId
+  }
+
+  /// True when the user is allowed to wipe the persisted config (keychain
+  /// entries, setup flags, endpoint URLs, etc.) for this provider. We
+  /// refuse to remove the config of the active primary so the app never
+  /// ends up in a state with no working primary.
+  func canRemoveProviderConfig(_ providerId: LLMProviderID) -> Bool {
+    // Dayflow Pro is a server-side entitlement, not local config.
+    guard canModifyRouting else { return false }
+    guard isProviderConfigured(providerId) else { return false }
+    guard providerId != primaryRoutingProviderId else { return false }
+    guard providerId != .dayflow else { return false }
+    return true
+  }
+
+  /// Wipes the persisted configuration for a provider — keychain entries,
+  /// setup-complete flags, model selections, endpoint URLs, CLI tool
+  /// preference. If the provider is currently the secondary slot, also
+  /// clears the backup assignment so we don't leave a dangling reference.
+  func removeProviderConfig(_ providerId: LLMProviderID) {
+    guard canRemoveProviderConfig(providerId) else { return }
+
+    if secondaryRoutingProviderId == providerId {
+      clearBackupProvider()
+    }
+
+    switch providerId {
+    case .gemini:
+      KeychainManager.shared.delete(for: "gemini")
+      UserDefaults.standard.removeObject(forKey: "geminiSetupComplete")
+      GeminiModelPreference.clear()
+    case .local:
+      UserDefaults.standard.removeObject(forKey: "ollamaSetupComplete")
+      UserDefaults.standard.removeObject(forKey: "llmLocalBaseURL")
+      UserDefaults.standard.removeObject(forKey: "llmLocalModelId")
+      UserDefaults.standard.removeObject(forKey: "llmLocalEngine")
+      UserDefaults.standard.removeObject(forKey: "llmLocalAPIKey")
+      localMaxConcurrency = 1
+      UserDefaults.standard.removeObject(forKey: "llmLocalMaxConcurrency")
+      LocalModelPreferences.clearPreset()
+      resetLocalProviderFieldsAfterRemoval()
+    case .chatGPT, .claude:
+      UserDefaults.standard.removeObject(forKey: "chatgpt_claudeSetupComplete")
+      UserDefaults.standard.removeObject(forKey: "chatCLIPreferredTool")
+    case .openAICompatible, .dayflow:
+      return
+    }
+
+    AnalyticsService.shared.capture(
+      "provider_config_removed",
+      [
+        "provider": providerId.rawValue,
+        "underlying_provider": canonicalProviderId(for: providerId),
+      ])
+    objectWillChange.send()
+  }
+
+  private func resetLocalProviderFieldsAfterRemoval() {
+    suppressLocalSettingsPersistence = true
+    defer { suppressLocalSettingsPersistence = false }
+
+    localEngine = .ollama
+    localBaseURL = LocalEngine.ollama.defaultBaseURL
+    localModelId = LocalModelPreferences.defaultModelId(for: .ollama)
+    localAPIKey = ""
+    showLocalModelUpgradeBanner = false
   }
 
   var backupProviderDisplayName: String {
@@ -754,7 +834,9 @@ final class ProvidersSettingsViewModel: ObservableObject {
       ),
       CompactProviderInfo(
         id: .openAICompatible,
-        summary: String(localized: "OpenRouter or another OpenAI Chat Completions endpoint")
+        summary: String(
+          localized:
+            "OpenRouter, Requesty, SiliconFlow, or another OpenAI Chat Completions endpoint")
       ),
       CompactProviderInfo(
         id: .local,
@@ -839,6 +921,16 @@ final class ProvidersSettingsViewModel: ObservableObject {
 
   // Prompt override load/persist/reset lives in
   // ProvidersSettingsViewModel+PromptOverrides.swift.
+  func canonicalProviderId(for providerId: LLMProviderID) -> String {
+    switch providerId {
+    case .chatGPT, .claude:
+      return "chatgpt_claude"
+    case .local:
+      return "ollama"
+    default:
+      return providerId.rawValue
+    }
+  }
 }
 
 struct CompactProviderInfo: Identifiable {

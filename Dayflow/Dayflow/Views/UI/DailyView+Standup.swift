@@ -592,7 +592,7 @@ extension DailyView {
     else {
       return nil
     }
-    return trimmed
+    return DailyStandupMarkdownCleaner.clean(trimmed)
   }
   func refreshStandupDraftIfNeeded(
     storageDayString: String,
@@ -636,6 +636,7 @@ extension DailyView {
     if decoded.generation == nil {
       decoded.generation = .legacyDayflow
     }
+    decoded.cleanGeneratedMarkdown()
     standupDraft = decoded
   }
   func scheduleStandupDraftSave() {

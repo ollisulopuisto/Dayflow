@@ -5,6 +5,9 @@ struct SettingsProvidersTabView: View {
   @ObservedObject var viewModel: ProvidersSettingsViewModel
   @ObservedObject private var authManager = DayflowAuthManager.shared
 
+  /// Provider id pending a config removal, used to drive the confirmation alert.
+  @State private var providerPendingRemoval: LLMProviderID?
+
   var body: some View {
     VStack(alignment: .leading, spacing: SettingsStyle.sectionSpacing) {
       if viewModel.currentProvider == .local, viewModel.showLocalModelUpgradeBanner {
@@ -43,6 +46,38 @@ struct SettingsProvidersTabView: View {
       if viewModel.hasCodexOrClaudeProviderInRouting {
         agentPromptCustomizationSection
       }
+    }
+    .alert(
+      "Remove configuration?",
+      isPresented: Binding(
+        get: { providerPendingRemoval != nil },
+        set: { newValue in if !newValue { providerPendingRemoval = nil } }
+      )
+    ) {
+      Button("Cancel", role: .cancel) { providerPendingRemoval = nil }
+      Button("Remove", role: .destructive) {
+        if let id = providerPendingRemoval {
+          viewModel.removeProviderConfig(id)
+        }
+        providerPendingRemoval = nil
+      }
+    } message: {
+      Text(removalConfirmationMessage(for: providerPendingRemoval))
+    }
+  }
+
+  private func removalConfirmationMessage(for providerId: LLMProviderID?) -> String {
+    guard let providerId else { return "" }
+    let name = viewModel.providerDisplayName(providerId)
+    switch viewModel.canonicalProviderId(for: providerId) {
+    case "gemini":
+      return "This will delete your Gemini API key from Keychain and reset \(name)'s saved settings. You'll need to re-enter the key to use this provider again."
+    case "ollama":
+      return "This will clear your saved \(name) endpoint, model selection, and local API key. You can re-run setup any time."
+    case "chatgpt_claude":
+      return "This will clear the saved CLI tool preference for \(name). You can re-run setup any time."
+    default:
+      return "This will clear all saved configuration for \(name)."
     }
   }
 
@@ -112,6 +147,14 @@ struct SettingsProvidersTabView: View {
       SettingsRow(label: String(localized: "Endpoint")) {
         SettingsMetadata(text: viewModel.localBaseURL)
       }
+      SettingsRow(label: "Max concurrent requests") {
+        HStack(spacing: 8) {
+          SettingsMetadata(text: "\(viewModel.localMaxConcurrency)")
+          Stepper("", value: $viewModel.localMaxConcurrency, in: 1...16)
+            .labelsHidden()
+            .fixedSize()
+        }
+      }
       let hasKey = !viewModel.localAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       SettingsRow(label: String(localized: "API key"), showsDivider: false) {
         SettingsMetadata(
@@ -132,9 +175,7 @@ struct SettingsProvidersTabView: View {
       }
     case .openAICompatible:
       SettingsRow(label: String(localized: "Preset")) {
-        SettingsMetadata(
-          text: viewModel.openAICompatiblePreset == .openRouter
-            ? "OpenRouter" : String(localized: "Custom"))
+        SettingsMetadata(text: viewModel.openAICompatiblePreset.displayName)
       }
       SettingsRow(label: String(localized: "Model")) {
         SettingsMetadata(
@@ -342,6 +383,12 @@ struct SettingsProvidersTabView: View {
           } else {
             SettingsSecondaryButton(title: String(localized: "Unset secondary")) {
               viewModel.clearBackupProvider()
+            }
+          }
+
+  if viewModel.canRemoveProviderConfig(provider.id) {
+            SettingsSecondaryButton(title: "Remove configuration") {
+              providerPendingRemoval = provider.id
             }
           }
         }

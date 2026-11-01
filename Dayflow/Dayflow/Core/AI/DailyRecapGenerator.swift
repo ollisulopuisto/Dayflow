@@ -265,29 +265,59 @@ final class DailyRecapGenerator {
     }
   }
 
-  static func makeCardsText(day: String, cards: [TimelineCard]) -> String {
-    let ordered = cards.sorted { lhs, rhs in
-      if lhs.startTimestamp == rhs.startTimestamp {
-        return lhs.endTimestamp < rhs.endTimestamp
+  // Rough ceiling on the activity log's size (~15K tokens). Normal days stay far
+  // below it; it only bites when something floods the day with cards (#285).
+  static let recapCardsTextMaxCharacters = 60_000
+
+  /// Minutes since midnight on the 4AM logical day (4:00–3:59 AM next calendar day).
+  private static func recapDaySortMinutes(_ timeString: String) -> Double? {
+    guard let minutes = parseTimeHMMA(timeString: timeString).map(Double.init) else { return nil }
+    return minutes < 240 ? minutes + 1440 : minutes
+  }
+
+  static func makeCardsText(
+    day: String, cards: [TimelineCard], maxCharacters: Int = recapCardsTextMaxCharacters
+  ) -> String {
+    let ordered = cards
+      .filter { $0.title != "Processing failed" }
+      .sorted { lhs, rhs in
+        let lStart = recapDaySortMinutes(lhs.startTimestamp) ?? .greatestFiniteMagnitude
+        let rStart = recapDaySortMinutes(rhs.startTimestamp) ?? .greatestFiniteMagnitude
+        if lStart != rStart { return lStart < rStart }
+        let lEnd = recapDaySortMinutes(lhs.endTimestamp) ?? lStart
+        let rEnd = recapDaySortMinutes(rhs.endTimestamp) ?? rStart
+        return lEnd < rEnd
       }
-      return lhs.startTimestamp < rhs.startTimestamp
-    }
 
     guard !ordered.isEmpty else {
       return String(localized: "No timeline activities were recorded for \(day).")
     }
 
     var lines: [String] = ["Timeline activities for \(day):", ""]
+    var remaining = maxCharacters - lines.joined(separator: "\n").count
+    var includedCount = 0
+
     for (index, card) in ordered.enumerated() {
       let title = standupLine(from: card) ?? String(localized: "Untitled activity")
       let start = humanReadableClockTime(card.startTimestamp)
       let end = humanReadableClockTime(card.endTimestamp)
-      lines.append("\(index + 1). \(start) - \(end): \(title)")
+      var entryLines = ["\(index + 1). \(start) - \(end): \(title)"]
 
       let summary = card.summary.trimmingCharacters(in: .whitespacesAndNewlines)
       if !summary.isEmpty, summary != title {
-        lines.append("   \(summary)")
+        entryLines.append("   \(summary)")
       }
+
+      let entryLength = entryLines.reduce(0) { $0 + $1.count + 1 }
+      guard entryLength <= remaining else { break }
+      lines.append(contentsOf: entryLines)
+      remaining -= entryLength
+      includedCount += 1
+    }
+
+    if includedCount < ordered.count {
+      let omitted = ordered.count - includedCount
+      lines.append("... and \(omitted) more activities omitted to stay within the model's context limit.")
     }
 
     return lines.joined(separator: "\n")
@@ -471,6 +501,25 @@ final class DailyRecapGenerator {
     } catch {
       if error is CancellationError { throw error }
       try Task.checkCancellation()
+      // If the error indicates the model is not supported for this account, do not
+      // fall back to another model - it will likely fail too and waste attempts.
+      // The error message contains "invalid_request_error" for "model not supported" cases.
+      let errorMessage = error.localizedDescription
+      let isModelNotSupported = errorMessage.contains("invalid_request_error")
+        || errorMessage.contains("model is not supported")
+      if isModelNotSupported {
+        AnalyticsService.shared.capture(
+          "llm_model_fallback",
+          [
+            "provider": "chat_cli",
+            "provider_id": LLMProviderID.chatGPT.rawValue,
+            "operation": "daily_recap",
+            "from_model": "gpt-6-astra",
+            "to_model": "gpt-5.6-sol",
+            "reason": "model_not_supported",
+          ])
+        throw error
+      }
       AnalyticsService.shared.capture(
         "llm_model_fallback",
         [
@@ -775,10 +824,9 @@ final class DailyRecapGenerator {
       return nil
     }
 
-    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmed.isEmpty else { return nil }
-    guard trimmed.lowercased() != "null" else { return nil }
-    return trimmed
+    guard let cleaned = DailyStandupMarkdownCleaner.clean(raw) else { return nil }
+    guard cleaned.lowercased() != "null" else { return nil }
+    return cleaned
   }
 
   private static func normalizedBulletItems(from values: [String]) -> [DailyBulletItem] {

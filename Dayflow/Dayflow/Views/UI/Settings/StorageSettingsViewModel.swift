@@ -1,7 +1,7 @@
 import AppKit
 import Combine
-import CoreGraphics
 import Foundation
+import ScreenCaptureKit
 
 @MainActor
 final class StorageSettingsViewModel: ObservableObject {
@@ -61,7 +61,14 @@ final class StorageSettingsViewModel: ObservableObject {
     }
 
     Task.detached(priority: .utility) { [weak self] in
-      let permission = CGPreflightScreenCaptureAccess()
+      let permission: Bool
+      do {
+        _ = try await SCShareableContent.excludingDesktopWindows(
+          false, onScreenWindowsOnly: true)
+        permission = true
+      } catch {
+        permission = false
+      }
       await MainActor.run {
         guard let self else { return }
         self.storagePermissionGranted = permission

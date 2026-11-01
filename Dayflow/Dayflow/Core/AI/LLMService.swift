@@ -162,7 +162,7 @@ func selectTimelineProviderStartup<Context>(
 
 protocol LLMServicing {
   func processBatch(
-    _ batchId: Int64, progressHandler: ((LLMProcessingStep) -> Void)?,
+    _ batchId: Int64, isReprocess: Bool, progressHandler: ((LLMProcessingStep) -> Void)?,
     completion: @escaping (Result<ProcessedBatchResult, Error>) -> Void)
   func generateText(prompt: String) async throws -> String
   func generateTextStreaming(prompt: String) -> AsyncThrowingStream<String, Error>
@@ -281,7 +281,7 @@ final class LLMService: LLMServicing {
       print("❌ [LLMService] OpenAI-compatible provider unavailable: incomplete configuration")
       return nil
     }
-    let apiKey = KeychainManager.shared.retrieve(for: OpenAICompatiblePreferences.keychainProvider)
+    let apiKey = OpenAICompatiblePreferences.apiKey(for: configuration.preset)
     let runtimeConfiguration = OpenAICompatibleRuntimeConfiguration(
       configuration: configuration,
       bearerToken: apiKey
@@ -726,9 +726,43 @@ final class LLMService: LLMServicing {
     )
   }
 
+  /// Codex can return only a new segment after a capture gap while reporting the whole lookback
+  /// window. Restrict deletion to generated card bounds so disconnected history is preserved.
+  static func cardReplacementStartTime(
+    activeProviderID: LLMProviderID,
+    generatedCards: [ActivityCardData],
+    batchStartTime: Date,
+    windowStartTime: Date
+  ) -> Date {
+    guard activeProviderID == .chatGPT, !generatedCards.isEmpty else { return windowStartTime }
+    // The fallback may return cards out of chronological order. Resolve every card before
+    // narrowing the range, and preserve the old window if any timestamp is invalid.
+    guard let intervals = try? generatedCards.map({
+      try ClaudeOutputValidator.resolveActivityCardInterval(
+        $0, nearest: Int(batchStartTime.timeIntervalSince1970))
+    }), let earliest = intervals.map(\.lowerBound).min()
+    else { return windowStartTime }
+    return Date(timeIntervalSince1970: TimeInterval(earliest))
+  }
+
+  static func cardReplacementEndTime(
+    activeProviderID: LLMProviderID,
+    generatedCards: [ActivityCardData],
+    batchEndTime: Date
+  ) -> Date {
+    guard activeProviderID == .chatGPT, !generatedCards.isEmpty else { return batchEndTime }
+    guard let intervals = try? generatedCards.map({
+      try ClaudeOutputValidator.resolveActivityCardInterval(
+        $0, nearest: Int(batchEndTime.timeIntervalSince1970))
+    }), let latest = intervals.map(\.upperBound).max()
+    else { return batchEndTime }
+    return max(batchEndTime, Date(timeIntervalSince1970: TimeInterval(latest)))
+  }
+
   // Keep the existing processBatch implementation for backward compatibility
   func processBatch(
-    _ batchId: Int64, progressHandler: ((LLMProcessingStep) -> Void)? = nil,
+    _ batchId: Int64, isReprocess: Bool = false,
+    progressHandler: ((LLMProcessingStep) -> Void)? = nil,
     completion: @escaping (Result<ProcessedBatchResult, Error>) -> Void
   ) {
     Task {
@@ -859,24 +893,40 @@ final class LLMService: LLMServicing {
 
         // Card-generation lookback window.
         let currentTime = Date(timeIntervalSince1970: TimeInterval(batchEndTs))
-        let windowStartTime = currentTime.addingTimeInterval(-batchingConfig.cardLookbackDuration)
+        let windowStartTime =
+          isReprocess
+          ? batchStartDate
+          : currentTime.addingTimeInterval(-batchingConfig.cardLookbackDuration)
         let batchStartTime = batchStartDate
 
-        func makeGenerationContext(batchObservations: [Observation]) -> ActivityGenerationContext {
-          // Fetch existing timeline cards that overlap with the recent batching window.
-          let existingTimelineCards = StorageManager.shared.fetchTimelineCardsByTimeRange(
+        let reprocessMergeAnchor: TimelineCardWithTimestamps? =
+          isReprocess
+          ? StorageManager.shared.fetchLastTimelineCard(endingBefore: batchStartDate)
+            .flatMap { $0.title == "Processing failed" ? nil : $0 }
+          : nil
+        let existingTimelineCards = isReprocess
+          ? []
+          : StorageManager.shared.fetchTimelineCardsByTimeRange(
             from: windowStartTime,
             to: currentTime
           )
-          let hasPreviousCardWithinFiveMinutes = StorageManager.shared.hasTimelineCardConnected(
-            toBatchStartingAt: batchStartTime,
-            maxGap: 5 * 60
-          )
-
-          // Convert TimelineCards to ActivityCardData for context
-          let existingActivityCards = existingTimelineCards.filter { card in
-            card.category != "System"
-          }.map { card in
+        let existingActivityCards: [ActivityCardData] = isReprocess
+          ? reprocessMergeAnchor.map { anchor in
+            [
+              ActivityCardData(
+                startTime: anchor.startTimestamp,
+                endTime: anchor.endTimestamp,
+                category: anchor.category,
+                subcategory: anchor.subcategory,
+                title: anchor.title,
+                summary: anchor.summary,
+                detailedSummary: anchor.detailedSummary,
+                distractions: anchor.distractions,
+                appSites: nil
+              )
+            ]
+          } ?? []
+          : existingTimelineCards.filter { $0.category != "System" }.map { card in
             ActivityCardData(
               startTime: card.startTimestamp,
               endTime: card.endTimestamp,
@@ -889,8 +939,13 @@ final class LLMService: LLMServicing {
               appSites: card.appSites
             )
           }
+        let hasPreviousCardWithinFiveMinutes = StorageManager.shared.hasTimelineCardConnected(
+          toBatchStartingAt: batchStartTime,
+          maxGap: 5 * 60
+        )
 
-          return ActivityGenerationContext(
+        func makeGenerationContext(batchObservations: [Observation]) -> ActivityGenerationContext {
+          ActivityGenerationContext(
             batchObservations: batchObservations,
             existingCards: existingActivityCards,
             currentTime: currentTime,
@@ -1046,21 +1101,48 @@ final class LLMService: LLMServicing {
         let isBackupGenerated = usedProviderBackup || usedGemmaForCardGeneration
         // Note: card generation log is not persisted per-batch yet
 
-        // Replace old cards with new ones in the time range
-        let replacementRange = Self.cardReplacementRange(
+        // Reprocessing rewrites only the selected batch (and its connected anchor when the
+        // model returns a merged card). Live analysis uses provider-reported rewrite bounds.
+        var replacementRange = Self.cardReplacementRange(
           rewriteSpan: rewriteSpan,
           windowStartTime: windowStartTime,
           batchEndTime: currentTime
         )
+        let cardsToWrite: [ActivityCardData]
+        if isReprocess {
+          let didMerge =
+            reprocessMergeAnchor != nil && cards.count == existingActivityCards.count
+          let writeFromTime = didMerge
+            ? Date(timeIntervalSince1970: TimeInterval(reprocessMergeAnchor!.startTs))
+            : batchStartDate
+          replacementRange = (writeFromTime, currentTime)
+          cardsToWrite = didMerge ? cards : Array(cards.dropFirst(existingActivityCards.count))
+        } else {
+          cardsToWrite = cards
+        }
+        if !isReprocess, activeContext.id == .chatGPT, !cards.isEmpty {
+          replacementRange = (
+            Self.cardReplacementStartTime(
+              activeProviderID: activeContext.id,
+              generatedCards: cards,
+              batchStartTime: batchStartTime,
+              windowStartTime: windowStartTime
+            ),
+            Self.cardReplacementEndTime(
+              activeProviderID: activeContext.id,
+              generatedCards: cards,
+              batchEndTime: currentTime
+            )
+          )
+        }
         // A model shown only connected cards never saw cards that newer batches started after
-        // this one began, so a retry finishing late must not delete them. Providers shown the
-        // whole window saw those cards and rewrote them, so theirs are replaced as before.
+        // this one began, so a retry finishing late must not delete them.
         let keepNewerCardsAfter = rewriteSpan == nil ? nil : batchStartTime
         let (insertedCardIds, deletedVideoPaths) = StorageManager.shared
           .replaceTimelineCardsInRange(
             from: replacementRange.from,
             to: replacementRange.to,
-            with: cards.map { card in
+            with: cardsToWrite.map { card in
               TimelineCardShell(
                 startTimestamp: card.startTime,
                 endTimestamp: card.endTime,
