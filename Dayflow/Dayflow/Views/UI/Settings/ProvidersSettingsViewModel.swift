@@ -159,12 +159,12 @@ final class ProvidersSettingsViewModel: ObservableObject {
     }
 
     localAPIKey = UserDefaults.standard.string(forKey: "llmLocalAPIKey") ?? ""
+    let storedConcurrency = UserDefaults.standard.integer(forKey: "llmLocalMaxConcurrency")
+    localMaxConcurrency = storedConcurrency > 0 ? min(storedConcurrency, 16) : 1
+
     localTestBaseURL = localBaseURL
     localTestModelID = localModelId
     localTestAPIKey = localAPIKey
-
-    let storedConcurrency = UserDefaults.standard.integer(forKey: "llmLocalMaxConcurrency")
-    localMaxConcurrency = storedConcurrency > 0 ? min(storedConcurrency, 16) : 1
 
     if let configuration = OpenAICompatiblePreferences.load() {
       openAICompatiblePreset = configuration.preset
