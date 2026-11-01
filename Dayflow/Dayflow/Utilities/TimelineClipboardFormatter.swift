@@ -102,6 +102,32 @@ struct TimelineClipboardFormatter {
     return ([header, ""] + entries).joined(separator: "\n\n")
   }
 
+  static func makeMarkdown(
+    for weekRange: TimelineWeekRange,
+    cards: [TimelineCard],
+    now: Date = Date()
+  ) -> String {
+    let header = "# " + exportHeader(weekRange.title)
+
+    guard !cards.isEmpty else {
+      let emptyMessage = String(localized: "No timeline activities were recorded for this week.")
+      return [header, "_\(emptyMessage)_"].joined(separator: "\n\n")
+    }
+
+    let cardsByDay = Dictionary(grouping: cards, by: \.day)
+    let sections = weekRange.days.compactMap { day -> String? in
+      guard let dayCards = cardsByDay[day.dayString], !dayCards.isEmpty else { return nil }
+      return makeMarkdown(for: day.date, cards: dayCards.sorted(by: cardSort), now: now)
+    }
+
+    guard !sections.isEmpty else {
+      let emptyMessage = String(localized: "No timeline activities were recorded for this week.")
+      return [header, "_\(emptyMessage)_"].joined(separator: "\n\n")
+    }
+
+    return ([header, ""] + sections).joined(separator: "\n\n")
+  }
+
   /// "Dayflow timeline · <day or week>" in the current language.
   private static func exportHeader(_ period: String) -> String {
     String(
