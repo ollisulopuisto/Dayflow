@@ -901,7 +901,10 @@ final class LLMService: LLMServicing {
 
         let reprocessMergeAnchor: TimelineCardWithTimestamps? =
           isReprocess
-          ? StorageManager.shared.fetchLastTimelineCard(endingBefore: batchStartDate)
+          ? StorageManager.shared.fetchTimelineCardEndingLast(
+            startingBefore: batchStartDate,
+            excludingBatchId: batchId
+          )
             .flatMap { $0.title == "Processing failed" ? nil : $0 }
           : nil
         let existingTimelineCards = isReprocess
