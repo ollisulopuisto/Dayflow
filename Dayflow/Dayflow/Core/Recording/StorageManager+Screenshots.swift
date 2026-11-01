@@ -7,9 +7,8 @@ extension StorageManager {
 
   /// Returns the URL for a new HEVC segment file inside the recordings folder.
   func nextSegmentURL() -> URL {
-    let df = DateFormatter()
-    df.dateFormat = "yyyyMMdd_HHmmssSSS"
-    return root.appendingPathComponent("\(df.string(from: Date())).mp4")
+    // Reuse static DateFormatter.segmentTimestamp to avoid repeated ICU initialization overhead.
+    return root.appendingPathComponent("\(DateFormatter.segmentTimestamp.string(from: Date())).mp4")
   }
 
   /// Records one captured frame. `file_size` stays NULL until the segment is finalized.

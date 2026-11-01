@@ -4,9 +4,8 @@ import Sentry
 
 extension StorageManager {
   func nextFileURL() -> URL {
-    let df = DateFormatter()
-    df.dateFormat = "yyyyMMdd_HHmmssSSS"
-    return root.appendingPathComponent("\(df.string(from: Date())).mp4")
+    // Reuse static DateFormatter.segmentTimestamp to avoid repeated ICU initialization overhead.
+    return root.appendingPathComponent("\(DateFormatter.segmentTimestamp.string(from: Date())).mp4")
   }
 
   func registerChunk(url: URL) {
