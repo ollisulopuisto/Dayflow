@@ -163,4 +163,17 @@ final class StorageManagerScreenshotsTests: XCTestCase {
       XCTAssertEqual(grouped[batchId]?.count, 1)
     }
   }
+
+  func testNextSegmentURLFormat() {
+    let store = StorageManager.shared
+    let url = store.nextSegmentURL()
+    let filename = url.lastPathComponent
+    XCTAssertTrue(filename.hasSuffix(".mp4"))
+
+    let timestampPart = (filename as NSString).deletingPathExtension
+    // Expected format: yyyyMMdd_HHmmssSSS (length 18: 8 digits, underscore, 9 digits)
+    XCTAssertEqual(timestampPart.count, 18)
+    let parsedDate = DateFormatter.segmentTimestamp.date(from: timestampPart)
+    XCTAssertNotNil(parsedDate)
+  }
 }

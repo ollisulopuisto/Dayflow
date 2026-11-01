@@ -14,6 +14,15 @@ extension DateFormatter {
     formatter.timeZone = Calendar.current.timeZone
     return formatter
   }()
+
+  /// Cached DateFormatter for generating recording segment/chunk filenames (yyyyMMdd_HHmmssSSS).
+  /// Reusing this static instance avoids expensive repeated ICU initialization on frame capture/rotation paths.
+  static let segmentTimestamp: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyyMMdd_HHmmssSSS"
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    return formatter
+  }()
 }
 
 extension Date {
