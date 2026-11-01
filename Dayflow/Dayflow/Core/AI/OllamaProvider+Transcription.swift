@@ -46,7 +46,8 @@ extension OllamaProvider {
           model: savedModelId,
           messages: [
             ChatMessage(role: "user", content: content)
-          ]
+          ],
+          enable_thinking: enableThinkingParameter
         )
       })
     else {

@@ -175,11 +175,7 @@ struct SettingsProvidersTabView: View {
       }
     case .openAICompatible:
       SettingsRow(label: String(localized: "Preset")) {
-        SettingsMetadata(
-          text: viewModel.openAICompatiblePreset == .openRouter
-            ? "OpenRouter"
-            : viewModel.openAICompatiblePreset == .requesty
-              ? "Requesty" : String(localized: "Custom"))
+        SettingsMetadata(text: viewModel.openAICompatiblePreset.displayName)
       }
       SettingsRow(label: String(localized: "Model")) {
         SettingsMetadata(
