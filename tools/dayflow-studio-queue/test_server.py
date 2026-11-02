@@ -310,6 +310,45 @@ class EndpointValidationTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 400)
         self.assertFalse((self.server.PENDING / "bad-tz-job.json").exists())
 
+    def test_device_id_validation_on_endpoints(self) -> None:
+        import urllib.request
+        import urllib.error
+        # 1. GET /v1/results requires a valid non-empty alphanumeric/dash device_id
+        for bad_path in ("/v1/results", "/v1/results?device_id=", "/v1/results?device_id=../bad/id"):
+            req = urllib.request.Request(f"{self.url}{bad_path}")
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400)
+
+        # 2. POST /v1/jobs rejects missing or invalid device_id
+        for bad_device in ("", "mac/../../bad", 12345):
+            bad_job = make_job("bad-device-job")
+            bad_job["device_id"] = bad_device
+            req = urllib.request.Request(
+                f"{self.url}/v1/jobs",
+                data=json.dumps(bad_job).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400)
+
+        # 3. POST /v1/ack rejects missing or invalid device_id
+        for bad_device in (None, "", "mac/bad"):
+            body = {"job_id": "job-1"}
+            if bad_device is not None:
+                body["device_id"] = bad_device
+            req = urllib.request.Request(
+                f"{self.url}/v1/ack",
+                data=json.dumps(body).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400)
+
 
 class AuthTests(unittest.TestCase):
     def setUp(self) -> None:
