@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Reduce the idle capture interval from 16 to 15 seconds: the simulated-blip fixture produced only 53/59 qualified samples (89.83%), below the unchanged 90% classifier requirement. Add a test across sampled blip positions.
+- Correct shell-escaping test expectations to preserve punctuation and quote escapes; production escaping is unchanged.
+- Run the existing native test workflow on pull requests too, without release packaging. The original idle-blip and shell-escaping regressions pass in macOS PR CI; full native verification is rerunning after keeping the bundled changelog in sync.
+
+
 ## [2.7.24] - 2026-11-01
 
 ### Added
@@ -161,9 +170,3 @@
 
 ### Not yet addressed
 See `docs/PERFORMANCE.md` for the findings that are still open (timeline scrolling is not measured; the window-wide re-evaluation on scroll is not found).
-
-## Automation repair - 2026-11-02
-
-- Reduce the idle capture interval from 16 to 15 seconds: the simulated-blip fixture produced only 53/59 qualified samples (89.83%), below the unchanged 90% classifier requirement. Add a test across sampled blip positions.
-- Correct shell-escaping test expectations to preserve punctuation and quote escapes; production escaping is unchanged.
-- Run the existing native test workflow on pull requests too, without release packaging. Native verification pending; local Python enumeration confirms 15-second sampling keeps the qualified ratio above 90% in this fixture.
