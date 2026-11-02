@@ -20,7 +20,7 @@ enum IdleCaptureDefaults {
   static let idleThresholdSeconds: TimeInterval = 60
   /// Largest interval that keeps worst-case blip gaps under 30s *and* leaves
   /// enough qualified samples in a 15-minute batch alongside the 10s ramp.
-  static let throttledIntervalSeconds: TimeInterval = 16
+  static let throttledIntervalSeconds: TimeInterval = 15
 }
 
 /// User preference for idle-throttled capture. Only an on/off toggle is
