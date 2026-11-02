@@ -9,6 +9,8 @@ on:
       - '**/*.md'
       - 'CHANGELOG.md'
       - 'docs/**'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       skip_tests:

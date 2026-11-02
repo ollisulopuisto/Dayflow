@@ -195,6 +195,19 @@ final class IdleCaptureIntervalTests: XCTestCase {
     XCTAssertNotNil(IdleBatchClassifier.assess(shots))
   }
 
+  func testEverySampledBlipKeepsQualifiedIdleRatio() {
+    let interval = Int(IdleCaptureDefaults.throttledIntervalSeconds)
+    for blip in stride(from: 0, through: 900, by: interval) {
+      let shots = screenshotsForSimulatedIdleBatch(batchStart: 0, batchEnd: 900, blipAt: blip)
+      let qualified = shots.filter {
+        ($0.idleSecondsAtCapture ?? 0) >= IdleBatchRules.qualifyingIdleSecondsAtCapture
+      }.count
+      XCTAssertGreaterThanOrEqual(
+        Double(qualified) / Double(shots.count), IdleBatchRules.requiredQualifiedIdleRatio,
+        "blip at \(blip) must preserve the classifier's qualified-sample ratio")
+    }
+  }
+
   func testSimulatedThrottledIdleBatchWithBlipStillClassifiesAsIdle() {
     let batchStart = 0
     let batchEnd = 15 * 60

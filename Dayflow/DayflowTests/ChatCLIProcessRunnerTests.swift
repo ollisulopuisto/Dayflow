@@ -150,13 +150,13 @@ final class ChatCLIProcessRunnerTests: XCTestCase {
   func testLoginShellRunnerShellEscape() {
     let injectionPayload = "model'; touch /tmp/pwned; echo '"
     let escaped = LoginShellRunner.shellEscape(injectionPayload)
-    XCTAssertEqual(escaped, "'model'\\'' touch /tmp/pwned; echo '\n'".trimmingCharacters(in: .newlines))
+    XCTAssertEqual(escaped, "'model'\\''; touch /tmp/pwned; echo '\\'''")
     XCTAssertTrue(escaped.hasPrefix("'"))
     XCTAssertTrue(escaped.hasSuffix("'"))
 
     let specialChars = "hello $WORLD `whoami` \"double\" 'single' ; & |"
     let escapedSpecial = LoginShellRunner.shellEscape(specialChars)
-    XCTAssertEqual(escapedSpecial, "'hello $WORLD `whoami` \"double\" '\''single'\'' ; & |'")
+    XCTAssertEqual(escapedSpecial, "'hello $WORLD `whoami` \"double\" '\\''single'\\'' ; & |'")
   }
 
   func testClaudeCommandPartsShellEscape() {
