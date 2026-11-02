@@ -79,6 +79,11 @@ def authorized(handler: BaseHTTPRequestHandler) -> bool:
     return token_matches(handler.headers.get("Authorization"))
 
 
+def is_valid_identifier(val: object) -> bool:
+    # Identifiers (device_id, job_id) must be non-empty strings of alphanumeric and dash characters.
+    return isinstance(val, str) and bool(val) and val.replace("-", "").isalnum()
+
+
 def in_window(zone_name: str = TIMEZONE, start_text: str = WINDOW_START,
               end_text: str = WINDOW_END, now: Optional[datetime] = None) -> bool:
     current = now or datetime.now(ZoneInfo(zone_name))
@@ -403,12 +408,14 @@ class Handler(BaseHTTPRequestHandler):
                                       "heartbeat_age_s": round(heartbeat_age(), 1)})
         if self.path.startswith("/v1/results"):
             from urllib.parse import parse_qs, urlparse
-            device_id = parse_qs(urlparse(self.path).query).get("device_id", [""])[0]
+            raw_device_id = parse_qs(urlparse(self.path).query).get("device_id", [""])[0]
+            if not is_valid_identifier(raw_device_id):
+                return self.respond(400, {"error": "invalid device id"})
             results = []
             for result_file in COMPLETE.glob("*.json"):
                 try:
                     result = json.loads(result_file.read_text())
-                    if result.get("device_id") == device_id:
+                    if result.get("device_id") == raw_device_id:
                         results.append(result)
                 except (OSError, json.JSONDecodeError):
                     continue
@@ -429,6 +436,10 @@ class Handler(BaseHTTPRequestHandler):
             required = ("job_id", "device_id", "batch_id", "start_ts", "end_ts", "timezone", "screenshots")
             if any(key not in body for key in required) or not isinstance(body["screenshots"], list):
                 return self.respond(400, {"error": "missing job fields"})
+            if not is_valid_identifier(body.get("job_id")):
+                return self.respond(400, {"error": "invalid job id"})
+            if not is_valid_identifier(body.get("device_id")):
+                return self.respond(400, {"error": "invalid device id"})
             if not body["screenshots"] or len(body["screenshots"]) > 15:
                 return self.respond(400, {"error": "a job must contain 1 to 15 screenshots"})
             try:
@@ -444,8 +455,6 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, KeyError, TypeError, ZoneInfoNotFoundError):
                 return self.respond(400, {"error": "invalid screenshot or processing schedule"})
             name = str(body["job_id"])
-            if not name.replace("-", "").isalnum():
-                return self.respond(400, {"error": "invalid job id"})
             if (COMPLETE / f"{name}.json").exists() or (PENDING / f"{name}.json").exists() or (RUNNING / f"{name}.json").exists():
                 return self.respond(200, {"accepted": True, "duplicate": True})
             path = PENDING / f"{name}.json"
@@ -454,14 +463,17 @@ class Handler(BaseHTTPRequestHandler):
             temp.replace(path)
             return self.respond(202, {"accepted": True})
         if self.path == "/v1/ack":
-            job_id = str(body.get("job_id", ""))
-            if not job_id.replace("-", "").isalnum():
+            job_id = body.get("job_id")
+            device_id = body.get("device_id")
+            if not is_valid_identifier(job_id):
                 return self.respond(400, {"error": "invalid job id"})
+            if not is_valid_identifier(device_id):
+                return self.respond(400, {"error": "invalid device id"})
             result = COMPLETE / f"{job_id}.json"
             if result.exists():
                 try:
                     value = json.loads(result.read_text())
-                    if value.get("device_id") != body.get("device_id"):
+                    if value.get("device_id") != device_id:
                         return self.respond(403, {"error": "job belongs to another device"})
                     result.unlink()
                 except (OSError, json.JSONDecodeError):
