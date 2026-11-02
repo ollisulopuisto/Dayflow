@@ -150,9 +150,13 @@ def analyze(job: dict) -> list[dict]:
     return parse_cards(answer, job)
 
 
+# Pre-compiled regex pattern for fast timestamp parsing across batches
+CLOCK_RE = re.compile(r"\s*(\d{1,2})[:.](\d{2})(?::\d{2})?\s*([AaPp])?\s*[Mm]?\s*")
+
+
 def normalize_clock(value: str) -> Optional[str]:
     # The model writes h:mm, h:mm:ss, 24-hour or dotted times. Dayflow stores h:mm AM/PM.
-    match = re.fullmatch(r"\s*(\d{1,2})[:.](\d{2})(?::\d{2})?\s*([AaPp])?\s*[Mm]?\s*", value)
+    match = CLOCK_RE.fullmatch(value)
     if not match:
         return None
     hour, minute = int(match.group(1)), int(match.group(2))
@@ -176,20 +180,19 @@ def parse_cards(answer: str, job: dict) -> list[dict]:
     if not isinstance(cards, list):
         raise ValueError("Model response did not contain a cards array")
     required = ("start_time", "end_time", "category", "subcategory", "title", "summary", "detailed_summary")
-    if any(not isinstance(card, dict) or any(not isinstance(card.get(k), str) for k in required) for card in cards):
-        raise ValueError("Model returned a card with missing or invalid fields")
+    allowed_categories = {
+        category.get("name") for category in job.get("categories", []) if isinstance(category, dict)
+    }
+    # Single-pass validation and normalization: normalize_clock already produces
+    # strictly valid "h:mm AM/PM" strings, avoiding redundant regex and strptime checks.
     for card in cards:
+        if not isinstance(card, dict) or any(not isinstance(card.get(k), str) for k in required):
+            raise ValueError("Model returned a card with missing or invalid fields")
         for key in ("start_time", "end_time"):
             normalised = normalize_clock(card[key])
             if normalised is None:
                 raise ValueError("Model returned a timestamp outside h:mm AM/PM format")
             card[key] = normalised
-    allowed_categories = {category.get("name") for category in job.get("categories", [])}
-    for card in cards:
-        for key in ("start_time", "end_time"):
-            if not re.fullmatch(r"\d{1,2}:\d{2} [AP]M", card[key]):
-                raise ValueError("Model returned a timestamp outside h:mm AM/PM format")
-            datetime.strptime(card[key], "%I:%M %p")
         if allowed_categories and card["category"] not in allowed_categories:
             raise ValueError("Model returned a category not present in Dayflow settings")
     return cards
