@@ -1,27 +1,63 @@
+import Darwin
 import Foundation
 
-struct StudioQueueIdleDecision: Codable, Identifiable {
+struct StudioQueueLoadDecision: Codable, Identifiable {
   let id: UUID
   let checkedAt: Date
-  let idleSeconds: Int?
-  let thresholdSeconds: Int
-  let passedIdleGate: Bool
+  let loadAveragePerCore: Double?
+  let maximumLoadPerCore: Double
+  let thermalState: String
+  let deferredForLoad: Bool
   let manualOverride: Bool
 
   var explanation: String {
-    let observation: String
-    if let idleSeconds {
-      observation = passedIdleGate
-        ? "Idle for \(idleSeconds)s (threshold \(thresholdSeconds)s)"
-        : "Input seen \(idleSeconds)s ago (threshold \(thresholdSeconds)s)"
+    let loadDescription: String
+    if let loadAveragePerCore {
+      loadDescription = String(
+        format: "load %.2f/core (limit %.2f)", loadAveragePerCore, maximumLoadPerCore)
     } else {
-      observation = "HID idle time unavailable (threshold \(thresholdSeconds)s)"
+      loadDescription = "load unavailable"
     }
+    let observation = "\(loadDescription), thermal \(thermalState)"
 
     if manualOverride {
-      return observation + (passedIdleGate ? " · manual send" : " · manually sent despite idle gate")
+      return observation + (deferredForLoad ? " · forced despite load" : " · manual send")
     }
-    return observation + (passedIdleGate ? " · upload allowed" : " · upload deferred")
+    return observation + (deferredForLoad ? " · upload deferred" : " · upload allowed")
+  }
+}
+
+struct StudioUploadLoadAssessment {
+  static let maximumLoadPerCore = 0.85
+
+  let loadAveragePerCore: Double?
+  let thermalState: ProcessInfo.ThermalState
+
+  var shouldDefer: Bool {
+    if thermalState == .serious || thermalState == .critical { return true }
+    return loadAveragePerCore.map { $0 >= Self.maximumLoadPerCore } ?? false
+  }
+
+  static func current() -> Self {
+    var oneMinuteLoadAverage = 0.0
+    let count = getloadavg(&oneMinuteLoadAverage, 1)
+    let loadAveragePerCore = count == 1
+      ? oneMinuteLoadAverage / Double(max(1, ProcessInfo.processInfo.activeProcessorCount))
+      : nil
+    return Self(
+      loadAveragePerCore: loadAveragePerCore,
+      thermalState: ProcessInfo.processInfo.thermalState
+    )
+  }
+
+  static func thermalStateName(_ state: ProcessInfo.ThermalState) -> String {
+    switch state {
+    case .nominal: return "nominal"
+    case .fair: return "fair"
+    case .serious: return "serious"
+    case .critical: return "critical"
+    @unknown default: return "unknown"
+    }
   }
 }
 
@@ -85,9 +121,9 @@ enum StudioBatchQueue {
   private static let tokenKey = "studioBatchQueueToken"
   private static let deviceKey = "studioBatchQueueDeviceID"
   private static let maxImagesPerBatch = 15
-  private static let idleDecisionLogKey = "studioQueueIdleDecisionLog.v1"
-  private static let idleDecisionLogLimit = 100
-  private static let idleDecisionLogLock = NSLock()
+  private static let loadDecisionLogKey = "studioQueueLoadDecisionLog.v1"
+  private static let loadDecisionLogLimit = 100
+  private static let loadDecisionLogLock = NSLock()
 
   static let scheduler = StudioUploadScheduler()
 
@@ -95,37 +131,42 @@ enum StudioBatchQueue {
     endpoint != nil
   }
 
-  static func recordIdleDecision(idleSeconds: Int?, thresholdSeconds: Int, manualOverride: Bool) {
-    let decision = StudioQueueIdleDecision(
+  /// Records system pressure at each upload pass for diagnostics.
+  static func recordLoadDecision(
+    assessment: StudioUploadLoadAssessment,
+    manualOverride: Bool
+  ) {
+    let decision = StudioQueueLoadDecision(
       id: UUID(),
       checkedAt: Date(),
-      idleSeconds: idleSeconds,
-      thresholdSeconds: thresholdSeconds,
-      passedIdleGate: idleSeconds.map { $0 >= thresholdSeconds } ?? false,
+      loadAveragePerCore: assessment.loadAveragePerCore,
+      maximumLoadPerCore: StudioUploadLoadAssessment.maximumLoadPerCore,
+      thermalState: StudioUploadLoadAssessment.thermalStateName(assessment.thermalState),
+      deferredForLoad: assessment.shouldDefer,
       manualOverride: manualOverride
     )
 
-    idleDecisionLogLock.withLock {
-      var entries = loadIdleDecisions(limit: idleDecisionLogLimit)
+    loadDecisionLogLock.withLock {
+      var entries = loadLoadDecisions(limit: loadDecisionLogLimit)
       entries.insert(decision, at: 0)
-      if entries.count > idleDecisionLogLimit {
-        entries.removeLast(entries.count - idleDecisionLogLimit)
+      if entries.count > loadDecisionLogLimit {
+        entries.removeLast(entries.count - loadDecisionLogLimit)
       }
       if let data = try? JSONEncoder().encode(entries) {
-        UserDefaults.standard.set(data, forKey: idleDecisionLogKey)
+        UserDefaults.standard.set(data, forKey: loadDecisionLogKey)
       }
     }
   }
 
-  static func recentIdleDecisions(limit: Int = 20) -> [StudioQueueIdleDecision] {
-    idleDecisionLogLock.withLock {
-      loadIdleDecisions(limit: limit)
+  static func recentLoadDecisions(limit: Int = 20) -> [StudioQueueLoadDecision] {
+    loadDecisionLogLock.withLock {
+      loadLoadDecisions(limit: limit)
     }
   }
 
-  private static func loadIdleDecisions(limit: Int) -> [StudioQueueIdleDecision] {
-    guard let data = UserDefaults.standard.data(forKey: idleDecisionLogKey),
-      let entries = try? JSONDecoder().decode([StudioQueueIdleDecision].self, from: data)
+  private static func loadLoadDecisions(limit: Int) -> [StudioQueueLoadDecision] {
+    guard let data = UserDefaults.standard.data(forKey: loadDecisionLogKey),
+      let entries = try? JSONDecoder().decode([StudioQueueLoadDecision].self, from: data)
     else { return [] }
     return Array(entries.prefix(max(0, limit)))
   }

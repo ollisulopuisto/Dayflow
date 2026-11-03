@@ -22,7 +22,7 @@ final class StorageSettingsViewModel: ObservableObject {
   @Published var observedBytesPerHour: Int64?
   @Published private(set) var isForceSendingStudioQueue = false
   @Published var studioQueueSendMessage: String?
-  @Published private(set) var studioIdleDecisions = StudioBatchQueue.recentIdleDecisions(limit: 12)
+  @Published private(set) var studioLoadDecisions = StudioBatchQueue.recentLoadDecisions(limit: 12)
 
   let usageFormatter: ByteCountFormatter = {
     let formatter = ByteCountFormatter()
@@ -221,7 +221,7 @@ final class StorageSettingsViewModel: ObservableObject {
     AnalysisManager.shared.forceStudioQueueUpload { [weak self] pendingCount in
       guard let self else { return }
       self.isForceSendingStudioQueue = false
-      self.refreshStudioIdleDecisions()
+      self.refreshStudioLoadDecisions()
       if let pendingCount {
         self.studioQueueSendMessage = pendingCount == 0
           ? String(localized: "No pending batches were ready to upload.")
@@ -232,8 +232,8 @@ final class StorageSettingsViewModel: ObservableObject {
     }
   }
 
-  func refreshStudioIdleDecisions() {
-    studioIdleDecisions = StudioBatchQueue.recentIdleDecisions(limit: 12)
+  func refreshStudioLoadDecisions() {
+    studioLoadDecisions = StudioBatchQueue.recentLoadDecisions(limit: 12)
   }
 
   private func ensureDirectoryExists(_ url: URL) {

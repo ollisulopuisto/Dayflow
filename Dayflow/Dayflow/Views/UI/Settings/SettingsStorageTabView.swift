@@ -7,7 +7,7 @@ struct SettingsStorageTabView: View {
   @AppStorage("studioBatchWindowStart") private var batchWindowStart = "07:00"
   @AppStorage("studioBatchWindowEnd") private var batchWindowEnd = "01:00"
   @AppStorage("studioBatchDurationMinutes") private var batchDurationMinutes = 15
-  @State private var isIdleDecisionLogExpanded = true
+  @State private var isLoadDecisionLogExpanded = true
 
   var body: some View {
     VStack(alignment: .leading, spacing: SettingsStyle.sectionSpacing) {
@@ -89,9 +89,9 @@ struct SettingsStorageTabView: View {
           )
 
           SettingsSecondaryButton(
-            title: String(localized: "Refresh idle log"),
+            title: String(localized: "Refresh load log"),
             systemImage: "arrow.clockwise",
-            action: viewModel.refreshStudioIdleDecisions
+            action: viewModel.refreshStudioLoadDecisions
           )
         }
 
@@ -101,25 +101,25 @@ struct SettingsStorageTabView: View {
             .foregroundColor(SettingsStyle.secondary)
         }
 
-        Text(String(localized: "Force send bypasses Dayflow’s idle check. Network access rules and host availability still apply."))
+        Text(String(localized: "Automatic uploads wait only when system load is high or thermal pressure is serious. The Studio controls when analysis runs. Send now overrides the load check; network access rules and host availability still apply."))
           .font(.custom("Figtree", size: 12))
           .foregroundColor(SettingsStyle.secondary)
 
-        DisclosureGroup(isExpanded: $isIdleDecisionLogExpanded) {
-          if viewModel.studioIdleDecisions.isEmpty {
-            Text(String(localized: "No idle checks recorded yet."))
+        DisclosureGroup(isExpanded: $isLoadDecisionLogExpanded) {
+          if viewModel.studioLoadDecisions.isEmpty {
+            Text(String(localized: "No load checks recorded yet."))
               .font(.custom("Figtree", size: 12))
               .foregroundColor(SettingsStyle.secondary)
               .padding(.top, 8)
           } else {
             VStack(alignment: .leading, spacing: 7) {
-              ForEach(Array(viewModel.studioIdleDecisions.prefix(8))) { decision in
+              ForEach(Array(viewModel.studioLoadDecisions.prefix(8))) { decision in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                   Text(decision.checkedAt.formatted(date: .abbreviated, time: .shortened))
                     .frame(width: 125, alignment: .leading)
                     .foregroundColor(SettingsStyle.meta)
                   Text(decision.explanation)
-                    .foregroundColor(decision.passedIdleGate ? SettingsStyle.secondary : SettingsStyle.ink)
+                    .foregroundColor(decision.deferredForLoad ? SettingsStyle.ink : SettingsStyle.secondary)
                 }
                 .font(.custom("Figtree", size: 11))
               }
@@ -127,7 +127,7 @@ struct SettingsStorageTabView: View {
             .padding(.top, 8)
           }
         } label: {
-          Text(String(localized: "Recent idle checks"))
+          Text(String(localized: "Recent system load at upload checks"))
             .font(.custom("Figtree", size: 13))
             .fontWeight(.semibold)
             .foregroundColor(SettingsStyle.text)

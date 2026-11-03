@@ -102,8 +102,8 @@ final class AnalysisManager: AnalysisManaging {
     queue.async { [weak self] in self?.processRecordings() }
   }
 
-  /// Starts one Studio upload pass immediately, bypassing only the client's
-  /// idle gate. Network restrictions and the configured Studio endpoint still apply.
+  /// Starts one Studio upload pass immediately. Network restrictions and the
+  /// configured Studio endpoint still apply.
   func forceStudioQueueUpload(completion: @escaping (Int?) -> Void) {
     queue.async { [weak self] in
       guard let self else {
@@ -542,18 +542,16 @@ final class AnalysisManager: AnalysisManaging {
     }
 
     if usesStudioQueue {
-      // Import finished work whenever Dayflow is awake. Only sending new batches
-      // to the Studio needs to wait for the Mac to be idle.
+      // The Studio owns analysis scheduling. The client uploads ready batches
+      // independently of local HID activity and imports finished work whenever
+      // Dayflow is awake.
       StudioBatchQueue.pollResults(store: store)
-      let idleSeconds = InputIdleSnapshot.currentIdleSeconds()
-      let threshold = InputIdleSnapshot.uploadIdleThresholdSeconds
-      let isIdle = idleSeconds.map { $0 >= threshold } ?? false
-      StudioBatchQueue.recordIdleDecision(
-        idleSeconds: idleSeconds,
-        thresholdSeconds: threshold,
+      let loadAssessment = StudioUploadLoadAssessment.current()
+      StudioBatchQueue.recordLoadDecision(
+        assessment: loadAssessment,
         manualOverride: forceStudioQueueUpload
       )
-      guard isIdle || forceStudioQueueUpload else { return }
+      guard !loadAssessment.shouldDefer || forceStudioQueueUpload else { return }
     }
 
     // 1. Gather unprocessed screenshots

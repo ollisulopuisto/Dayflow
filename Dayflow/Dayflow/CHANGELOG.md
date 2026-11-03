@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.7.26] - 2026-11-03
+
+### Changed
+- Defer automatic Studio uploads when sustained system load or serious thermal pressure indicates the Mac is busy, rather than using keyboard/mouse inactivity. Manual send can override the load check; the Studio still controls analysis timing.
+
 ## [2.7.25] - 2026-11-03
 
 ### Added
