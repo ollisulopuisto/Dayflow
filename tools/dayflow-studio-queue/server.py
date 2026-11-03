@@ -129,10 +129,10 @@ def build_request(job: dict) -> dict:
         ),
     }]
     for shot in screenshots:
-        image_bytes = base64.b64decode(shot["image_base64"])
         content.append({"type": "text", "text": f"Capture at {datetime.fromtimestamp(shot['captured_at'], local_zone).strftime('%-I:%M:%S %p')}"})
+        # Use existing base64 string directly; avoids redundant decode/re-encode per screenshot
         content.append({"type": "image_url", "image_url": {
-            "url": "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("ascii")
+            "url": "data:image/jpeg;base64," + shot["image_base64"]
         }})
     return {
         "model": MODEL,
