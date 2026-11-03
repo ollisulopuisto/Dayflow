@@ -89,7 +89,7 @@ struct SettingsStorageTabView: View {
           )
 
           SettingsSecondaryButton(
-            title: String(localized: "Refresh load log"),
+            title: String(localized: "Refresh diagnostics"),
             systemImage: "arrow.clockwise",
             action: viewModel.refreshStudioLoadDecisions
           )
@@ -128,6 +128,34 @@ struct SettingsStorageTabView: View {
           }
         } label: {
           Text(String(localized: "Recent system load at upload checks"))
+            .font(.custom("Figtree", size: 13))
+            .fontWeight(.semibold)
+            .foregroundColor(SettingsStyle.text)
+        }
+
+        DisclosureGroup {
+          if viewModel.studioUploadEvents.isEmpty {
+            Text(String(localized: "No upload attempts recorded yet."))
+              .font(.custom("Figtree", size: 12))
+              .foregroundColor(SettingsStyle.secondary)
+              .padding(.top, 8)
+          } else {
+            VStack(alignment: .leading, spacing: 7) {
+              ForEach(viewModel.studioUploadEvents) { event in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                  Text(event.timestamp.formatted(date: .abbreviated, time: .shortened))
+                    .frame(width: 125, alignment: .leading)
+                    .foregroundColor(SettingsStyle.meta)
+                  Text("Batch \(event.batchId): \(event.message)")
+                    .foregroundColor(event.succeeded ? SettingsStyle.secondary : SettingsStyle.ink)
+                }
+                .font(.custom("Figtree", size: 11))
+              }
+            }
+            .padding(.top, 8)
+          }
+        } label: {
+          Text(String(localized: "Recent upload attempts"))
             .font(.custom("Figtree", size: 13))
             .fontWeight(.semibold)
             .foregroundColor(SettingsStyle.text)

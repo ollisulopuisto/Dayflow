@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.7.27] - 2026-11-03
+
+### Fixed
+- Make manual Studio send clear retry backoff for pending batches while preserving in-flight protection.
+- Show recent Studio upload outcomes and network errors in Storage settings.
+
 ## [2.7.26] - 2026-11-03
 
 ### Changed

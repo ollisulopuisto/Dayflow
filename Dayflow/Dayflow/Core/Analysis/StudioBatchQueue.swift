@@ -27,6 +27,14 @@ struct StudioQueueLoadDecision: Codable, Identifiable {
   }
 }
 
+struct StudioQueueUploadEvent: Codable, Identifiable {
+  let id: UUID
+  let timestamp: Date
+  let batchId: Int64
+  let succeeded: Bool
+  let message: String
+}
+
 struct StudioUploadLoadAssessment {
   static let maximumLoadPerCore = 0.85
 
@@ -83,6 +91,15 @@ struct StudioUploadBackoff {
     return true
   }
 
+  /// Manual send clears a failed batch's delay, but never duplicates an upload
+  /// that is already in flight.
+  mutating func prepareManualRetry(_ batchId: Int64) -> Bool {
+    guard !inFlight.contains(batchId) else { return false }
+    failures[batchId] = nil
+    nextAttempt[batchId] = nil
+    return true
+  }
+
   mutating func finish(_ batchId: Int64, succeeded: Bool, now: Date) {
     inFlight.remove(batchId)
     guard !succeeded else {
@@ -109,6 +126,10 @@ final class StudioUploadScheduler: @unchecked Sendable {
     lock.withLock { backoff.tryBegin(batchId, now: Date()) }
   }
 
+  func prepareManualRetry(_ batchId: Int64) -> Bool {
+    lock.withLock { backoff.prepareManualRetry(batchId) }
+  }
+
   func finish(_ batchId: Int64, succeeded: Bool) {
     lock.withLock { backoff.finish(batchId, succeeded: succeeded, now: Date()) }
   }
@@ -122,8 +143,11 @@ enum StudioBatchQueue {
   private static let deviceKey = "studioBatchQueueDeviceID"
   private static let maxImagesPerBatch = 15
   private static let loadDecisionLogKey = "studioQueueLoadDecisionLog.v1"
+  private static let uploadEventLogKey = "studioQueueUploadEventLog.v1"
   private static let loadDecisionLogLimit = 100
   private static let loadDecisionLogLock = NSLock()
+  private static let uploadEventLogLock = NSLock()
+  private static let uploadEventLogLimit = 50
 
   static let scheduler = StudioUploadScheduler()
 
@@ -164,6 +188,28 @@ enum StudioBatchQueue {
     }
   }
 
+  static func recordUploadEvent(batchId: Int64, succeeded: Bool, message: String) {
+    uploadEventLogLock.withLock {
+      var entries = loadUploadEvents(limit: uploadEventLogLimit)
+      entries.insert(
+        StudioQueueUploadEvent(
+          id: UUID(), timestamp: Date(), batchId: batchId, succeeded: succeeded, message: message),
+        at: 0)
+      if entries.count > uploadEventLogLimit {
+        entries.removeLast(entries.count - uploadEventLogLimit)
+      }
+      if let data = try? JSONEncoder().encode(entries) {
+        UserDefaults.standard.set(data, forKey: uploadEventLogKey)
+      }
+    }
+  }
+
+  static func recentUploadEvents(limit: Int = 20) -> [StudioQueueUploadEvent] {
+    uploadEventLogLock.withLock {
+      loadUploadEvents(limit: limit)
+    }
+  }
+
   private static func loadLoadDecisions(limit: Int) -> [StudioQueueLoadDecision] {
     guard let data = UserDefaults.standard.data(forKey: loadDecisionLogKey),
       let entries = try? JSONDecoder().decode([StudioQueueLoadDecision].self, from: data)
@@ -171,9 +217,20 @@ enum StudioBatchQueue {
     return Array(entries.prefix(max(0, limit)))
   }
 
+  private static func loadUploadEvents(limit: Int) -> [StudioQueueUploadEvent] {
+    guard let data = UserDefaults.standard.data(forKey: uploadEventLogKey),
+      let entries = try? JSONDecoder().decode([StudioQueueUploadEvent].self, from: data)
+    else { return [] }
+    return Array(entries.prefix(max(0, limit)))
+  }
+
   /// False while the batch is uploading or waiting out a failure backoff.
   static func shouldAttempt(batchId: Int64) -> Bool {
     scheduler.shouldAttempt(batchId)
+  }
+
+  static func prepareManualRetry(batchId: Int64) -> Bool {
+    scheduler.prepareManualRetry(batchId)
   }
 
   static func pollResults(store: any StorageManaging) {
@@ -202,7 +259,12 @@ enum StudioBatchQueue {
   static func submitAndImport(batchId: Int64, store: any StorageManaging) {
     guard let endpoint, scheduler.shouldAttempt(batchId) else { return }
     Task {
-      guard await NetworkGate.shared.allow(endpoint) else { return }
+      guard await NetworkGate.shared.allow(endpoint) else {
+        recordUploadEvent(
+          batchId: batchId, succeeded: false,
+          message: "Blocked by Dayflow network access settings")
+        return
+      }
       submitAuthorized(batchId: batchId, store: store, endpoint: endpoint)
     }
   }
@@ -221,6 +283,9 @@ enum StudioBatchQueue {
         let body = try? JSONSerialization.data(withJSONObject: payload)
       else {
         store.markBatchFailed(batchId: batchId, reason: "Could not prepare screenshots for Studio queue")
+        recordUploadEvent(
+          batchId: batchId, succeeded: false,
+          message: "Could not prepare screenshots for upload")
         scheduler.finish(batchId, succeeded: true)
         return
       }
@@ -237,11 +302,15 @@ enum StudioBatchQueue {
         guard error == nil, let response = response as? HTTPURLResponse,
           (200..<300).contains(response.statusCode)
         else {
-          print("Studio queue upload failed for batch \(batchId): \(error?.localizedDescription ?? "HTTP error")")
+          let message = error?.localizedDescription
+            ?? "Studio returned HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)"
+          recordUploadEvent(batchId: batchId, succeeded: false, message: message)
+          print("Studio queue upload failed for batch \(batchId): \(message)")
           scheduler.finish(batchId, succeeded: false)
           return
         }
         store.updateBatchStatus(batchId: batchId, status: "studio_queued")
+        recordUploadEvent(batchId: batchId, succeeded: true, message: "Accepted by Studio")
         scheduler.finish(batchId, succeeded: true)
       }.resume()
     }

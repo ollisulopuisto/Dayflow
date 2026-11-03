@@ -23,6 +23,7 @@ final class StorageSettingsViewModel: ObservableObject {
   @Published private(set) var isForceSendingStudioQueue = false
   @Published var studioQueueSendMessage: String?
   @Published private(set) var studioLoadDecisions = StudioBatchQueue.recentLoadDecisions(limit: 12)
+  @Published private(set) var studioUploadEvents = StudioBatchQueue.recentUploadEvents(limit: 12)
 
   let usageFormatter: ByteCountFormatter = {
     let formatter = ByteCountFormatter()
@@ -224,8 +225,8 @@ final class StorageSettingsViewModel: ObservableObject {
       self.refreshStudioLoadDecisions()
       if let pendingCount {
         self.studioQueueSendMessage = pendingCount == 0
-          ? String(localized: "No pending batches were ready to upload.")
-          : String(localized: "Upload pass started for \(pendingCount) pending batches.")
+          ? String(localized: "No retryable pending batches. They may be uploading or waiting for retry; check the upload log.")
+          : String(localized: "Upload pass started for \(pendingCount) ready batches.")
       } else {
         self.studioQueueSendMessage = String(localized: "Could not start the upload pass.")
       }
@@ -234,6 +235,7 @@ final class StorageSettingsViewModel: ObservableObject {
 
   func refreshStudioLoadDecisions() {
     studioLoadDecisions = StudioBatchQueue.recentLoadDecisions(limit: 12)
+    studioUploadEvents = StudioBatchQueue.recentUploadEvents(limit: 12)
   }
 
   private func ensureDirectoryExists(_ url: URL) {

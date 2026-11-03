@@ -562,8 +562,13 @@ final class AnalysisManager: AnalysisManaging {
     let batchIDs = batches.compactMap(saveScreenshotBatch)
     if StudioBatchQueue.isEnabled {
       // Include batches whose upload was interrupted before the laptop slept.
-      // Batches that are uploading or backing off after a failure are skipped before any work.
+      // Manual send clears failure backoff; already in-flight batches stay protected.
       let pendingIDs = store.batchIDs(withStatus: "pending")
+      if forceStudioQueueUpload {
+        for id in pendingIDs {
+          StudioBatchQueue.prepareManualRetry(batchId: id)
+        }
+      }
       let uploadableIDs = pendingIDs.filter { StudioBatchQueue.shouldAttempt(batchId: $0) }
       for id in uploadableIDs {
         queueLLMRequest(batchId: id)
