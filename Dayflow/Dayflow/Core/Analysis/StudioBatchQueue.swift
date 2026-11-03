@@ -269,6 +269,29 @@ enum StudioBatchQueue {
     }
   }
 
+  /// User-facing text for a failed Studio upload. Adds a fix hint for the two
+  /// transport failures this client can hit: macOS App Transport Security
+  /// blocking plain HTTP, and TLS attempted against the plain-HTTP service.
+  static func describeUploadFailure(error: Error?, statusCode: Int?, endpoint: URL) -> String {
+    guard let error else {
+      return "Studio returned HTTP \(statusCode ?? 0)"
+    }
+    let base = error.localizedDescription
+    guard let urlError = error as? URLError else { return base }
+    switch urlError.code {
+    case .appTransportSecurityRequiresSecureConnection:
+      return base
+        + " - macOS allows plain HTTP only to this Mac, local-network addresses and the Studio's Tailscale machine name. Use one of those, or set up HTTPS."
+    case .secureConnectionFailed, .serverCertificateHasBadDate, .serverCertificateUntrusted,
+      .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid, .clientCertificateRejected:
+      guard endpoint.scheme == "https" else { return base }
+      return base
+        + " - The Studio queue service speaks plain HTTP on its own port. Use http:// for the Studio URL; Tailscale already encrypts tailnet traffic."
+    default:
+      return base
+    }
+  }
+
   private static func submitAuthorized(
     batchId: Int64,
     store: any StorageManaging,
@@ -302,8 +325,10 @@ enum StudioBatchQueue {
         guard error == nil, let response = response as? HTTPURLResponse,
           (200..<300).contains(response.statusCode)
         else {
-          let message = error?.localizedDescription
-            ?? "Studio returned HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)"
+          let message = describeUploadFailure(
+            error: error,
+            statusCode: (response as? HTTPURLResponse)?.statusCode,
+            endpoint: endpoint)
           recordUploadEvent(batchId: batchId, succeeded: false, message: message)
           print("Studio queue upload failed for batch \(batchId): \(message)")
           scheduler.finish(batchId, succeeded: false)
