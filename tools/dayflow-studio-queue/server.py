@@ -80,8 +80,9 @@ def authorized(handler: BaseHTTPRequestHandler) -> bool:
 
 
 def is_valid_identifier(val: object) -> bool:
-    # Identifiers (device_id, job_id) must be non-empty strings of alphanumeric and dash characters.
-    return isinstance(val, str) and bool(val) and val.replace("-", "").isalnum()
+    # Security: bound identifier length to prevent unhandled filesystem errors (e.g. filename too long DoS)
+    # Identifiers (device_id, job_id) must be non-empty strings of alphanumeric and dash characters up to 128 chars.
+    return isinstance(val, str) and 1 <= len(val) <= 128 and val.replace("-", "").isalnum()
 
 
 def in_window(zone_name: str = TIMEZONE, start_text: str = WINDOW_START,
