@@ -20,6 +20,9 @@ final class StorageSettingsViewModel: ObservableObject {
   @Published var captureInterval: TimeInterval = ScreenshotConfig.interval
   /// Measured from the last hour of finalized segments; nil until enough has been recorded.
   @Published var observedBytesPerHour: Int64?
+  @Published private(set) var isForceSendingStudioQueue = false
+  @Published var studioQueueSendMessage: String?
+  @Published private(set) var studioIdleDecisions = StudioBatchQueue.recentIdleDecisions(limit: 12)
 
   let usageFormatter: ByteCountFormatter = {
     let formatter = ByteCountFormatter()
@@ -204,6 +207,33 @@ final class StorageSettingsViewModel: ObservableObject {
     let url = TimelapseStorageManager.shared.rootURL
     ensureDirectoryExists(url)
     NSWorkspace.shared.open(url)
+  }
+
+  func forceSendStudioQueue() {
+    guard !isForceSendingStudioQueue else { return }
+    guard StudioBatchQueue.isEnabled else {
+      studioQueueSendMessage = String(localized: "Enter a valid Studio queue URL first.")
+      return
+    }
+
+    isForceSendingStudioQueue = true
+    studioQueueSendMessage = String(localized: "Starting an upload pass…")
+    AnalysisManager.shared.forceStudioQueueUpload { [weak self] pendingCount in
+      guard let self else { return }
+      self.isForceSendingStudioQueue = false
+      self.refreshStudioIdleDecisions()
+      if let pendingCount {
+        self.studioQueueSendMessage = pendingCount == 0
+          ? String(localized: "No pending batches were ready to upload.")
+          : String(localized: "Upload pass started for \(pendingCount) pending batches.")
+      } else {
+        self.studioQueueSendMessage = String(localized: "Could not start the upload pass.")
+      }
+    }
+  }
+
+  func refreshStudioIdleDecisions() {
+    studioIdleDecisions = StudioBatchQueue.recentIdleDecisions(limit: 12)
   }
 
   private func ensureDirectoryExists(_ url: URL) {

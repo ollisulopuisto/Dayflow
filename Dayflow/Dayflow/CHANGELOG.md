@@ -2,12 +2,19 @@
 
 ## [Unreleased]
 
+## [2.7.25] - 2026-11-03
+
+### Added
+- Add a manual Studio queue send action that bypasses Dayflow's idle gate, plus a recent idle decision log in Settings.
+
 ### Fixed
+- Recover screen capture after dark wake with bounded display retries and stale capture-work cancellation.
+- Validate device identifiers and time zones before accepting Studio queue jobs.
+- Fix idle sampling boundary and shell-escaping test expectations.
+- Keep the bundled changelog in sync with CI repair notes.
 
-- Reduce the idle capture interval from 16 to 15 seconds: the simulated-blip fixture produced only 53/59 qualified samples (89.83%), below the unchanged 90% classifier requirement. Add a test across sampled blip positions.
-- Correct shell-escaping test expectations to preserve punctuation and quote escapes; production escaping is unchanged.
-- Run the existing native test workflow on pull requests too, without release packaging. The original idle-blip and shell-escaping regressions pass in macOS PR CI; full native verification is rerunning after keeping the bundled changelog in sync.
-
+### Performance
+- Optimize Studio queue card parsing and time normalization.
 
 ## [2.7.24] - 2026-11-01
 
@@ -30,8 +37,6 @@
 
 ### Tests
 - Cover App Nap activity acquisition, recorder state transitions, pause/resume, failed acquisition, and cleanup on deinitialization.
-
-## [Unreleased]
 
 ## [2.7.22] - 2026-10-30
 
