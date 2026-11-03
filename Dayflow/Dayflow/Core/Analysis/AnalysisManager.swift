@@ -102,6 +102,18 @@ final class AnalysisManager: AnalysisManaging {
     queue.async { [weak self] in self?.processRecordings() }
   }
 
+  /// Starts one Studio upload pass immediately, bypassing only the client's
+  /// idle gate. Network restrictions and the configured Studio endpoint still apply.
+  func forceStudioQueueUpload(completion: @escaping (Int?) -> Void) {
+    queue.async { [weak self] in
+      guard let self else {
+        DispatchQueue.main.async { completion(nil) }
+        return
+      }
+      self.processRecordings(forceStudioQueueUpload: true, completion: completion)
+    }
+  }
+
   func reprocessDay(
     _ day: String, progressHandler: @escaping (String) -> Void,
     completion: @escaping (Result<Void, Error>) -> Void
@@ -512,19 +524,36 @@ final class AnalysisManager: AnalysisManaging {
     return recentFailedBatches.map(\.id).filter { retryableBatchIds.contains($0) }
   }
 
-  private func processRecordings() {
-    guard !isProcessing else { return }
+  private func processRecordings(
+    forceStudioQueueUpload: Bool = false,
+    completion: ((Int?) -> Void)? = nil
+  ) {
+    guard !isProcessing else {
+      if let completion { DispatchQueue.main.async { completion(nil) } }
+      return
+    }
     isProcessing = true
     defer { isProcessing = false }
 
     let usesStudioQueue = StudioBatchQueue.isEnabled
+    guard usesStudioQueue || !forceStudioQueueUpload else {
+      if let completion { DispatchQueue.main.async { completion(nil) } }
+      return
+    }
+
     if usesStudioQueue {
       // Import finished work whenever Dayflow is awake. Only sending new batches
       // to the Studio needs to wait for the Mac to be idle.
       StudioBatchQueue.pollResults(store: store)
-    }
-    if usesStudioQueue, !InputIdleSnapshot.isIdle() {
-      return
+      let idleSeconds = InputIdleSnapshot.currentIdleSeconds()
+      let threshold = InputIdleSnapshot.uploadIdleThresholdSeconds
+      let isIdle = idleSeconds.map { $0 >= threshold } ?? false
+      StudioBatchQueue.recordIdleDecision(
+        idleSeconds: idleSeconds,
+        thresholdSeconds: threshold,
+        manualOverride: forceStudioQueueUpload
+      )
+      guard isIdle || forceStudioQueueUpload else { return }
     }
 
     // 1. Gather unprocessed screenshots
@@ -537,9 +566,11 @@ final class AnalysisManager: AnalysisManaging {
       // Include batches whose upload was interrupted before the laptop slept.
       // Batches that are uploading or backing off after a failure are skipped before any work.
       let pendingIDs = store.batchIDs(withStatus: "pending")
-      for id in pendingIDs where StudioBatchQueue.shouldAttempt(batchId: id) {
+      let uploadableIDs = pendingIDs.filter { StudioBatchQueue.shouldAttempt(batchId: $0) }
+      for id in uploadableIDs {
         queueLLMRequest(batchId: id)
       }
+      if let completion { DispatchQueue.main.async { completion(uploadableIDs.count) } }
       return
     }
     // 4. Fire LLM for each batch

@@ -1,5 +1,30 @@
 import Foundation
 
+struct StudioQueueIdleDecision: Codable, Identifiable {
+  let id: UUID
+  let checkedAt: Date
+  let idleSeconds: Int?
+  let thresholdSeconds: Int
+  let passedIdleGate: Bool
+  let manualOverride: Bool
+
+  var explanation: String {
+    let observation: String
+    if let idleSeconds {
+      observation = passedIdleGate
+        ? "Idle for \(idleSeconds)s (threshold \(thresholdSeconds)s)"
+        : "Input seen \(idleSeconds)s ago (threshold \(thresholdSeconds)s)"
+    } else {
+      observation = "HID idle time unavailable (threshold \(thresholdSeconds)s)"
+    }
+
+    if manualOverride {
+      return observation + (passedIdleGate ? " · manual send" : " · manually sent despite idle gate")
+    }
+    return observation + (passedIdleGate ? " · upload allowed" : " · upload deferred")
+  }
+}
+
 /// Upload bookkeeping for Studio batches: one upload per batch at a time, and an
 /// exponential wait after each failure so an unreachable Studio does not cost CPU every minute.
 struct StudioUploadBackoff {
@@ -60,11 +85,49 @@ enum StudioBatchQueue {
   private static let tokenKey = "studioBatchQueueToken"
   private static let deviceKey = "studioBatchQueueDeviceID"
   private static let maxImagesPerBatch = 15
+  private static let idleDecisionLogKey = "studioQueueIdleDecisionLog.v1"
+  private static let idleDecisionLogLimit = 100
+  private static let idleDecisionLogLock = NSLock()
 
   static let scheduler = StudioUploadScheduler()
 
   static var isEnabled: Bool {
     endpoint != nil
+  }
+
+  static func recordIdleDecision(idleSeconds: Int?, thresholdSeconds: Int, manualOverride: Bool) {
+    let decision = StudioQueueIdleDecision(
+      id: UUID(),
+      checkedAt: Date(),
+      idleSeconds: idleSeconds,
+      thresholdSeconds: thresholdSeconds,
+      passedIdleGate: idleSeconds.map { $0 >= thresholdSeconds } ?? false,
+      manualOverride: manualOverride
+    )
+
+    idleDecisionLogLock.withLock {
+      var entries = loadIdleDecisions(limit: idleDecisionLogLimit)
+      entries.insert(decision, at: 0)
+      if entries.count > idleDecisionLogLimit {
+        entries.removeLast(entries.count - idleDecisionLogLimit)
+      }
+      if let data = try? JSONEncoder().encode(entries) {
+        UserDefaults.standard.set(data, forKey: idleDecisionLogKey)
+      }
+    }
+  }
+
+  static func recentIdleDecisions(limit: Int = 20) -> [StudioQueueIdleDecision] {
+    idleDecisionLogLock.withLock {
+      loadIdleDecisions(limit: limit)
+    }
+  }
+
+  private static func loadIdleDecisions(limit: Int) -> [StudioQueueIdleDecision] {
+    guard let data = UserDefaults.standard.data(forKey: idleDecisionLogKey),
+      let entries = try? JSONDecoder().decode([StudioQueueIdleDecision].self, from: data)
+    else { return [] }
+    return Array(entries.prefix(max(0, limit)))
   }
 
   /// False while the batch is uploading or waiting out a failure backoff.

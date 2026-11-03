@@ -7,6 +7,7 @@ struct SettingsStorageTabView: View {
   @AppStorage("studioBatchWindowStart") private var batchWindowStart = "07:00"
   @AppStorage("studioBatchWindowEnd") private var batchWindowEnd = "01:00"
   @AppStorage("studioBatchDurationMinutes") private var batchDurationMinutes = 15
+  @State private var isIdleDecisionLogExpanded = true
 
   var body: some View {
     VStack(alignment: .leading, spacing: SettingsStyle.sectionSpacing) {
@@ -76,6 +77,61 @@ struct SettingsStorageTabView: View {
         SettingsMetadata(
           text: String(localized: "Leave the URL empty to analyze on this Mac. When set, batches upload to the Studio and completed cards import when Dayflow is awake.")
         )
+
+        HStack(spacing: 12) {
+          SettingsPrimaryButton(
+            title: viewModel.isForceSendingStudioQueue
+              ? String(localized: "Sending…") : String(localized: "Force send queue now"),
+            systemImage: "paperplane.fill",
+            isLoading: viewModel.isForceSendingStudioQueue,
+            isDisabled: studioQueueURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            action: viewModel.forceSendStudioQueue
+          )
+
+          SettingsSecondaryButton(
+            title: String(localized: "Refresh idle log"),
+            systemImage: "arrow.clockwise",
+            action: viewModel.refreshStudioIdleDecisions
+          )
+        }
+
+        if let message = viewModel.studioQueueSendMessage {
+          Text(message)
+            .font(.custom("Figtree", size: 12))
+            .foregroundColor(SettingsStyle.secondary)
+        }
+
+        Text(String(localized: "Force send bypasses Dayflow’s idle check. Network access rules and host availability still apply."))
+          .font(.custom("Figtree", size: 12))
+          .foregroundColor(SettingsStyle.secondary)
+
+        DisclosureGroup(isExpanded: $isIdleDecisionLogExpanded) {
+          if viewModel.studioIdleDecisions.isEmpty {
+            Text(String(localized: "No idle checks recorded yet."))
+              .font(.custom("Figtree", size: 12))
+              .foregroundColor(SettingsStyle.secondary)
+              .padding(.top, 8)
+          } else {
+            VStack(alignment: .leading, spacing: 7) {
+              ForEach(Array(viewModel.studioIdleDecisions.prefix(8))) { decision in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                  Text(decision.checkedAt.formatted(date: .abbreviated, time: .shortened))
+                    .frame(width: 125, alignment: .leading)
+                    .foregroundColor(SettingsStyle.meta)
+                  Text(decision.explanation)
+                    .foregroundColor(decision.passedIdleGate ? SettingsStyle.secondary : SettingsStyle.ink)
+                }
+                .font(.custom("Figtree", size: 11))
+              }
+            }
+            .padding(.top, 8)
+          }
+        } label: {
+          Text(String(localized: "Recent idle checks"))
+            .font(.custom("Figtree", size: 13))
+            .fontWeight(.semibold)
+            .foregroundColor(SettingsStyle.text)
+        }
       }
     }
   }
