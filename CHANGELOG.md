@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+- Allow plain-HTTP Studio uploads to the Studio's Tailscale machine name, which App Transport Security blocked even though tailnet traffic is already encrypted.
+- Explain Studio upload transport failures with a fix hint when the URL scheme does not match the service (plain-HTTP service vs. `https://` URL).
+
 ## [2.7.27] - 2026-11-03
 
 ### Fixed
