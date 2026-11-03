@@ -358,6 +358,42 @@ class EndpointValidationTests(unittest.TestCase):
                 urllib.request.urlopen(req)
             self.assertEqual(ctx.exception.code, 400)
 
+    def test_oversized_identifiers_rejected(self) -> None:
+        import urllib.request
+        import urllib.error
+        long_id = "a" * 129
+        self.assertFalse(self.server.is_valid_identifier(long_id))
+        self.assertTrue(self.server.is_valid_identifier("a" * 128))
+
+        # POST /v1/jobs rejects oversized job_id or device_id with 400 (not unhandled OSError)
+        bad_job = make_job(long_id)
+        req = urllib.request.Request(
+            f"{self.url}/v1/jobs",
+            data=json.dumps(bad_job).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req)
+        self.assertEqual(ctx.exception.code, 400)
+
+        # POST /v1/ack rejects oversized job_id with 400
+        req = urllib.request.Request(
+            f"{self.url}/v1/ack",
+            data=json.dumps({"job_id": long_id, "device_id": "mac"}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req)
+        self.assertEqual(ctx.exception.code, 400)
+
+        # GET /v1/results rejects oversized device_id with 400
+        req = urllib.request.Request(f"{self.url}/v1/results?device_id={long_id}")
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req)
+        self.assertEqual(ctx.exception.code, 400)
+
 
 class AuthTests(unittest.TestCase):
     def setUp(self) -> None:
