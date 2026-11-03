@@ -282,6 +282,15 @@ class PromptTests(unittest.TestCase):
         req = server.build_request(job)
         self.assertIn("messages", req)
 
+    def test_build_request_preserves_image_data_urls(self) -> None:
+        server = load_server()
+        job = make_job()
+        req = server.build_request(job)
+        image_parts = [p for p in req["messages"][0]["content"] if p["type"] == "image_url"]
+        self.assertEqual(len(image_parts), 2)
+        for part in image_parts:
+            self.assertEqual(part["image_url"]["url"], f"data:image/jpeg;base64,{IMAGE}")
+
 
 class EndpointValidationTests(unittest.TestCase):
     def setUp(self) -> None:
