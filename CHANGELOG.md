@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.7.30] - 2026-11-04
 
 ### Fixed
 - Accept `24:00` as an end-of-day Studio upload window stop time; the queue server previously rejected batches configured to stop at midnight.
