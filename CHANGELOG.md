@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [2.7.29] - 2026-11-04
+
+### Fixed
+- Include the Studio queue's structured rejection reason in upload diagnostics, so HTTP 400 responses identify the validation failure.
 
 ## [2.7.28] - 2026-11-04
 

@@ -272,9 +272,13 @@ enum StudioBatchQueue {
   /// User-facing text for a failed Studio upload. Adds a fix hint for the two
   /// transport failures this client can hit: macOS App Transport Security
   /// blocking plain HTTP, and TLS attempted against the plain-HTTP service.
-  static func describeUploadFailure(error: Error?, statusCode: Int?, endpoint: URL) -> String {
+  static func describeUploadFailure(
+    error: Error?, statusCode: Int?, endpoint: URL, responseBody: Data? = nil
+  ) -> String {
     guard let error else {
-      return "Studio returned HTTP \(statusCode ?? 0)"
+      let status = "Studio returned HTTP \(statusCode ?? 0)"
+      guard let detail = serverRejectionDetail(responseBody) else { return status }
+      return "\(status): \(detail)"
     }
     let base = error.localizedDescription
     guard let urlError = error as? URLError else { return base }
@@ -290,6 +294,18 @@ enum StudioBatchQueue {
     default:
       return base
     }
+  }
+
+  /// Extract only the queue service's structured error field. The server may be
+  /// user-configured, so never copy an arbitrary response body into diagnostics.
+  private static func serverRejectionDetail(_ responseBody: Data?) -> String? {
+    guard let responseBody,
+      let object = try? JSONSerialization.jsonObject(with: responseBody) as? [String: Any],
+      let error = object["error"] as? String
+    else { return nil }
+    let detail = error.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    guard !detail.isEmpty else { return nil }
+    return String(detail.prefix(240))
   }
 
   private static func submitAuthorized(
@@ -321,14 +337,15 @@ enum StudioBatchQueue {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
       }
       request.httpBody = body
-      URLSession.shared.dataTask(with: request) { _, response, error in
+      URLSession.shared.dataTask(with: request) { data, response, error in
         guard error == nil, let response = response as? HTTPURLResponse,
           (200..<300).contains(response.statusCode)
         else {
           let message = describeUploadFailure(
             error: error,
             statusCode: (response as? HTTPURLResponse)?.statusCode,
-            endpoint: endpoint)
+            endpoint: endpoint,
+            responseBody: data)
           recordUploadEvent(batchId: batchId, succeeded: false, message: message)
           print("Studio queue upload failed for batch \(batchId): \(message)")
           scheduler.finish(batchId, succeeded: false)
