@@ -449,7 +449,8 @@ class Handler(BaseHTTPRequestHandler):
                 ZoneInfo(body.get("schedule_timezone", TIMEZONE))
                 for key in ("window_start", "window_end"):
                     hour, minute = map(int, body.get(key, "07:00").split(":"))
-                    if hour not in range(24) or minute not in range(60):
+                    end_of_day = key == "window_end" and hour == 24 and minute == 0
+                    if not end_of_day and (hour not in range(24) or minute not in range(60)):
                         raise ValueError("invalid time")
                 for shot in body["screenshots"]:
                     base64.b64decode(shot["image_base64"], validate=True)

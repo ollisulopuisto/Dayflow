@@ -28,7 +28,7 @@ Open **Settings → Storage → Studio batch processing**:
 
 - Studio queue URL: `http://<studio-tailnet-name>:18765` (or the Studio's LAN address at home).
 - Shared token: the same token as the LaunchAgent.
-- Start/stop: `07:00` and `01:00`, in Helsinki time.
+- Start/stop: `07:00` and `01:00`, in Helsinki time. A stop time of `24:00` is also valid and means midnight at the end of that day.
 - Batch duration: choose 5–60 minutes; the default is 15 minutes.
 
 With a queue URL set, completed batches upload automatically. Uploads that are interrupted by sleep remain pending locally and retry when Dayflow runs again. The Studio can process while the laptop sleeps. Results import the next time Dayflow is awake. Leave the URL empty to use Dayflow's normal local provider.
