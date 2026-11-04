@@ -459,6 +459,14 @@ struct DayflowApp: App {
       // Add custom menu items after the app info section
       CommandGroup(after: .appInfo) {
         Divider()
+        // Cmd+Q only closes to the background so recording continues. This is the real quit.
+        Button("Quit Dayflow Completely") {
+          Task { @MainActor in
+            AppDelegate.quitCompletely()
+          }
+        }
+        .keyboardShortcut("Q", modifiers: [.command, .option])
+        Divider()
         Button("Reset Onboarding") {
           // Reset the onboarding flag
           UserDefaults.standard.set(false, forKey: "didOnboard")

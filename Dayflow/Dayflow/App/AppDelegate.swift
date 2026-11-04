@@ -32,6 +32,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     terminationReason = reason
   }
 
+  /// The real quit. Cmd+Q is a soft quit that keeps recording in the background, so
+  /// the app menu needs a way to stop Dayflow for good.
+  static func quitCompletely(terminate: () -> Void = { NSApp.terminate(nil) }) {
+    permitTermination(reason: "app_menu_quit")
+    terminate()
+  }
+
   // Remember how the previous run ended, so the next launch can tell a clean quit
   // from a crash, force quit, or power loss, and how long the app was gone.
   private static let lastRunCleanExitKey = "lastRunCleanExit"

@@ -4,6 +4,9 @@
 
 ## [2.7.28] - 2026-11-04
 
+### Added
+- Quit Dayflow Completely (⌥⌘Q) in the app menu. Cmd+Q still only closes to the background so recording continues.
+
 ### Fixed
 - Allow plain-HTTP Studio uploads to the Studio's Tailscale machine name, which App Transport Security blocked even though tailnet traffic is already encrypted.
 - Explain Studio upload transport failures with a fix hint when the URL scheme does not match the service (plain-HTTP service vs. `https://` URL).
