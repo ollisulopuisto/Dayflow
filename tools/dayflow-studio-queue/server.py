@@ -432,6 +432,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(413, {"error": "invalid body size"})
             raw_body = self.rfile.read(length)
             body = json.loads(raw_body)
+            # Security: Ensure parsed JSON payload is a JSON object (dict). Non-object JSON
+            # (e.g. primitives, lists) will cause unhandled TypeError/AttributeError when accessing fields.
+            if not isinstance(body, dict):
+                return self.respond(400, {"error": "invalid JSON object"})
         except (ValueError, json.JSONDecodeError):
             return self.respond(400, {"error": "invalid JSON"})
         if self.path == "/v1/jobs":

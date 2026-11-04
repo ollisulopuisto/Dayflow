@@ -1,3 +1,11 @@
+## 2026-11-04 - Unvalidated JSON Root Types Leading to Thread-Level Request Crashes
+
+**Vulnerability:** In `dayflow-studio-queue`, `POST` endpoints decoded request bodies using `json.loads` without asserting that the root payload was a JSON object (`dict`). Passing valid JSON primitives or sequences (such as integers, strings, arrays, or booleans) caused unhandled `TypeError` or `AttributeError` during key lookups, terminating request handling threads and abruptly closing client connections without an HTTP error response.
+
+**Learning:** Parsing valid JSON does not guarantee that the resulting Python object conforms to dictionary expectations; missing root-type assertions allow non-object payloads to trigger internal unhandled exceptions before application-level validation occurs.
+
+**Prevention:** Always assert `isinstance(body, dict)` immediately after `json.loads` on JSON endpoints before inspecting dictionary keys or methods.
+
 ## 2026-11-01 - Missing Client Identifier Validation Across Queue Service Endpoints
 
 **Vulnerability:** In `dayflow-studio-queue`, queries to `/v1/results` permitted missing or empty `device_id` parameters, resulting in matching any stored results with an empty `device_id` and risking cross-client data leakage. Furthermore, incoming jobs on `/v1/jobs` and acknowledgments on `/v1/ack` did not strictly validate `device_id`, allowing empty or non-alphanumeric identifiers into the queue and authorization checks.

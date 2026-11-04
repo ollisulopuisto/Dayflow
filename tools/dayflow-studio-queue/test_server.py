@@ -394,6 +394,21 @@ class EndpointValidationTests(unittest.TestCase):
             urllib.request.urlopen(req)
         self.assertEqual(ctx.exception.code, 400)
 
+    def test_non_dict_json_payloads_rejected(self) -> None:
+        import urllib.request
+        import urllib.error
+        for payload in (b"123", b'"hello"', b"[1, 2, 3]", b"true"):
+            for endpoint in ("/v1/jobs", "/v1/ack"):
+                req = urllib.request.Request(
+                    f"{self.url}{endpoint}",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(req)
+                self.assertEqual(ctx.exception.code, 400)
+
 
 class AuthTests(unittest.TestCase):
     def setUp(self) -> None:
