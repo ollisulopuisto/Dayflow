@@ -430,7 +430,8 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             if length <= 0 or length > 100_000_000:
                 return self.respond(413, {"error": "invalid body size"})
-            body = json.loads(self.rfile.read(length))
+            raw_body = self.rfile.read(length)
+            body = json.loads(raw_body)
         except (ValueError, json.JSONDecodeError):
             return self.respond(400, {"error": "invalid JSON"})
         if self.path == "/v1/jobs":
@@ -460,7 +461,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, {"accepted": True, "duplicate": True})
             path = PENDING / f"{name}.json"
             temp = PENDING / f"{name}.tmp"
-            temp.write_text(json.dumps(body, separators=(",", ":")))
+            # Persist the validated raw JSON bytes directly to disk; avoids redundant
+            # re-serialization of multi-megabyte payloads with json.dumps(body)
+            temp.write_bytes(raw_body)
             temp.replace(path)
             return self.respond(202, {"accepted": True})
         if self.path == "/v1/ack":
