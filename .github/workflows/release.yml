@@ -64,34 +64,45 @@ jobs:
 
       #-----------------------------------------------------------------------------
       # Import Developer ID signing certificate (optional).
-      # Set secrets.SIGNING_CERTIFICATE_P12 (base64 .p12) and
-      # secrets.SIGNING_CERTIFICATE_PASSWORD to enable code signing.
+      # Map the repository's generic base64 .p12 and password secrets to the
+      # names this workflow uses; secret values stay in the environment.
       #-----------------------------------------------------------------------------
       - name: Import code-signing certificate
+        env:
+          SIGNING_CERTIFICATE_P12: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          if [[ -z "${{ secrets.SIGNING_CERTIFICATE_P12 }}" ]]; then
-            echo "No SIGNING_CERTIFICATE_P12 secret; skipping code signing."
+          if [[ -z "$SIGNING_CERTIFICATE_P12" ]]; then
+            echo "No BUILD_CERTIFICATE_BASE64 secret; skipping code signing."
             echo "SIGN_ID=" >> $GITHUB_ENV
             exit 0
           fi
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          echo "${{ secrets.SIGNING_CERTIFICATE_P12 }}" | base64 -D > /tmp/cert.p12
-          security import /tmp/cert.p12 -k build.keychain \
-            -P "${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}" \
+          set -euo pipefail
+          test -n "$SIGNING_CERTIFICATE_PASSWORD"
+          test -n "$KEYCHAIN_PASSWORD"
+          KEYCHAIN_PATH="$RUNNER_TEMP/dayflow-signing.keychain-db"
+          CERTIFICATE_PATH="$RUNNER_TEMP/dayflow-certificate.p12"
+          printf '%s' "$SIGNING_CERTIFICATE_P12" | base64 -D -o "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" \
+            -P "$SIGNING_CERTIFICATE_PASSWORD" \
             -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list \
-            -S apple-tool:,apple:codesign,apple: -s -k "" build.keychain
-          SIGN_ID=$(security find-identity -v -p codesigning build.keychain \
+            -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          rm -f "$CERTIFICATE_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+            | grep -F 'Developer ID Application: Olli Sulopuisto (LWSR8T5392)'
+          SIGN_ID=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
             | awk -F '"' '/Developer ID Application/ {print $2; exit}')
           if [[ -z "$SIGN_ID" ]]; then
             echo "ERROR: No Developer ID Application identity found in imported certificate." >&2
             exit 1
           fi
-          echo "Using signing identity: $SIGN_ID"
           echo "SIGN_ID=$SIGN_ID" >> $GITHUB_ENV
-          rm -f /tmp/cert.p12
 
       #-----------------------------------------------------------------------------
       # Build the app. If a signing identity is available, codesign during build;
@@ -191,20 +202,37 @@ jobs:
             "$APP_PATH"
           echo "DMG created: ${{ env.DMG_NAME }} ($(stat -f%z "${{ env.DMG_NAME }}") bytes)"
 
+      - name: Sign and verify DMG
+        run: |
+          if [[ -z "${SIGN_ID:-}" ]]; then
+            echo "No signing identity; leaving DMG unsigned."
+            exit 0
+          fi
+          codesign --force --timestamp --sign "$SIGN_ID" "${{ env.DMG_NAME }}"
+          codesign --verify --verbose=2 "${{ env.DMG_NAME }}"
+
+      - name: Remove signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/dayflow-signing.keychain-db" || true
+
       #-----------------------------------------------------------------------------
       # Notarize the DMG (optional). Set notary credentials as repository secrets.
       #-----------------------------------------------------------------------------
       - name: Notarize DMG
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_APP_PASSWORD: ${{ secrets.NOTARY_APP_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
         run: |
-          if [[ -z "${{ secrets.NOTARY_APPLE_ID }}" || -z "${{ secrets.NOTARY_APP_PASSWORD }}" || -z "${{ secrets.NOTARY_TEAM_ID }}" ]]; then
+          if [[ -z "$NOTARY_APPLE_ID" || -z "$NOTARY_APP_PASSWORD" || -z "$NOTARY_TEAM_ID" ]]; then
             echo "No notarization credentials; skipping notarization."
             exit 0
           fi
           echo "Submitting DMG for notarization…"
           xcrun notarytool submit "${{ env.DMG_NAME }}" \
-            --apple-id "${{ secrets.NOTARY_APPLE_ID }}" \
-            --team-id "${{ secrets.NOTARY_TEAM_ID }}" \
-            --password "${{ secrets.NOTARY_APP_PASSWORD }}" \
+            --apple-id "$NOTARY_APPLE_ID" \
+            --team-id "$NOTARY_TEAM_ID" \
+            --password "$NOTARY_APP_PASSWORD" \
             --wait
           xcrun stapler staple "${{ env.DMG_NAME }}"
           xcrun stapler validate "${{ env.DMG_NAME }}"
