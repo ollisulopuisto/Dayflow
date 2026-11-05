@@ -1,3 +1,11 @@
+## 2026-11-05 - Ingress Timestamp Type and Range Validation Preventing Queue-Poisoning DoS
+
+**Vulnerability:** In `dayflow-studio-queue`, job submissions on `/v1/jobs` verified the presence of `start_ts` and `end_ts` without asserting that they were integer timestamps or that `start_ts < end_ts`. Submitting non-integer timestamps (e.g. strings or nested structures) was accepted with HTTP 202 and written to the pending queue, causing an unhandled `TypeError` inside `datetime.fromtimestamp()` when the background worker processed the job. Because the unhandled exception crashed `submit_pending()` before updating job state, the malformed job remained at the front of the queue, causing persistent worker loop failure and blocking all subsequent batch processing.
+
+**Learning:** Verifying the mere presence of required fields in an API contract is insufficient for asynchronous queue architectures; type-incompatible fields written to persistent queues can cause persistent head-of-line blocking denial-of-service in downstream workers.
+
+**Prevention:** Strongly validate all primitive types (`isinstance(val, int)`) and relational constraints (`start_ts < end_ts`) at ingress before accepting and queueing background tasks.
+
 ## 2026-11-04 - Unvalidated JSON Root Types Leading to Thread-Level Request Crashes
 
 **Vulnerability:** In `dayflow-studio-queue`, `POST` endpoints decoded request bodies using `json.loads` without asserting that the root payload was a JSON object (`dict`). Passing valid JSON primitives or sequences (such as integers, strings, arrays, or booleans) caused unhandled `TypeError` or `AttributeError` during key lookups, terminating request handling threads and abruptly closing client connections without an HTTP error response.

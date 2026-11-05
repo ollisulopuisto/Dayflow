@@ -35,10 +35,10 @@ def load_server(window_start: str = "01:00", window_end: str = "07:00", gpu_url:
 def make_job(job_id: str = "job-1") -> dict:
     return {
         "job_id": job_id, "device_id": "mac", "batch_id": 7,
-        "start_ts": 1792000000, "end_ts": 1792000600, "timezone": "Europe/Helsinki",
+        "start_ts": 1792015200, "end_ts": 1792015800, "timezone": "Europe/Helsinki",
         "categories": [{"name": "Work", "description": "focused work"}],
-        "screenshots": [{"captured_at": 1792000000, "image_base64": IMAGE},
-                        {"captured_at": 1792000300, "image_base64": IMAGE}],
+        "screenshots": [{"captured_at": 1792015200, "image_base64": IMAGE},
+                        {"captured_at": 1792015500, "image_base64": IMAGE}],
     }
 
 
@@ -408,6 +408,31 @@ class EndpointValidationTests(unittest.TestCase):
                 with self.assertRaises(urllib.error.HTTPError) as ctx:
                     urllib.request.urlopen(req)
                 self.assertEqual(ctx.exception.code, 400)
+
+    def test_timestamp_validation_on_job_submission(self) -> None:
+        import urllib.request
+        import urllib.error
+        invalid_cases = [
+            {"start_ts": "not_int"},
+            {"start_ts": None},
+            {"end_ts": "not_int"},
+            {"end_ts": None},
+            {"start_ts": 1792015800, "end_ts": 1792015200},  # end_ts < start_ts
+            {"start_ts": 1792015200, "end_ts": 1792015200},  # end_ts == start_ts
+        ]
+        for case in invalid_cases:
+            bad_job = make_job("bad-timestamp-job")
+            bad_job.update(case)
+            req = urllib.request.Request(
+                f"{self.url}/v1/jobs",
+                data=json.dumps(bad_job).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400)
+            self.assertFalse((self.server.PENDING / "bad-timestamp-job.json").exists())
 
 
 class AuthTests(unittest.TestCase):
