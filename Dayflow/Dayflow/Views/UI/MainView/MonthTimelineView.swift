@@ -159,11 +159,16 @@ struct MonthTimelineView: View {
         }
       }
       LazyVGrid(columns: columns, spacing: 6) {
-        ForEach(0..<leadingBlanks, id: \.self) { _ in
-          Color.clear.frame(height: 76)
-        }
-        ForEach(1...max(dayCount, 1), id: \.self) { number in
-          dayCell(number)
+        // Keep blank leading slots and day cells in one uniquely identified
+        // sequence. Separate ForEach blocks can confuse LazyVGrid's child
+        // identity when the number of leading blanks changes between months,
+        // causing the first dates to disappear after navigating months.
+        ForEach(0..<(leadingBlanks + max(dayCount, 1)), id: \.self) { slot in
+          if slot < leadingBlanks {
+            Color.clear.frame(height: 76)
+          } else {
+            dayCell(slot - leadingBlanks + 1)
+          }
         }
       }
       Spacer(minLength: 0)
