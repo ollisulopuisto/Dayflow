@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.31] - 2026-11-05
+
+### Changed
+- Release DMGs are now notarised and stapled by Apple, so Gatekeeper opens them without the right-click workaround.
+
 ## [2.7.30] - 2026-11-04
 
 ### Fixed
