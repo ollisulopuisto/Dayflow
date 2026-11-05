@@ -216,7 +216,7 @@ jobs:
         run: security delete-keychain "$RUNNER_TEMP/dayflow-signing.keychain-db" || true
 
       #-----------------------------------------------------------------------------
-      # Notarize the DMG (optional). Set notary credentials as repository secrets.
+      # Notarize every release DMG. Credentials must be configured as repository secrets.
       #-----------------------------------------------------------------------------
       - name: Notarize DMG
         env:
