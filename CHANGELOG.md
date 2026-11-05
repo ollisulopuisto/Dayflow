@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.37] - 2026-11-06
+
+### Fixed
+- Reject malformed or out-of-order Studio job timestamps before they can block the processing queue.
+- Hide browser screenshots when Dayflow cannot verify the browser's private-window state.
+- Keep the bundled What's New history in sync with the repository changelog.
+
 ## [2.7.36] - 2026-11-05
 
 ### Fixed

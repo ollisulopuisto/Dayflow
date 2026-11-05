@@ -450,8 +450,8 @@ final class BrowserPrivacyCheckNeedTests: XCTestCase {
     }
   }
 
-  func testSafariIsOnlyAskedForItsURLWhenSitesAreExcluded() {
-    XCTAssertFalse(BrowserPrivacy.needsCheck(.safari, hidesIncognito: true, excludedDomains: []))
+  func testSafariIsCheckedWhenPrivateWindowsMustBeHidden() {
+    XCTAssertTrue(BrowserPrivacy.needsCheck(.safari, hidesIncognito: true, excludedDomains: []))
     XCTAssertTrue(BrowserPrivacy.needsCheck(.safari, hidesIncognito: false, excludedDomains: ["x.com"]))
   }
 
