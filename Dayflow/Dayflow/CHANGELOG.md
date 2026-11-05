@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.34] - 2026-11-05
+
+### Build
+- Re-sign the embedded Sentry framework with a secure timestamp for Apple notarization.
+
 ## [2.7.33] - 2026-11-05
 
 ### Build

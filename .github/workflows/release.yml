@@ -170,6 +170,14 @@ jobs:
             codesign -vvv --force --options runtime --timestamp --sign "$SIGN_ID" "$SPARKLE_DIR/../../Current" 2>/dev/null || \
               codesign -vvv --force --options runtime --timestamp --sign "$SIGN_ID" "$SPARKLE_DIR" || true
           fi
+          # Xcode leaves Sentry's vendored framework signed without a secure
+          # timestamp. Apple rejects the whole DMG unless it is re-signed for
+          # Developer ID distribution before sealing the outer app bundle.
+          SENTRY_FRAMEWORK="$APP_PATH/Contents/Frameworks/Sentry.framework"
+          if [[ -d "$SENTRY_FRAMEWORK" ]]; then
+            codesign -vvv --force --options runtime --timestamp --sign "$SIGN_ID" "$SENTRY_FRAMEWORK"
+            codesign --verify --strict --verbose=2 "$SENTRY_FRAMEWORK"
+          fi
           # Sign the app bundle itself
           codesign -vvv --force --strict --options runtime --timestamp \
             --entitlements Dayflow/Dayflow/Dayflow.entitlements \
