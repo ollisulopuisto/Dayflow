@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.35] - 2026-11-05
+
+### Build
+- Retry DMG stapling when Apple notarization ticket delivery is temporarily unavailable.
+
 ## [2.7.34] - 2026-11-05
 
 ### Build

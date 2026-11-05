@@ -259,7 +259,21 @@ jobs:
               --output-format json || true
             exit 1
           fi
-          xcrun stapler staple "${{ env.DMG_NAME }}"
+          # Ticket delivery can briefly fail at Apple's CloudKit edge even
+          # after notarization is Accepted. Retry the staple operation before
+          # failing the release, then validate the ticket is attached.
+          for attempt in 1 2 3 4 5; do
+            if xcrun stapler staple "${{ env.DMG_NAME }}"; then
+              break
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Stapling failed after $attempt attempts."
+              exit 1
+            fi
+            delay=$((attempt * 10))
+            echo "Stapling attempt $attempt failed; retrying in ${delay}s…"
+            sleep "$delay"
+          done
           xcrun stapler validate "${{ env.DMG_NAME }}"
           echo "Notarization complete."
 
