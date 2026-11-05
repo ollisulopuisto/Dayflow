@@ -158,15 +158,15 @@ jobs:
           SPARKLE_DIR="$APP_PATH/Contents/Frameworks/Sparkle.framework/Versions/B"
           if [[ -d "$SPARKLE_DIR" ]]; then
             [[ -d "$SPARKLE_DIR/XPCServices/Installer.xpc" ]] && \
-              codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR/XPCServices/Installer.xpc" || true
+              codesign -vvv --force --options runtime --timestamp --sign "$SIGN_ID" "$SPARKLE_DIR/XPCServices/Installer.xpc" || true
             [[ -d "$SPARKLE_DIR/XPCServices/Downloader.xpc" ]] && \
-              codesign -vvv --force --options runtime --preserve-metadata=entitlements --sign "$SIGN_ID" "$SPARKLE_DIR/XPCServices/Downloader.xpc" || true
+              codesign -vvv --force --options runtime --timestamp --preserve-metadata=entitlements --sign "$SIGN_ID" "$SPARKLE_DIR/XPCServices/Downloader.xpc" || true
             [[ -f "$SPARKLE_DIR/Autoupdate" ]] && \
-              codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR/Autoupdate" || true
+              codesign -vvv --force --options runtime --timestamp --sign "$SIGN_ID" "$SPARKLE_DIR/Autoupdate" || true
             [[ -d "$SPARKLE_DIR/Updater.app" ]] && \
-              codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR/Updater.app" || true
-            codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR/../../Current" 2>/dev/null || \
-              codesign -vvv --force --options runtime --sign "$SIGN_ID" "$SPARKLE_DIR" || true
+              codesign -vvv --force --options runtime --timestamp --sign "$SIGN_ID" "$SPARKLE_DIR/Updater.app" || true
+            codesign -vvv --force --options runtime --timestamp --sign "$SIGN_ID" "$SPARKLE_DIR/../../Current" 2>/dev/null || \
+              codesign -vvv --force --options runtime --timestamp --sign "$SIGN_ID" "$SPARKLE_DIR" || true
           fi
           # Sign the app bundle itself
           codesign -vvv --force --strict --options runtime --timestamp \
@@ -220,13 +220,15 @@ jobs:
       #-----------------------------------------------------------------------------
       - name: Notarize DMG
         env:
-          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
-          NOTARY_APP_PASSWORD: ${{ secrets.NOTARY_APP_PASSWORD }}
-          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          # Same secret names as the other signed repos; the NOTARY_* names still win if set.
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID || secrets.APPLE_ID }}
+          NOTARY_APP_PASSWORD: ${{ secrets.NOTARY_APP_PASSWORD || secrets.APPLE_APP_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID || 'LWSR8T5392' }}
         run: |
-          if [[ -z "$NOTARY_APPLE_ID" || -z "$NOTARY_APP_PASSWORD" || -z "$NOTARY_TEAM_ID" ]]; then
-            echo "No notarization credentials; skipping notarization."
-            exit 0
+          set -euo pipefail
+          if [[ -z "$NOTARY_APPLE_ID" || -z "$NOTARY_APP_PASSWORD" ]]; then
+            echo "::error::APPLE_ID / APPLE_APP_PASSWORD secrets are missing; a release must be notarised."
+            exit 1
           fi
           echo "Submitting DMG for notarization…"
           xcrun notarytool submit "${{ env.DMG_NAME }}" \
