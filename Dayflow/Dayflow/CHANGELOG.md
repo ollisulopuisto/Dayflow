@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.31] - 2026-11-05
+
+### Fixed
+- Keep the first dates visible in Month view when navigating between months.
+
+### Build
+- Require the configured Apple notarization credentials for release DMGs and timestamp embedded Sparkle helpers.
+
 ## [2.7.30] - 2026-11-04
 
 ### Fixed
