@@ -44,7 +44,9 @@ struct SettingsRecordingPrivacyTabView: View {
         .foregroundColor(SettingsStyle.text)
 
       SettingsToggle(isOn: $hidesIncognitoWindows)
-      Text("Hide private and incognito windows from screenshots.")
+      Text(
+        "Hide private and incognito windows from screenshots. If Dayflow cannot verify a browser's privacy state, it hides that browser window instead."
+      )
         .font(.custom("Figtree", size: 12))
         .foregroundColor(SettingsStyle.meta)
 
@@ -67,7 +69,7 @@ struct SettingsRecordingPrivacyTabView: View {
             .stroke(SettingsStyle.divider, lineWidth: 1)
         )
       Text(
-        "Screenshots are hidden while a browser shows one of these sites or any subdomain of it. Separate sites with commas or new lines. Works in Chrome, Brave, Edge, Arc, Vivaldi, Opera, Chromium, Safari and Firefox (Firefox: private windows only)."
+        "Screenshots are hidden while a browser shows one of these sites or any subdomain of it. Separate sites with commas or new lines. Excluded-site checks work in Chrome, Brave, Edge, Arc, Vivaldi, Opera, Chromium, and Safari. Firefox supports private-window hiding only."
       )
       .font(.custom("Figtree", size: 12))
       .foregroundColor(SettingsStyle.meta)

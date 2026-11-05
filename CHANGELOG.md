@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.36] - 2026-11-05
+
+### Fixed
+- Hide browser captures when Dayflow cannot verify private/incognito state, and clarify which browser privacy checks are supported.
+- Keep Studio analysis cards inside their screenshot batch and reject overlapping cards instead of creating timeline events with incorrect durations.
+
 ## [2.7.35] - 2026-11-05
 
 ### Build

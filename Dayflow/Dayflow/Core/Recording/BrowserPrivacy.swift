@@ -6,12 +6,12 @@ import Foundation
 ///
 /// Chromium browsers and Safari are read through AppleScript (window mode and the active tab's
 /// URL). Firefox has no URL scripting, so only its private-window state is detected, from the
-/// window title. Everything is decided before the screen is captured, so a redacted frame never
-/// reaches disk.
+/// window title. An unavailable or unrecognized privacy state is redacted before capture.
 enum BrowserPrivacy {
   enum Redaction: Equatable {
     case privateWindow
     case excludedSite
+    case privacyCheckUnavailable
   }
 
   struct State: Equatable {
@@ -78,20 +78,27 @@ enum BrowserPrivacy {
     switch redaction {
     case .privateWindow: return String(localized: "Private browsing")
     case .excludedSite: return String(localized: "Excluded site")
+    case .privacyCheckUnavailable:
+      return String(
+        localized: "Browser hidden (privacy check unavailable)")
     }
   }
 
   /// The label to draw instead of the screen, or nil when the frontmost window may be captured.
   /// The browser is asked on `AppleScriptQueue`, so a slow or hung browser never blocks the main thread.
   static func redactionLabel() async -> String? {
-    guard let state = await frontmostBrowserState(),
-      let redaction = redactionReason(
-        isIncognito: state.isIncognito,
-        url: state.url,
-        hidesIncognito: hidesIncognito,
-        excludedDomains: excludedDomains
-      )
-    else { return nil }
+    guard let target = await MainActor.run(body: { frontmostTarget() }) else { return nil }
+    guard let state = await AppleScriptQueue.perform({ state(of: target) }) else {
+      // A browser we could not inspect is not safe to capture: it may be showing
+      // private content, and the screenshot would otherwise be uploaded for analysis.
+      return label(for: .privacyCheckUnavailable)
+    }
+    guard let redaction = redactionReason(
+      isIncognito: state.isIncognito,
+      url: state.url,
+      hidesIncognito: hidesIncognito,
+      excludedDomains: excludedDomains
+    ) else { return nil }
     return label(for: redaction)
   }
 
@@ -122,7 +129,10 @@ enum BrowserPrivacy {
   {
     switch kind {
     case .chromium: return hidesIncognito || !excludedDomains.isEmpty
-    case .safari: return !excludedDomains.isEmpty  // Safari only reports the URL.
+    // Safari's scripting dictionary exposes the active URL but not whether a
+    // window is private. If private-window hiding is enabled, redact Safari
+    // rather than claiming its privacy state was verified.
+    case .safari: return hidesIncognito || !excludedDomains.isEmpty
     case .firefox: return hidesIncognito  // Firefox only reports its window title.
     }
   }
@@ -166,10 +176,12 @@ enum BrowserPrivacy {
     case .chromium:
       return scriptedState(bundleID: target.bundleID, chromium: true)
     case .safari:
+      guard !hidesIncognito else { return nil }
       return scriptedState(bundleID: target.bundleID, chromium: false)
     case .firefox:
-      let title = frontWindowTitle(pid: target.pid) ?? ""
-      return State(isIncognito: title.contains("Private Browsing"), url: nil)
+      guard let title = frontWindowTitle(pid: target.pid), !title.isEmpty else { return nil }
+      return State(
+        isIncognito: title.localizedCaseInsensitiveContains("Private Browsing"), url: nil)
     }
   }
 
@@ -207,6 +219,9 @@ enum BrowserPrivacy {
 
     let lines = text.components(separatedBy: "\n")
     let mode = lines.first ?? ""
+    guard chromium ? ["normal", "incognito"].contains(mode) : mode == "normal" else {
+      return nil
+    }
     let url = lines.count > 1 ? lines[1] : nil
     return State(isIncognito: mode == "incognito", url: url)
   }

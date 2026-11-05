@@ -12,7 +12,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, time as datetime_time, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
@@ -113,6 +113,7 @@ def build_request(job: dict) -> dict:
             "Return only a JSON object with a `cards` array. Each card must have "
             "start_time and end_time as local clock strings formatted h:mm AM/PM, "
             "category, subcategory, title, summary, and detailed_summary. "
+            "Every card must start and end within the batch's stated time range, and cards must not overlap. "
             "Merge consecutive frames showing the same activity into one card; a card should cover "
             "at least 10 minutes, ideally about 15, and no card may be shorter than 5 minutes. "
             "Do not create one card per screenshot. "
@@ -191,6 +192,17 @@ def parse_cards(answer: str, job: dict) -> list[dict]:
     }
     # Single-pass validation and normalization: normalize_clock already produces
     # strictly valid "h:mm AM/PM" strings, avoiding redundant regex and strptime checks.
+    zone_name = str(job.get("timezone") or TIMEZONE)
+    try:
+        local_zone = ZoneInfo(zone_name)
+    except (ZoneInfoNotFoundError, ValueError, TypeError):
+        local_zone = ZoneInfo(TIMEZONE)
+    batch_start = int(job["start_ts"])
+    batch_end = int(job["end_ts"])
+    if batch_end <= batch_start:
+        raise ValueError("Screenshot batch has an invalid time range")
+
+    parsed_ranges: list[tuple[int, int]] = []
     for card in cards:
         if not isinstance(card, dict) or any(not isinstance(card.get(k), str) for k in required):
             raise ValueError("Model returned a card with missing or invalid fields")
@@ -201,7 +213,39 @@ def parse_cards(answer: str, job: dict) -> list[dict]:
             card[key] = normalised
         if allowed_categories and card["category"] not in allowed_categories:
             raise ValueError("Model returned a category not present in Dayflow settings")
+
+        start = card_epoch(card["start_time"], local_zone, batch_start)
+        end = card_epoch(card["end_time"], local_zone, start, strictly_after=start)
+        # Clock labels have minute precision, while capture timestamps include seconds.
+        # Allow one minute at either edge for that rounding, but reject broad model drift.
+        if start < batch_start - 60 or end > batch_end + 60 or end <= start:
+            raise ValueError("Model returned a card outside the screenshot batch time range")
+        parsed_ranges.append((start, end))
+
+    parsed_ranges.sort()
+    for previous, current in zip(parsed_ranges, parsed_ranges[1:]):
+        if current[0] < previous[1]:
+            raise ValueError("Model returned overlapping activity cards")
     return cards
+
+
+def card_epoch(clock_text: str, zone: ZoneInfo, anchor_ts: int,
+               strictly_after: Optional[int] = None) -> int:
+    """Resolve a normalized local clock label to the nearest matching batch date."""
+    hour_minute, meridiem = clock_text.split()
+    hour, minute = map(int, hour_minute.split(":"))
+    hour = hour % 12 + (12 if meridiem == "PM" else 0)
+    anchor = datetime.fromtimestamp(anchor_ts, zone)
+    candidates = [
+        datetime.combine(anchor.date() + timedelta(days=offset), datetime_time(hour, minute), tzinfo=zone)
+        for offset in (-1, 0, 1, 2)
+    ]
+    if strictly_after is not None:
+        candidates = [candidate for candidate in candidates if candidate.timestamp() > strictly_after]
+        if not candidates:
+            return 0
+        return int(min(candidates, key=lambda candidate: candidate.timestamp()).timestamp())
+    return int(min(candidates, key=lambda candidate: abs(candidate.timestamp() - anchor_ts)).timestamp())
 
 
 def may_process(upload_schedule: dict, now: Optional[datetime] = None) -> bool:
