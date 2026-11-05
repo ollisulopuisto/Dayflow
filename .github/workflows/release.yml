@@ -105,8 +105,10 @@ jobs:
           echo "SIGN_ID=$SIGN_ID" >> $GITHUB_ENV
 
       #-----------------------------------------------------------------------------
-      # Build the app. If a signing identity is available, codesign during build;
-      # otherwise build unsigned (still produces a usable DMG for manual download).
+      # Build the app with the Developer ID team and manual signing when a
+      # certificate is available. The project defaults to the author's Personal
+      # Team and automatic signing, which conflicts with Developer ID identities
+      # and also prevents SwiftPM targets from resolving their signing team.
       #-----------------------------------------------------------------------------
       - name: Build app
         env:
@@ -123,7 +125,7 @@ jobs:
             -derivedDataPath "${{ env.DERIVED_DATA }}"
           )
           if [[ -n "${SIGN_ID:-}" ]]; then
-            XCODE_ARGS+=(CODE_SIGN_IDENTITY="$SIGN_ID" CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES)
+            XCODE_ARGS+=(CODE_SIGN_IDENTITY="$SIGN_ID" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=LWSR8T5392 CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES)
           else
             XCODE_ARGS+=(CODE_SIGNING_ALLOWED=NO)
           fi

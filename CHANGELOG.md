@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.32] - 2026-11-05
+
+### Performance
+- Speed up Studio result polling by filtering completed batch files before JSON deserialization.
+
+### Build
+- Fix Developer ID signing configuration so GitHub can build, notarize, and staple release DMGs.
+
 ## [2.7.31] - 2026-11-05
 
 ### Fixed
