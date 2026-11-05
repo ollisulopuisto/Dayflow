@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.33] - 2026-11-05
+
+### Build
+- Report Apple's notarization rejection details before failing the release workflow.
+
 ## [2.7.32] - 2026-11-05
 
 ### Performance

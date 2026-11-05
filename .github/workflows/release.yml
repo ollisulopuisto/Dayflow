@@ -233,11 +233,24 @@ jobs:
             exit 1
           fi
           echo "Submitting DMG for notarization…"
-          xcrun notarytool submit "${{ env.DMG_NAME }}" \
+          SUBMISSION=$(xcrun notarytool submit "${{ env.DMG_NAME }}" \
             --apple-id "$NOTARY_APPLE_ID" \
             --team-id "$NOTARY_TEAM_ID" \
             --password "$NOTARY_APP_PASSWORD" \
-            --wait
+            --output-format json \
+            --wait)
+          echo "$SUBMISSION"
+          SUBMISSION_ID=$(echo "$SUBMISSION" | jq -r '.id')
+          STATUS=$(echo "$SUBMISSION" | jq -r '.status')
+          if [[ "$STATUS" != "Accepted" ]]; then
+            echo "::error::Apple notarization finished with status: $STATUS"
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$NOTARY_APPLE_ID" \
+              --team-id "$NOTARY_TEAM_ID" \
+              --password "$NOTARY_APP_PASSWORD" \
+              --output-format json || true
+            exit 1
+          fi
           xcrun stapler staple "${{ env.DMG_NAME }}"
           xcrun stapler validate "${{ env.DMG_NAME }}"
           echo "Notarization complete."
