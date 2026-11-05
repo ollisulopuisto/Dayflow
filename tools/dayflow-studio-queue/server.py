@@ -413,13 +413,24 @@ class Handler(BaseHTTPRequestHandler):
             if not is_valid_identifier(raw_device_id):
                 return self.respond(400, {"error": "invalid device id"})
             results = []
-            for result_file in COMPLETE.glob("*.json"):
-                try:
-                    result = json.loads(result_file.read_text())
-                    if result.get("device_id") == raw_device_id:
-                        results.append(result)
-                except (OSError, json.JSONDecodeError):
-                    continue
+            # Optimize device filtering: use os.scandir to avoid Path object churn, and pre-filter
+            # raw bytes before json.loads to skip deserializing non-matching completed jobs.
+            device_needle = f'"device_id":"{raw_device_id}"'.encode()
+            device_needle_spaced = f'"device_id": "{raw_device_id}"'.encode()
+            with os.scandir(COMPLETE) as entries:
+                for entry in entries:
+                    if not entry.name.endswith(".json") or not entry.is_file():
+                        continue
+                    try:
+                        with open(entry.path, "rb") as f:
+                            raw = f.read()
+                        if device_needle not in raw and device_needle_spaced not in raw:
+                            continue
+                        result = json.loads(raw)
+                        if result.get("device_id") == raw_device_id:
+                            results.append(result)
+                    except (OSError, json.JSONDecodeError):
+                        continue
             return self.respond(200, results)
         self.respond(404, {"error": "not found"})
 
