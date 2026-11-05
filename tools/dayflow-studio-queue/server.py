@@ -505,7 +505,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "a job must contain 1 to 15 screenshots"})
             try:
                 # Security: Validate timestamp types and chronological range to prevent queue-poisoning DoS
-                if not isinstance(body["start_ts"], int) or not isinstance(body["end_ts"], int) or body["end_ts"] <= body["start_ts"]:
+                start_ts, end_ts = body["start_ts"], body["end_ts"]
+                if type(start_ts) is not int or type(end_ts) is not int or end_ts <= start_ts:
                     raise ValueError("invalid time range")
                 ZoneInfo(str(body["timezone"]))
                 ZoneInfo(body.get("schedule_timezone", TIMEZONE))

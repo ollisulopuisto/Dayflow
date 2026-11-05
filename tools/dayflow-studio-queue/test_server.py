@@ -410,13 +410,15 @@ class EndpointValidationTests(unittest.TestCase):
                 self.assertEqual(ctx.exception.code, 400)
 
     def test_timestamp_validation_on_job_submission(self) -> None:
-        import urllib.request
         import urllib.error
+        import urllib.request
         invalid_cases = [
             {"start_ts": "not_int"},
             {"start_ts": None},
+            {"start_ts": True},
             {"end_ts": "not_int"},
             {"end_ts": None},
+            {"end_ts": False},
             {"start_ts": 1792015800, "end_ts": 1792015200},  # end_ts < start_ts
             {"start_ts": 1792015200, "end_ts": 1792015200},  # end_ts == start_ts
         ]
