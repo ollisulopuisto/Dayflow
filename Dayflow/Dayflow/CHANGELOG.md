@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.40] - 2026-11-06
+
+### Performance
+- Reduce redundant timestamp formatting while preparing Studio vision batches.
+
 ## [2.7.39] - 2026-11-06
 
 ### Fixed
