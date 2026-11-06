@@ -112,6 +112,9 @@ enum BrowserPrivacy {
     "com.vivaldi.Vivaldi",
     "com.operasoftware.Opera",
     "company.thebrowser.Browser",
+    // Helium is Chromium-based but uses its own bundle identifier. Include it so
+    // private-window checks run; failed/unavailable AppleScript inspection is redacted.
+    "net.imput.helium",
   ]
   private static let safariBundleID = "com.apple.Safari"
   private static let firefoxBundleIDs: Set<String> = ["org.mozilla.firefox"]

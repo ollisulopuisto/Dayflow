@@ -111,6 +111,10 @@ extension MainView {
       .onReceive(NotificationCenter.default.publisher(for: .timelineNavigateStep)) { notification in
         handleTimelineNavigateStep(delta: notification.userInfo?["delta"] as? Int ?? 0)
       }
+      .onReceive(NotificationCenter.default.publisher(for: .timelineNavigateToday)) { _ in
+        guard selectedIcon == .timeline else { return }
+        navigateTimeline(to: timelineDisplayDate(from: Date()), method: "shortcut_today")
+      }
       .onReceive(NotificationCenter.default.publisher(for: .timelineFocusSearch)) { _ in
         guard selectedIcon == .timeline else { return }
         timelineSearchFocused = true

@@ -526,6 +526,11 @@ struct DayflowApp: App {
         }
         .keyboardShortcut(.rightArrow, modifiers: .command)
 
+        Button("Go to Today") {
+          NotificationCenter.default.post(name: .timelineNavigateToday, object: nil)
+        }
+        .keyboardShortcut("t", modifiers: .command)
+
         Divider()
       }
 
@@ -661,6 +666,7 @@ extension Notification.Name {
   static let navigateToSettings = Notification.Name("navigateToSettings")
   static let timelineZoomStep = Notification.Name("timelineZoomStep")
   static let timelineNavigateStep = Notification.Name("timelineNavigateStep")
+  static let timelineNavigateToday = Notification.Name("timelineNavigateToday")
   static let weeklyNavigateStep = Notification.Name("weeklyNavigateStep")
   static let timelineFocusSearch = Notification.Name("timelineFocusSearch")
   static let navigateToSection = Notification.Name("navigateToSection")
