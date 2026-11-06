@@ -47,6 +47,46 @@ final class ColorWheelPickerTests: XCTestCase {
     XCTAssertEqual(magenta.b, 1.0, accuracy: accuracy)
   }
 
+  func testHSLToRGBTertiaryColors() {
+    let accuracy = 0.001
+
+    // Orange: H=30, S=100%, L=50%
+    let orange = hslToRGB(30, 100, 50)
+    XCTAssertEqual(orange.r, 1.0, accuracy: accuracy)
+    XCTAssertEqual(orange.g, 0.5, accuracy: accuracy)
+    XCTAssertEqual(orange.b, 0.0, accuracy: accuracy)
+
+    // Chartreuse: H=90, S=100%, L=50%
+    let chartreuse = hslToRGB(90, 100, 50)
+    XCTAssertEqual(chartreuse.r, 0.5, accuracy: accuracy)
+    XCTAssertEqual(chartreuse.g, 1.0, accuracy: accuracy)
+    XCTAssertEqual(chartreuse.b, 0.0, accuracy: accuracy)
+
+    // Spring green: H=150, S=100%, L=50%
+    let springGreen = hslToRGB(150, 100, 50)
+    XCTAssertEqual(springGreen.r, 0.0, accuracy: accuracy)
+    XCTAssertEqual(springGreen.g, 1.0, accuracy: accuracy)
+    XCTAssertEqual(springGreen.b, 0.5, accuracy: accuracy)
+
+    // Azure: H=210, S=100%, L=50%
+    let azure = hslToRGB(210, 100, 50)
+    XCTAssertEqual(azure.r, 0.0, accuracy: accuracy)
+    XCTAssertEqual(azure.g, 0.5, accuracy: accuracy)
+    XCTAssertEqual(azure.b, 1.0, accuracy: accuracy)
+
+    // Violet: H=270, S=100%, L=50%
+    let violet = hslToRGB(270, 100, 50)
+    XCTAssertEqual(violet.r, 0.5, accuracy: accuracy)
+    XCTAssertEqual(violet.g, 0.0, accuracy: accuracy)
+    XCTAssertEqual(violet.b, 1.0, accuracy: accuracy)
+
+    // Rose: H=330, S=100%, L=50%
+    let rose = hslToRGB(330, 100, 50)
+    XCTAssertEqual(rose.r, 1.0, accuracy: accuracy)
+    XCTAssertEqual(rose.g, 0.0, accuracy: accuracy)
+    XCTAssertEqual(rose.b, 0.5, accuracy: accuracy)
+  }
+
   func testHSLToRGBExtremeValuesAndAchromaticGrays() {
     let accuracy = 0.001
 
@@ -78,6 +118,15 @@ final class ColorWheelPickerTests: XCTestCase {
     XCTAssertEqual(negHue.r, blue.r, accuracy: accuracy)
     XCTAssertEqual(negHue.g, blue.g, accuracy: accuracy)
     XCTAssertEqual(negHue.b, blue.b, accuracy: accuracy)
+
+    // Exact multiples and wrap-around: 360°, 720°, -360° should all equal 0° (Red)
+    let red = hslToRGB(0, 100, 50)
+    for h in [360.0, 720.0, -360.0, -720.0] {
+      let result = hslToRGB(h, 100, 50)
+      XCTAssertEqual(result.r, red.r, accuracy: accuracy)
+      XCTAssertEqual(result.g, red.g, accuracy: accuracy)
+      XCTAssertEqual(result.b, red.b, accuracy: accuracy)
+    }
 
     // Overflow hue: 480° should normalize to 120° (Green)
     let overflowHue = hslToRGB(480, 100, 50)
@@ -133,10 +182,21 @@ final class ColorWheelPickerTests: XCTestCase {
     XCTAssertEqual(hslToHex(240, 100, 3), "#00000F")
   }
 
+  func testHSLToHexTertiaryColors() {
+    XCTAssertEqual(hslToHex(30, 100, 50), "#FF8000")
+    XCTAssertEqual(hslToHex(90, 100, 50), "#80FF00")
+    XCTAssertEqual(hslToHex(150, 100, 50), "#00FF80")
+    XCTAssertEqual(hslToHex(210, 100, 50), "#0080FF")
+    XCTAssertEqual(hslToHex(270, 100, 50), "#8000FF")
+    XCTAssertEqual(hslToHex(330, 100, 50), "#FF0080")
+  }
+
   func testHSLToHexHueNormalizationAndClamping() {
     // Hue normalization
     XCTAssertEqual(hslToHex(-120, 100, 50), "#0000FF")
     XCTAssertEqual(hslToHex(480, 100, 50), "#00FF00")
+    XCTAssertEqual(hslToHex(360, 100, 50), "#FF0000")
+    XCTAssertEqual(hslToHex(-360, 100, 50), "#FF0000")
 
     // Clamping saturation & lightness
     XCTAssertEqual(hslToHex(0, 150, 50), "#FF0000")
