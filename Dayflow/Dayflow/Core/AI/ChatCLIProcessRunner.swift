@@ -613,16 +613,14 @@ struct ChatCLIProcessRunner {
     var cmdParts: [String] = [executableCommand]
     switch tool {
     case .codex:
-      if let sessionId {
+      if let sessionId = sessionId {
         cmdParts.append(contentsOf: [
           "exec", "resume", LoginShellRunner.shellEscape(sessionId), "--skip-git-repo-check", "--json",
         ])
       } else {
         cmdParts.append(contentsOf: ["exec", "--skip-git-repo-check", "--json"])
       }
-      if let model {
-        cmdParts.append(contentsOf: ["-m", LoginShellRunner.shellEscape(model)])
-      }
+      if let model = model { cmdParts.append(contentsOf: ["-m", LoginShellRunner.shellEscape(model)]) }
       if let effort = reasoningEffort {
         cmdParts.append(contentsOf: ["-c", LoginShellRunner.shellEscape("model_reasoning_effort=\(effort)")])
       }
@@ -1445,9 +1443,7 @@ struct ChatCLIProcessRunner {
       } else {
         cmdParts.append(contentsOf: ["exec", "--skip-git-repo-check"])
       }
-      if let model {
-        cmdParts.append(contentsOf: ["-m", LoginShellRunner.shellEscape(model)])
-      }
+      if let model = model { cmdParts.append(contentsOf: ["-m", LoginShellRunner.shellEscape(model)]) }
       if let effort = reasoningEffort {
         cmdParts.append(contentsOf: ["-c", LoginShellRunner.shellEscape("model_reasoning_effort=\(effort)")])
       }
