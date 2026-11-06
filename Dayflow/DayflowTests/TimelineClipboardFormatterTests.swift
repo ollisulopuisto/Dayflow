@@ -322,6 +322,84 @@ final class TimelineClipboardFormatterTests: XCTestCase {
     )
   }
 
+  func testFormattedRangeWithUnicodeWhitespace() {
+    // Non-breaking space (\u{00A0}), form feed (\u{000C}), line separator (\u{2028})
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "\u{00A0}10:00 AM\u{00A0}", end: "\u{2028}11:00 AM\u{000C}"),
+      "10:00 AM – 11:00 AM"
+    )
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "\u{00A0}\u{2028}\u{000C}", end: "11:00 AM"),
+      "11:00 AM"
+    )
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "10:00 AM", end: "\u{00A0}\u{2028}\u{000C}"),
+      "10:00 AM"
+    )
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "\u{00A0}\u{000C}", end: "\u{2028}"),
+      ""
+    )
+  }
+
+  func testFormattedRangeWithNonStandardTimestamps() {
+    // 24-hour military format, ISO-8601 strings, and dates
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "09:30", end: "17:45"),
+      "09:30 – 17:45"
+    )
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "2025-01-15T09:00:00Z", end: "2025-01-15T10:00:00Z"),
+      "2025-01-15T09:00:00Z – 2025-01-15T10:00:00Z"
+    )
+  }
+
+  func testFormattedRangeWithUnicodeAndLocalizedTimes() {
+    // Japanese AM/PM formatting and emoji clock indicators
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "午前9:00", end: "午後5:00"),
+      "午前9:00 – 午後5:00"
+    )
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "🕒 10:00", end: "🕓 11:00"),
+      "🕒 10:00 – 🕓 11:00"
+    )
+  }
+
+  func testFormattedRangeWithSingleCharacterAndMinimalStrings() {
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "A", end: "B"),
+      "A – B"
+    )
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "1", end: ""),
+      "1"
+    )
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "", end: "2"),
+      "2"
+    )
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: " . ", end: " ! "),
+      ". – !"
+    )
+  }
+
+  func testFormattedRangePreservesInternalWhitespace() {
+    XCTAssertEqual(
+      TimelineClipboardFormatter.formattedRange(start: "  10:00   AM  ", end: "  11:00   AM  "),
+      "10:00   AM – 11:00   AM"
+    )
+  }
+
+  func testFormattedRangeUsesEnDashSeparator() {
+    let result = TimelineClipboardFormatter.formattedRange(start: "10:00 AM", end: "11:00 AM")
+    // Verify separator is unicode EN DASH (\u{2013}) and not standard hyphen-minus (-) or em-dash (\u{2014})
+    XCTAssertTrue(result.contains(" \u{2013} "))
+    XCTAssertFalse(result.contains(" - "))
+    XCTAssertFalse(result.contains(" \u{2014} "))
+  }
+
   // MARK: - Card Sorting Tests
 
   private func makeCard(
