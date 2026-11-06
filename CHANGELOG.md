@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.38] - 2026-11-06
+
+### Added
+- ⌘T jumps to today in the Timeline.
+
+### Fixed
+- Include Helium in browser privacy checks so private-window captures are hidden.
+
 ## [2.7.37] - 2026-11-06
 
 ### Fixed
