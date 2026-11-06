@@ -31,6 +31,7 @@ enum WeekTimelineConfig {
 struct WeekPositionedActivity: Identifiable {
   let id: String
   let activity: TimelineActivity
+  let sourceActivityIDs: [String]
   let columnIndex: Int
   let yPosition: CGFloat
   let height: CGFloat
@@ -462,6 +463,9 @@ struct WeekTimelineGridView: View {
         let cardXPosition = weekCardXPosition(for: item.columnIndex, dayWidth: dayWidth)
         let isHov = hoveredCardID == item.id
         let cardEffectiveHeight = effectiveHeight(for: item)
+        let matchesSearch = searchMatches.map {
+          !$0.isDisjoint(with: item.sourceActivityIDs)
+        } ?? true
 
         WeekTimelineActivityCard(
           cardId: item.id,
@@ -496,7 +500,7 @@ struct WeekTimelineGridView: View {
         .frame(width: cardWidth)
         .opacity(
           mutedCategoryKeys.contains(categoryFilterKey(item.categoryName))
-            || !(searchMatches?.contains(item.id) ?? true) ? 0.25 : 1
+            || !matchesSearch ? 0.25 : 1
         )
         .animation(.easeOut(duration: 0.15), value: mutedCategoryKeys)
         .animation(.easeOut(duration: 0.15), value: searchMatches)
@@ -656,6 +660,7 @@ struct WeekTimelineGridView: View {
             WeekPositionedActivity(
               id: "\(segment.activity.id)-col\(columnIndex)",
               activity: segment.activity,
+              sourceActivityIDs: segment.activities.map(\.id),
               columnIndex: columnIndex,
               yPosition: calculateYPosition(for: segment.start) + 1,
               height: height,

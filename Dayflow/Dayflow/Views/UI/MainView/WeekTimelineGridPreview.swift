@@ -148,6 +148,7 @@ private struct WeekTimelineHoverPrototypeHarness: View {
       return WeekPositionedActivity(
         id: activity.id,
         activity: activity,
+        sourceActivityIDs: [activity.id],
         columnIndex: spec.column,
         yPosition: yPos,
         height: height,

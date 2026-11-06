@@ -37,6 +37,7 @@ private struct CanvasPositionedActivity: Identifiable {
 
   let id: String
   let activity: TimelineActivity
+  let sourceActivityIDs: [String]
   let yPosition: CGFloat
   let height: CGFloat
   let durationMinutes: Double
@@ -392,6 +393,9 @@ struct CanvasTimelineDataView: View {
           }, id: \.element.id
         ) { index, item in
           let isVisible = cardEntranceProgress[item.id] ?? false
+          let matchesSearch = searchMatches.map {
+            !$0.isDisjoint(with: item.sourceActivityIDs)
+          } ?? true
           CanvasActivityCard(
             title: item.title,
             time: item.timeLabel,
@@ -436,7 +440,7 @@ struct CanvasTimelineDataView: View {
           .position(x: geo.size.width / 2, y: item.yPosition + (item.height / 2))
           .opacity(
             mutedCategoryKeys.contains(categoryFilterKey(item.categoryName))
-              || !(searchMatches?.contains(item.id) ?? true) ? 0.25 : 1
+              || !matchesSearch ? 0.25 : 1
           )
           .animation(.easeOut(duration: 0.15), value: mutedCategoryKeys)
           .animation(.easeOut(duration: 0.15), value: searchMatches)
@@ -747,6 +751,7 @@ struct CanvasTimelineDataView: View {
         return CanvasPositionedActivity(
           id: seg.activity.id,
           activity: seg.activity,
+          sourceActivityIDs: seg.activities.map(\.id),
           yPosition: y + 1,  // 1px top spacing
           height: height,
           durationMinutes: durationMinutes,
