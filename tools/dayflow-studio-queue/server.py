@@ -106,6 +106,11 @@ def build_request(job: dict) -> dict:
     except (ZoneInfoNotFoundError, ValueError, TypeError):
         local_zone = ZoneInfo(TIMEZONE)
     screenshots = sorted(job["screenshots"], key=lambda shot: shot["captured_at"])
+    # Precompute formatted local timestamps once; avoids redundant fromtimestamp/strftime per frame
+    formatted_times = [
+        datetime.fromtimestamp(s["captured_at"], local_zone).strftime("%-I:%M:%S %p")
+        for s in screenshots
+    ]
     content: list[dict] = [{
         "type": "text",
         "text": (
@@ -124,14 +129,11 @@ def build_request(job: dict) -> dict:
             "Choose category from this configured list and use its name exactly: "
             + json.dumps(job.get("categories", []), ensure_ascii=False)
             + ". Use the closest fit from this list; do not invent a category. "
-            + "Image timestamps in order: " + ", ".join(
-                datetime.fromtimestamp(s["captured_at"], local_zone).strftime("%-I:%M:%S %p")
-                for s in screenshots
-            )
+            + "Image timestamps in order: " + ", ".join(formatted_times)
         ),
     }]
-    for shot in screenshots:
-        content.append({"type": "text", "text": f"Capture at {datetime.fromtimestamp(shot['captured_at'], local_zone).strftime('%-I:%M:%S %p')}"})
+    for shot, formatted_time in zip(screenshots, formatted_times):
+        content.append({"type": "text", "text": f"Capture at {formatted_time}"})
         # Use existing base64 string directly; avoids redundant decode/re-encode per screenshot
         content.append({"type": "image_url", "image_url": {
             "url": "data:image/jpeg;base64," + shot["image_base64"]
