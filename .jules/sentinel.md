@@ -1,3 +1,11 @@
+## 2026-11-06 - CLI Dynamic Argument Shell Sanitization Preventing Command Injection
+
+**Vulnerability:** In `ChatCLIProcessRunner`, dynamic CLI arguments including `model`, `reasoningEffort`, and `sessionId` are joined into shell commands executed via login shell (`bash -l -i -c`). Without shell escaping, unvalidated or model-provided arguments containing shell metacharacters (e.g. `;`, `&&`, `'`, `$()`) allow arbitrary command execution.
+
+**Learning:** When passing dynamic arguments through an interactive login shell invocation (`-c "<cmd>"`), array-based flags must still be escaped using POSIX single-quote wrapping (`LoginShellRunner.shellEscape`) before string concatenation.
+
+**Prevention:** Ensure all dynamic CLI arguments (models, session IDs, reasoning efforts, custom overrides, and paths) are sanitized through `LoginShellRunner.shellEscape(_:)` before inclusion in command lines.
+
 ## 2026-11-05 - Ingress Timestamp Type and Range Validation Preventing Queue-Poisoning DoS
 
 **Vulnerability:** In `dayflow-studio-queue`, job submissions on `/v1/jobs` verified the presence of `start_ts` and `end_ts` without asserting that they were integer timestamps or that `start_ts < end_ts`. Submitting non-integer timestamps (e.g. strings or nested structures) was accepted with HTTP 202 and written to the pending queue, causing an unhandled `TypeError` inside `datetime.fromtimestamp()` when the background worker processed the job. Because the unhandled exception crashed `submit_pending()` before updating job state, the malformed job remained at the front of the queue, causing persistent worker loop failure and blocking all subsequent batch processing.

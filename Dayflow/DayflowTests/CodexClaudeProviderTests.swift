@@ -29,6 +29,20 @@ final class CodexClaudeProviderTests: XCTestCase {
     XCTAssertEqual(escaped, "'model_reasoning_effort=medium'\\'' && touch /tmp/pwned #'")
   }
 
+  func testModelAndSessionIdEscapingPreventsCommandInjection() {
+    let maliciousModel = "gpt-4o' && touch /tmp/pwned #"
+    XCTAssertEqual(
+      LoginShellRunner.shellEscape(maliciousModel),
+      "'gpt-4o'\\'' && touch /tmp/pwned #'"
+    )
+
+    let maliciousSessionId = "session-123' && touch /tmp/pwned #"
+    XCTAssertEqual(
+      LoginShellRunner.shellEscape(maliciousSessionId),
+      "'session-123'\\'' && touch /tmp/pwned #'"
+    )
+  }
+
   func testMCPServerDisablingEscapingPreventsCommandInjection() {
     let maliciousServer = "server' && touch /tmp/pwned #"
     let escaped = LoginShellRunner.shellEscape("mcp_servers.\(maliciousServer).enabled=false")
