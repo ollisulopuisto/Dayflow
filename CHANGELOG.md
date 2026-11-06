@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.41] - 2026-11-06
+
+### Fixed
+- Keep App Nap disabled only while screen recording is starting or active, and release the guard when recording pauses or stops.
+- Cover the App Nap recorder lifecycle policy with unit tests.
+
 ## [2.7.40] - 2026-11-06
 
 ### Performance
