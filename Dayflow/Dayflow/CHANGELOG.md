@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.39] - 2026-11-06
+
+### Fixed
+- Make timeline search highlight matching activities, including matches within merged cards.
+
 ## [2.7.38] - 2026-11-06
 
 ### Added
