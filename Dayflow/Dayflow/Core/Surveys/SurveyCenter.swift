@@ -30,7 +30,6 @@ final class SurveyCenter: ObservableObject {
   /// Ask-now surveys should reach people soon, so the queue is refetched this often.
   private static let queueRefreshInterval: TimeInterval = 15 * 60
   /// Keeps a survey and the GitHub star card off the same day.
-  static let otherPromptGap: TimeInterval = 20 * 60 * 60
   /// The Sept 7 2026 redesign, for the "used Dayflow before the redesign" audience.
   private static let redesignDate = Date(timeIntervalSince1970: 1_788_739_200)
 
@@ -98,7 +97,7 @@ final class SurveyCenter: ObservableObject {
       ["survey_id": survey.id, "source": source, "ask_now": survey.askNow])
   }
 
-  /// One survey every `pacingDays`, and not on the same day as the star card.
+  /// One survey every `pacingDays`.
   /// "Ask now" surveys skip both waits the first time they're shown; if the
   /// person ignores it (say, quits with the card open), normal pacing applies.
   private func isDue(_ survey: Survey, pacingDays: Int) -> Bool {
@@ -107,11 +106,6 @@ final class SurveyCenter: ObservableObject {
     let now = Date()
     if let lastShown = Self.lastShownAt,
       now.timeIntervalSince(lastShown) < TimeInterval(pacingDays) * 24 * 60 * 60
-    {
-      return false
-    }
-    if let starShown = GitHubStarPromptState.lastShownAt,
-      now.timeIntervalSince(starShown) < Self.otherPromptGap
     {
       return false
     }
