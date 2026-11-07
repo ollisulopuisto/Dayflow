@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.7.42] - 2026-11-07
+
+### Build
+- Rebuild the v2.7.41 app code as a fresh signed and notarized release.
+
 ## [2.7.41] - 2026-11-06
 
 ### Fixed
