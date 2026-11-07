@@ -222,9 +222,9 @@ struct DocketPromptReveal: ViewModifier {
     gradient(
       [
         .init(color: .black, location: 0),
-        .init(color: .black.opacity(0.9), location: 26 / 130),
-        .init(color: .black.opacity(0.5), location: 65 / 130),
-        .init(color: .black.opacity(0.1), location: 104 / 130),
+        .init(color: .black.opacity(0.9), location: 26.0 / 130.0),
+        .init(color: .black.opacity(0.5), location: 65.0 / 130.0),
+        .init(color: .black.opacity(0.1), location: 104.0 / 130.0),
         .init(color: .clear, location: 1),
       ], from: edge, to: edge + 130, height: height)
   }

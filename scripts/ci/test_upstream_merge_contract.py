@@ -40,6 +40,12 @@ class UpstreamMergeContractTests(unittest.TestCase):
         self.assertIn('enum TimelineCardWindow', types)
         self.assertIn('enum TimelineTimeLabelGeometry', types)
 
+    def test_reveal_mask_uses_fractional_gradient_stops(self):
+        source = (ROOT / 'Dayflow/Dayflow/Views/UI/DailyBrief/Docket/DocketEffects.swift').read_text()
+        for numerator in (26, 65, 104):
+            self.assertIn(f'location: {numerator}.0 / 130.0', source)
+            self.assertNotIn(f'location: {numerator} / 130', source)
+
     def test_no_unresolved_conflicts(self):
         result = subprocess.run(['git', 'diff', '--check', 'HEAD'], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
