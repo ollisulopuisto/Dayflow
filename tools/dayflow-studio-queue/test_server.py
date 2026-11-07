@@ -225,6 +225,18 @@ class JobLaneTests(unittest.TestCase):
         self.assertEqual(self.gpu.submitted, [])
         self.assertTrue((self.server.RUNNING / "job-1.json").exists())
 
+    def test_poll_running_skips_json_loads_when_throttled(self) -> None:
+        import time
+        from unittest.mock import patch
+        job = make_job("job-throttled")
+        job["gpu_job_id"] = "gpu-throttle-1"
+        (self.server.RUNNING / "job-throttled.json").write_text(json.dumps(job))
+        # Stamp POLLED_AT to simulate that this job was just polled
+        self.server.POLLED_AT["gpu-throttle-1"] = time.monotonic()
+        self.server.POLL_SECONDS = 60.0
+        with patch("server.json.loads", side_effect=AssertionError("json.loads should not be called when throttled")):
+            self.server.poll_running()
+
 
 class ClockNormalisationTests(unittest.TestCase):
     def setUp(self) -> None:

@@ -159,8 +159,9 @@ def analyze(job: dict) -> list[dict]:
     return parse_cards(answer, job)
 
 
-# Pre-compiled regex pattern for fast timestamp parsing across batches
+# Pre-compiled regex patterns for fast payload inspection across batches
 CLOCK_RE = re.compile(r"\s*(\d{1,2})[:.](\d{2})(?::\d{2})?\s*([AaPp])?\s*[Mm]?\s*")
+GPU_JOB_ID_RE = re.compile(rb'"gpu_job_id"\s*:\s*"([^"]+)"')
 
 
 def normalize_clock(value: str) -> Optional[str]:
@@ -346,8 +347,17 @@ def submit_pending() -> None:
 def poll_running() -> None:
     for active in sorted(RUNNING.glob("*.json")):
         try:
-            job = json.loads(active.read_text())
-        except (OSError, ValueError):
+            raw = active.read_bytes()
+        except OSError:
+            continue
+        # Fast path: check throttle before deserializing multi-megabyte screenshot payloads
+        m = GPU_JOB_ID_RE.search(raw)
+        gpu_id = m.group(1).decode("utf-8") if m else None
+        if gpu_id and time.monotonic() - POLLED_AT.get(gpu_id, 0.0) < POLL_SECONDS:
+            continue
+        try:
+            job = json.loads(raw)
+        except ValueError:
             continue
         gpu_id = job.get("gpu_job_id")
         if not gpu_id:
