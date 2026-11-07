@@ -129,7 +129,7 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
     XCTAssertEqual(try argument(after: "--name", in: correction), LoginShellRunner.shellEscape("dayflow-transcription"))
   }
 
-  func testExistingClaudeCommandOnlyAddsRequestedReasoningEffort() throws {
+  func testStandardClaudeCommandKeepsJSONUsageAndRequestedReasoningEffort() throws {
     let parts = runner.buildClaudeCommandParts(
       prompt: "Hello",
       imagePaths: [],
@@ -139,10 +139,14 @@ final class ClaudeCLIExecutionProfileTests: XCTestCase {
     )
 
     XCTAssertEqual(
-      Array(parts.prefix(7)),
-      ["claude", "-p", "--model", LoginShellRunner.shellEscape("sonnet"), "--effort", LoginShellRunner.shellEscape("medium"), "--dangerously-skip-permissions"]
+      Array(parts.prefix(4)),
+      ["claude", "-p", "--output-format", "json"]
     )
-    XCTAssertFalse(parts.contains("--output-format"))
+    XCTAssertEqual(try argument(after: "--model", in: parts), LoginShellRunner.shellEscape("sonnet"))
+    XCTAssertEqual(try argument(after: "--effort", in: parts), LoginShellRunner.shellEscape("medium"))
+    XCTAssertEqual(parts.filter { $0 == "--effort" }.count, 1)
+    XCTAssertTrue(parts.contains("--dangerously-skip-permissions"))
+    XCTAssertTrue(parts.contains("--strict-mcp-config"))
     XCTAssertFalse(parts.contains("--safe-mode"))
     XCTAssertFalse(parts.contains("--bare"))
   }

@@ -46,3 +46,7 @@ tools/dayflow-cli/fixtures/chunks.sqlite-shm
 # Research and analysis notes (local only)
 reports/
 research_notes/
+
+# Generated Python interpreter caches
+__pycache__/
+*.py[cod]
