@@ -1,3 +1,11 @@
+## 2026-11-06 - Nested Payload Type and Range Boundary Validation Preventing Queue Poisoning
+
+**Vulnerability:** In `dayflow-studio-queue`, `/v1/jobs` accepted screenshot entries with string-coercible or boolean `captured_at` timestamps via `int()` coercion, as well as timestamps exceeding Python's datetime representation limits. Downstream worker execution crashed with unhandled `TypeError` or `ValueError` in `datetime.fromtimestamp()`, crashing `submit_pending()` and blocking the pending queue.
+
+**Learning:** Using type coercion (`int(val)`) instead of strict type inspection (`type(val) is int`) permits string-encoded integers or booleans into durable storage, which fail downstream when strict integer semantics are required. Furthermore, unbounded integer values can trigger internal limits in standard library date parsing.
+
+**Prevention:** Inspect nested collections strictly for object structure and native primitive types, and test timestamp inputs against datetime conversion boundaries at ingress.
+
 ## 2026-11-05 - Ingress Timestamp Type and Range Validation Preventing Queue-Poisoning DoS
 
 **Vulnerability:** In `dayflow-studio-queue`, job submissions on `/v1/jobs` verified the presence of `start_ts` and `end_ts` without asserting that they were integer timestamps or that `start_ts < end_ts`. Submitting non-integer timestamps (e.g. strings or nested structures) was accepted with HTTP 202 and written to the pending queue, causing an unhandled `TypeError` inside `datetime.fromtimestamp()` when the background worker processed the job. Because the unhandled exception crashed `submit_pending()` before updating job state, the malformed job remained at the front of the queue, causing persistent worker loop failure and blocking all subsequent batch processing.

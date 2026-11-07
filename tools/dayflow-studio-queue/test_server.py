@@ -421,6 +421,7 @@ class EndpointValidationTests(unittest.TestCase):
             {"end_ts": False},
             {"start_ts": 1792015800, "end_ts": 1792015200},  # end_ts < start_ts
             {"start_ts": 1792015200, "end_ts": 1792015200},  # end_ts == start_ts
+            {"start_ts": 10**14, "end_ts": 10**14 + 100},  # timestamp out of bounds
         ]
         for case in invalid_cases:
             bad_job = make_job("bad-timestamp-job")
@@ -435,6 +436,30 @@ class EndpointValidationTests(unittest.TestCase):
                 urllib.request.urlopen(req)
             self.assertEqual(ctx.exception.code, 400)
             self.assertFalse((self.server.PENDING / "bad-timestamp-job.json").exists())
+
+    def test_screenshot_payload_validation_on_job_submission(self) -> None:
+        import urllib.error
+        import urllib.request
+        invalid_screenshots = [
+            "not_a_dict",
+            {"image_base64": IMAGE, "captured_at": "1792015200"},  # string timestamp
+            {"image_base64": IMAGE, "captured_at": True},  # bool timestamp
+            {"image_base64": 12345, "captured_at": 1792015200},  # non-string image_base64
+            {"image_base64": IMAGE, "captured_at": 10**14},  # timestamp out of bounds
+        ]
+        for bad_shot in invalid_screenshots:
+            bad_job = make_job("bad-shot-job")
+            bad_job["screenshots"] = [bad_shot]
+            req = urllib.request.Request(
+                f"{self.url}/v1/jobs",
+                data=json.dumps(bad_job).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400)
+            self.assertFalse((self.server.PENDING / "bad-shot-job.json").exists())
 
 
 class AuthTests(unittest.TestCase):
