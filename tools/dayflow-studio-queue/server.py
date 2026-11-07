@@ -510,7 +510,9 @@ class Handler(BaseHTTPRequestHandler):
                 start_ts, end_ts = body["start_ts"], body["end_ts"]
                 if type(start_ts) is not int or type(end_ts) is not int or end_ts <= start_ts:
                     raise ValueError("invalid time range")
-                ZoneInfo(str(body["timezone"]))
+                tz = ZoneInfo(str(body["timezone"]))
+                datetime.fromtimestamp(start_ts, tz)
+                datetime.fromtimestamp(end_ts, tz)
                 ZoneInfo(body.get("schedule_timezone", TIMEZONE))
                 for key in ("window_start", "window_end"):
                     hour, minute = map(int, body.get(key, "07:00").split(":"))
@@ -518,9 +520,13 @@ class Handler(BaseHTTPRequestHandler):
                     if not end_of_day and (hour not in range(24) or minute not in range(60)):
                         raise ValueError("invalid time")
                 for shot in body["screenshots"]:
+                    if not isinstance(shot, dict) or not isinstance(shot.get("image_base64"), str):
+                        raise ValueError("invalid screenshot structure")
                     base64.b64decode(shot["image_base64"], validate=True)
-                    int(shot["captured_at"])
-            except (ValueError, KeyError, TypeError, ZoneInfoNotFoundError):
+                    if type(shot.get("captured_at")) is not int:
+                        raise ValueError("invalid captured_at type")
+                    datetime.fromtimestamp(shot["captured_at"], tz)
+            except (ValueError, KeyError, TypeError, OverflowError, ZoneInfoNotFoundError):
                 return self.respond(400, {"error": "invalid screenshot or processing schedule"})
             name = str(body["job_id"])
             if (COMPLETE / f"{name}.json").exists() or (PENDING / f"{name}.json").exists() or (RUNNING / f"{name}.json").exists():
