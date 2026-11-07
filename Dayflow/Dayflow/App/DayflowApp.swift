@@ -8,10 +8,6 @@ import SwiftUI
 
 struct AppRootView: View {
   @EnvironmentObject private var categoryStore: CategoryStore
-  @Binding var isShowingGitHubStarPrompt: Bool
-  @Binding var gitHubStarCount: Int?
-  @Binding var gitHubStarPromptUsesBrowser: Bool
-  @State private var isCheckingGitHubStar = false
   @State private var whatsNewNote: ReleaseNote? = nil
   @State private var activeWhatsNewVersion: String? = nil
   @State private var shouldMarkWhatsNewSeen = false
@@ -41,9 +37,6 @@ struct AppRootView: View {
           shouldMarkWhatsNewSeen = true
         }
       }
-      DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-        showGitHubStarPromptIfEligible(source: "launch")
-      }
       DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
         showSurveyIfEligible(source: "launch")
       }
@@ -68,7 +61,6 @@ struct AppRootView: View {
       }
     }
     .onReceive(NotificationCenter.default.publisher(for: .timelineDataUpdated)) { _ in
-      showGitHubStarPromptIfEligible(source: "first_card")
       showSurveyIfEligible(source: "new_card")
     }
     .onReceive(
@@ -78,7 +70,6 @@ struct AppRootView: View {
     }
     .onChange(of: whatsNewNote == nil) { _, isDismissed in
       if isDismissed {
-        showGitHubStarPromptIfEligible(source: "launch")
         showSurveyIfEligible(source: "launch")
       }
     }
@@ -143,85 +134,9 @@ struct AppRootView: View {
     isGettingStartedTourReplay = false
   }
 
-  private var canShowGitHubStarPrompt: Bool {
-    !isShowingGitHubStarPrompt && whatsNewNote == nil && goalFlowPresentation == nil
-      && !isShowingGettingStartedTour && !SurveyCenter.shared.isShowingSurvey
-  }
-
-  /// Keeps the star card off the day a survey was shown.
-  private var surveyShownRecently: Bool {
-    guard let shownAt = SurveyCenter.lastShownAt else { return false }
-    return Date().timeIntervalSince(shownAt) < SurveyCenter.otherPromptGap
-  }
-
-  /// Surveys share the bottom-right corner with the star card, so only one shows at a time.
   private func showSurveyIfEligible(source: String) {
     SurveyCenter.shared.checkForSurvey(source: source) {
-      whatsNewNote == nil && goalFlowPresentation == nil && !isShowingGitHubStarPrompt
-        && !isCheckingGitHubStar && !isShowingGettingStartedTour
-    }
-  }
-
-  /// Asks every 3 days, but only people whose gh CLI confirms Dayflow isn't starred.
-  private func showGitHubStarPromptIfEligible(source: String) {
-    guard canShowGitHubStarPrompt,
-      !isCheckingGitHubStar,
-      GitHubStarPromptState.isDue,
-      !surveyShownRecently,
-      StorageManager.shared.hasAnyTimelineCards()
-    else { return }
-
-    isCheckingGitHubStar = true
-    Task {
-      let (check, starCount) = await Task.detached(priority: .utility) {
-        let check = GitHubStarPrompt.check()
-        let isUnstarred = check.starredByRepo[GitHubStarPrompt.primaryRepoName] == false
-        return (check, isUnstarred ? GitHubStarPrompt.stargazerCount() : nil)
-      }.value
-      isCheckingGitHubStar = false
-      handleGitHubStarCheck(check, starCount: starCount, source: source)
-    }
-  }
-
-  private func handleGitHubStarCheck(_ check: GitHubStarCheck, starCount: Int?, source: String) {
-    let isDayflowStarred = check.starredByRepo[GitHubStarPrompt.primaryRepoName]
-
-    if isDayflowStarred == true {
-      GitHubStarPromptState.markDone()
-      return
-    }
-
-    // Something else took the screen while gh was running; try again on the next trigger.
-    guard canShowGitHubStarPrompt else { return }
-
-    // No usable gh (missing, logged out, 1Password), so we can't verify the star.
-    // Ask these people once, then only re-check gh every 3 days in case they set it up.
-    guard isDayflowStarred == false else {
-      GitHubStarPromptState.markAttempted()
-      guard !GitHubStarPromptState.hasShownBrowserPrompt else { return }
-      GitHubStarPromptState.markBrowserPromptShown()
-      presentGitHubStarPrompt(check: check, starCount: nil, usesBrowser: true, source: source)
-      return
-    }
-
-    GitHubStarPromptState.markShown()
-    presentGitHubStarPrompt(check: check, starCount: starCount, usesBrowser: false, source: source)
-  }
-
-  private func presentGitHubStarPrompt(
-    check: GitHubStarCheck, starCount: Int?, usesBrowser: Bool, source: String
-  ) {
-    var props = check.analyticsProperties
-    props["source"] = source
-    props["variant"] = usesBrowser ? "browser" : "gh"
-    props["prompt_number"] = GitHubStarPromptState.shownCount
-    if let starCount { props["star_count"] = starCount }
-    AnalyticsService.shared.capture("github_star_prompt_shown", props)
-
-    gitHubStarCount = starCount
-    gitHubStarPromptUsesBrowser = usesBrowser
-    withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) {
-      isShowingGitHubStarPrompt = true
+      whatsNewNote == nil && goalFlowPresentation == nil && !isShowingGettingStartedTour
     }
   }
 
@@ -254,7 +169,6 @@ struct AppRootView: View {
     activeWhatsNewVersion = nil
     shouldMarkWhatsNewSeen = false
     whatsNewExplicitDismiss = false
-    showGitHubStarPromptIfEligible(source: "launch")
   }
 }
 
@@ -284,9 +198,6 @@ struct DayflowApp: App {
   @State private var showVideoLaunch = LaunchIntro.shouldPlayAtLaunch
   @State private var contentOpacity = LaunchIntro.shouldPlayAtLaunch ? 0.0 : 1.0
   @State private var contentScale = LaunchIntro.shouldPlayAtLaunch ? 0.98 : 1.0
-  @State private var isShowingGitHubStarPrompt = false
-  @State private var gitHubStarCount: Int? = nil
-  @State private var gitHubStarPromptUsesBrowser = false
   @ObservedObject private var surveyCenter = SurveyCenter.shared
   // Must be the shared instance: the agent bridge (AgentWriteHandlers) writes to
   // CategoryStore.shared, and a second in-memory copy here would overwrite those
@@ -319,11 +230,7 @@ struct DayflowApp: App {
         Group {
           if didOnboard {
             // Show UI after onboarding
-            AppRootView(
-              isShowingGitHubStarPrompt: $isShowingGitHubStarPrompt,
-              gitHubStarCount: $gitHubStarCount,
-              gitHubStarPromptUsesBrowser: $gitHubStarPromptUsesBrowser
-            )
+            AppRootView()
             .environmentObject(categoryStore)
             .environmentObject(updaterManager)
           } else if !showVideoLaunch {
@@ -374,20 +281,6 @@ struct DayflowApp: App {
                 }
               }
             }
-        }
-
-        if didOnboard && !showVideoLaunch && isShowingGitHubStarPrompt {
-          GitHubStarPromptCard(
-            starCount: gitHubStarCount,
-            usesBrowser: gitHubStarPromptUsesBrowser,
-            onStar: starDayflow,
-            onDismiss: dismissGitHubStarPrompt
-          )
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-          .padding(.trailing, 24)
-          .padding(.bottom, 24)
-          .transition(.move(edge: .trailing).combined(with: .opacity))
-          .zIndex(10)
         }
 
         if didOnboard && !showVideoLaunch, let survey = surveyCenter.activeSurvey {
@@ -584,41 +477,6 @@ struct DayflowApp: App {
     }
     .defaultSize(width: 1200, height: 800)
 
-  }
-
-  private func starDayflow() async -> Bool {
-    // Any click ends the reminders, even if the browser star can't be verified.
-    GitHubStarPromptState.markDone()
-    let promptNumber = GitHubStarPromptState.shownCount
-    AnalyticsService.shared.capture("github_star_prompt_clicked", ["prompt_number": promptNumber])
-    let starred = await GitHubStarService.starDayflow()
-    if starred {
-      AnalyticsService.shared.capture(
-        "github_star_completed", ["method": "gh", "prompt_number": promptNumber])
-      // Leave the card up briefly so the thank-you is visible.
-      Task {
-        try? await Task.sleep(for: .seconds(1.5))
-        hideGitHubStarPrompt()
-      }
-    } else {
-      AnalyticsService.shared.capture(
-        "github_star_browser_fallback", ["prompt_number": promptNumber])
-      NSWorkspace.shared.open(GitHubStarPromptState.repositoryURL)
-      hideGitHubStarPrompt()
-    }
-    return starred
-  }
-
-  private func dismissGitHubStarPrompt() {
-    AnalyticsService.shared.capture(
-      "github_star_prompt_dismissed", ["prompt_number": GitHubStarPromptState.shownCount])
-    hideGitHubStarPrompt()
-  }
-
-  private func hideGitHubStarPrompt() {
-    withAnimation(.easeOut(duration: 0.2)) {
-      isShowingGitHubStarPrompt = false
-    }
   }
 
   private var hasPendingNotificationNavigation: Bool {

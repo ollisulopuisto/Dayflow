@@ -98,11 +98,10 @@ struct HowItWorksView: View {
 
         DayflowSurfaceButton(
           action: {
-            GitHubStarPromptState.markDone()
             Task {
               let starred = await GitHubStarService.starDayflow()
               if !starred {
-                NSWorkspace.shared.open(GitHubStarPromptState.repositoryURL)
+                NSWorkspace.shared.open(GitHubStarPrompt.primaryRepoURL)
               }
             }
           },
