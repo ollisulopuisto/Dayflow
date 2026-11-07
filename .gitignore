@@ -42,3 +42,7 @@ tools/dayflow-cli/fixtures/chunks.sqlite-shm
 
 # Cloud Agent generated binaries
 .cursor/bin/
+
+# Research and analysis notes (local only)
+reports/
+research_notes/

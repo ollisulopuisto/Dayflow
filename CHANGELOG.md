@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.8.0] - 2026-11-07
+
+### Changed
+- Integrate upstream v2.8.0, including accessibility capture and the new permissions flow.
+- Keep the fork's timeline search, card windowing, frame-reader cleanup and disabled upstream updater.
+
+### Fixed
+- Resolve upstream release merge conflicts that blocked the scheduled build.
+
 ## [2.7.42] - 2026-11-07
 
 ### Build
