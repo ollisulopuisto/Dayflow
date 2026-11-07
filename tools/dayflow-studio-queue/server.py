@@ -454,6 +454,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        # Security: Prevent MIME-sniffing vulnerabilities on JSON responses
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(body)
 
@@ -513,6 +515,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid job id"})
             if not is_valid_identifier(body.get("device_id")):
                 return self.respond(400, {"error": "invalid device id"})
+            # Security: Validate batch_id type to prevent downstream deserialization failures and orphan results
+            batch_id = body.get("batch_id")
+            if type(batch_id) is not int or batch_id < 0:
+                return self.respond(400, {"error": "invalid batch id"})
+            if "categories" in body and not isinstance(body["categories"], list):
+                return self.respond(400, {"error": "invalid categories"})
             if not body["screenshots"] or len(body["screenshots"]) > 15:
                 return self.respond(400, {"error": "a job must contain 1 to 15 screenshots"})
             try:
