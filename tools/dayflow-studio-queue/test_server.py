@@ -315,6 +315,46 @@ class EndpointValidationTests(unittest.TestCase):
         self.httpd.shutdown()
         self.httpd.server_close()
 
+    def test_security_headers_present_on_responses(self) -> None:
+        import urllib.request
+        req = urllib.request.Request(f"{self.url}/health")
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.headers.get("X-Content-Type-Options"), "nosniff")
+
+    def test_batch_id_and_categories_validation_on_job_submission(self) -> None:
+        import urllib.request
+        import urllib.error
+        # Invalid batch_id cases (non-int, negative int, bool)
+        invalid_batch_ids = ["123", True, False, -1, 3.14, None, [1], {"id": 1}]
+        for bad_id in invalid_batch_ids:
+            bad_job = make_job("bad-batch-id-job")
+            bad_job["batch_id"] = bad_id
+            req = urllib.request.Request(
+                f"{self.url}/v1/jobs",
+                data=json.dumps(bad_job).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400)
+            self.assertFalse((self.server.PENDING / "bad-batch-id-job.json").exists())
+
+        # Invalid categories cases (non-list)
+        for bad_cats in ("not_a_list", 123, True, {"name": "Work"}):
+            bad_job = make_job("bad-cats-job")
+            bad_job["categories"] = bad_cats
+            req = urllib.request.Request(
+                f"{self.url}/v1/jobs",
+                data=json.dumps(bad_job).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400)
+            self.assertFalse((self.server.PENDING / "bad-cats-job.json").exists())
+
     def test_job_submission_with_invalid_timezone_is_rejected(self) -> None:
         import urllib.request
         import urllib.error

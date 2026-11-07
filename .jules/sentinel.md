@@ -1,3 +1,11 @@
+## 2026-11-07 - Ingress Batch Identifier and Payload Structure Validation
+
+**Vulnerability:** In `dayflow-studio-queue`, `/v1/jobs` verified the presence of `batch_id` without verifying its primitive type or range, and accepted arbitrary non-list values for `categories`. Submitting boolean or string-encoded `batch_id` values persisted through processing, but failed downstream deserialization on macOS client poll loops (`result["batch_id"] as? NSNumber`), causing completed jobs to remain unacknowledged and accumulating indefinitely in storage.
+
+**Learning:** When multi-language systems exchange queued jobs across backend services and native clients, permissive ingress validation can allow payloads that pass server-side handling but fail strict type decoding on client runtimes, resulting in orphaned storage state and blocked acknowledgment workflows.
+
+**Prevention:** Validate all identifier types and collection structures strictly (`type(batch_id) is int and batch_id >= 0`, `isinstance(categories, list)`) at API boundaries prior to persistent enqueueing.
+
 ## 2026-11-06 - Nested Payload Type and Range Boundary Validation Preventing Queue Poisoning
 
 **Vulnerability:** In `dayflow-studio-queue`, `/v1/jobs` accepted screenshot entries with string-coercible or boolean `captured_at` timestamps via `int()` coercion, as well as timestamps exceeding Python's datetime representation limits. Downstream worker execution crashed with unhandled `TypeError` or `ValueError` in `datetime.fromtimestamp()`, crashing `submit_pending()` and blocking the pending queue.
