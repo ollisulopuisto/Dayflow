@@ -34,10 +34,17 @@ func computeDailyWorkflow(cards: [TimelineCard], categories: [TimelineCategory])
     let cardDurationMinutes: Double
   }
 
+  // Pre-parse card timestamps once; the distraction-marker pass reuses these
+  // instead of re-running parseCardMinute on the same "h:mm a" strings.
+  struct ParsedCardRange {
+    let start: Double
+    let end: Double
+  }
+  var parsedRanges = [ParsedCardRange?](repeating: nil, count: cards.count)
   var rawSegments: [RawDailyWorkflowSegment] = []
   rawSegments.reserveCapacity(cards.count)
 
-  for card in cards {
+  for (index, card) in cards.enumerated() {
     guard var startMinute = parseCardMinute(card.startTimestamp),
       var endMinute = parseCardMinute(card.endTimestamp)
     else {
@@ -47,6 +54,7 @@ func computeDailyWorkflow(cards: [TimelineCard], categories: [TimelineCategory])
     let normalized = normalizedMinuteRange(start: startMinute, end: endMinute)
     startMinute = normalized.start
     endMinute = normalized.end
+    parsedRanges[index] = ParsedCardRange(start: startMinute, end: endMinute)
 
     let trimmed = card.category.trimmingCharacters(in: .whitespacesAndNewlines)
     let displayName = trimmed.isEmpty ? "Uncategorized" : trimmed
@@ -283,17 +291,14 @@ func computeDailyWorkflow(cards: [TimelineCard], categories: [TimelineCategory])
   if hasDistractionCategory {
     var markerIndex = 0
 
-    for card in cards {
+    for (index, card) in cards.enumerated() {
       // Source 1: Full cards categorized as "Distraction"
       let cardCategoryKey = normalizedCategoryKey(
         card.category.trimmingCharacters(in: .whitespacesAndNewlines))
       if cardCategoryKey == distractionCategoryKey {
-        if let rawStart = parseCardMinute(card.startTimestamp),
-          let rawEnd = parseCardMinute(card.endTimestamp)
-        {
-          let (startMin, endMin) = normalizedMinuteRange(start: rawStart, end: rawEnd)
-          let clippedStart = max(startMin, visibleStart)
-          let clippedEnd = min(endMin, visibleEnd)
+        if let range = parsedRanges[index] {
+          let clippedStart = max(range.start, visibleStart)
+          let clippedEnd = min(range.end, visibleEnd)
           if clippedEnd > clippedStart {
             distractionMarkers.append(
               DailyWorkflowDistractionMarker(
@@ -309,13 +314,9 @@ func computeDailyWorkflow(cards: [TimelineCard], categories: [TimelineCategory])
 
       // Source 2: Mini distractions embedded within any card
       if let distractions = card.distractions {
-        guard let rawCardStart = parseCardMinute(card.startTimestamp),
-          let rawCardEnd = parseCardMinute(card.endTimestamp)
-        else {
+        guard let parentRange = parsedRanges[index] else {
           continue
         }
-
-        let parentRange = normalizedMinuteRange(start: rawCardStart, end: rawCardEnd)
 
         for distraction in distractions {
           if let rawStart = parseCardMinute(distraction.startTime),
