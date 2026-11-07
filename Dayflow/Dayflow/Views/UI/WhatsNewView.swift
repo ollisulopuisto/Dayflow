@@ -789,7 +789,6 @@ struct WhatsNewView: View {
     case .starred:
       githubStarState = .starred
       githubStarOutcome = "already_starred"
-      GitHubStarPromptState.markDone()
     case .notStarred:
       githubStarState = .readyToStar
       githubStarOutcome = "shown_not_clicked"
@@ -819,8 +818,6 @@ struct WhatsNewView: View {
   }
 
   private func captureGitHubStarClick(method: String) {
-    // Any click ends the recurring star reminder.
-    GitHubStarPromptState.markDone()
     AnalyticsService.shared.capture(
       "whats_new_github_star_clicked",
       [
