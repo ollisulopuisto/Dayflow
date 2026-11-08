@@ -15,7 +15,7 @@ import urllib.request
 from datetime import datetime, time as datetime_time, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Optional
+from typing import BinaryIO, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 ROOT = Path(os.environ.get("DAYFLOW_QUEUE_DIR", "~/Library/Application Support/dayflow-studio-queue")).expanduser()
@@ -278,6 +278,19 @@ def write_json(path: Path, value: dict) -> None:
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps(value, separators=(",", ":")))
     temp.replace(path)
+
+
+def completed_result_device_id(result_file: BinaryIO) -> Optional[str]:
+    # Our compact result format writes ownership metadata before the potentially large cards array.
+    prefix = result_file.read(4096)
+    cards_marker = prefix.find(b',"cards":')
+    if cards_marker >= 0:
+        value = json.loads(prefix[:cards_marker] + b"}")
+    else:
+        result_file.seek(0)
+        value = json.load(result_file)
+    device_id = value.get("device_id") if isinstance(value, dict) else None
+    return device_id if isinstance(device_id, str) else None
 
 
 def gpu_call(method: str, path: str, body: Optional[dict] = None) -> Optional[dict]:
@@ -568,15 +581,25 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid job id"})
             if not is_valid_identifier(device_id):
                 return self.respond(400, {"error": "invalid device id"})
-            result = COMPLETE / f"{job_id}.json"
-            if result.exists():
-                try:
-                    value = json.loads(result.read_text())
-                    if value.get("device_id") != device_id:
-                        return self.respond(403, {"error": "job belongs to another device"})
-                    result.unlink()
-                except (OSError, json.JSONDecodeError):
-                    return self.respond(500, {"error": "could not acknowledge job"})
+            result_name = os.path.basename(f"{job_id}.json")
+            complete_fd = None
+            try:
+                # Use a directory-relative name and reject symlinks before reading or unlinking.
+                complete_fd = os.open(COMPLETE, os.O_RDONLY | os.O_DIRECTORY)
+                result_fd = os.open(result_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=complete_fd)
+                with os.fdopen(result_fd, "rb") as f:
+                    result_device_id = completed_result_device_id(f)
+                if result_device_id != device_id:
+                    return self.respond(403, {"error": "job belongs to another device"})
+                os.unlink(result_name, dir_fd=complete_fd)
+            except FileNotFoundError:
+                # Missing directory, missing result, or a concurrent ack all mean it's gone.
+                pass
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                return self.respond(500, {"error": "could not acknowledge job"})
+            finally:
+                if complete_fd is not None:
+                    os.close(complete_fd)
             return self.respond(200, {"acknowledged": True})
         self.respond(404, {"error": "not found"})
 
