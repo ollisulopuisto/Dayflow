@@ -10,14 +10,14 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 class UpstreamMergeContractTests(unittest.TestCase):
     def test_release_metadata_and_update_feed(self):
         info = plistlib.loads((ROOT / 'Dayflow/Dayflow/Info.plist').read_bytes())
-        self.assertEqual(info['CFBundleShortVersionString'], '2.8.0')
-        self.assertEqual(info['CFBundleVersion'], '172')
+        self.assertEqual(info['CFBundleShortVersionString'], '2.8.1')
+        self.assertEqual(info['CFBundleVersion'], '173')
         self.assertNotIn('SUFeedURL', info)
         self.assertFalse(info['SUEnableAutomaticChecks'])
         self.assertFalse(info['SUAutomaticallyUpdate'])
         project = (ROOT / 'Dayflow/Dayflow.xcodeproj/project.pbxproj').read_text()
-        self.assertEqual(project.count('CURRENT_PROJECT_VERSION = 172;'), 6)
-        self.assertEqual(project.count('MARKETING_VERSION = 2.8.0;'), 6)
+        self.assertEqual(project.count('CURRENT_PROJECT_VERSION = 173;'), 6)
+        self.assertEqual(project.count('MARKETING_VERSION = 2.8.1;'), 6)
         self.assertIn('ONLY_ACTIVE_ARCH = NO;', project)
 
     def test_recording_keeps_both_cleanup_paths(self):
