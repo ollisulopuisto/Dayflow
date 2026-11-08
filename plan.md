@@ -106,3 +106,11 @@ Follow-up to #102: release import now fails immediately if the signing
 certificate is absent, rather than reaching notary setup with a nonexistent
 keychain or publishing an unsigned app. This release route already requires
 notarization; no unsigned release fallback is supported. Local guards pass.
+
+## 2026-11-08 - Keychain search preservation and failure regression
+
+Preserve the original keychain search list when importing a CI identity. Fail
+closed on stderr even if the interpreter exits zero, and add a real native
+negative smoke check (unlock nonexistent keychain must raise with output withheld).
+One-command security -i status is retained in Apple's source; native CI verifies
+actual runner behavior. No tag/build/merge; local synthetic tests pass.
