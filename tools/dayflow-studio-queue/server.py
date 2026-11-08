@@ -568,15 +568,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid job id"})
             if not is_valid_identifier(device_id):
                 return self.respond(400, {"error": "invalid device id"})
-            result = COMPLETE / f"{job_id}.json"
-            if result.exists():
-                try:
-                    value = json.loads(result.read_text())
-                    if value.get("device_id") != device_id:
-                        return self.respond(403, {"error": "job belongs to another device"})
-                    result.unlink()
-                except (OSError, json.JSONDecodeError):
-                    return self.respond(500, {"error": "could not acknowledge job"})
+            # Open relative to the result directory and reject symlinks before reading or unlinking.
+            complete_fd = os.open(COMPLETE, os.O_RDONLY | os.O_DIRECTORY)
+            result_name = f"{job_id}.json"
+            try:
+                result_fd = os.open(result_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=complete_fd)
+                with os.fdopen(result_fd, "rb") as f:
+                    value = json.load(f)
+                if not isinstance(value, dict) or value.get("device_id") != device_id:
+                    return self.respond(403, {"error": "job belongs to another device"})
+                os.unlink(result_name, dir_fd=complete_fd)
+            except FileNotFoundError:
+                pass
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                return self.respond(500, {"error": "could not acknowledge job"})
+            finally:
+                os.close(complete_fd)
             return self.respond(200, {"acknowledged": True})
         self.respond(404, {"error": "not found"})
 
