@@ -123,6 +123,7 @@ jobs:
             -scheme "${{ env.SCHEME }}"
             -configuration "${{ env.CONFIG }}"
             -derivedDataPath "${{ env.DERIVED_DATA }}"
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES
           )
           if [[ -n "${SIGN_ID:-}" ]]; then
             XCODE_ARGS+=(CODE_SIGN_IDENTITY="$SIGN_ID" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=LWSR8T5392 CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES)
@@ -139,6 +140,15 @@ jobs:
             XCODE_ARGS+=(SENTRY_DSN="$SENTRY_DSN")
           fi
           xcodebuild "${XCODE_ARGS[@]}" build
+
+      - name: Verify release contents
+        run: |
+          set -euo pipefail
+          APP_PATH="${{ env.DERIVED_DATA }}/Build/Products/${{ env.CONFIG }}/${{ env.APP_NAME }}.app"
+          test "$(lipo -archs "$APP_PATH/Contents/MacOS/${{ env.APP_NAME }}")" = arm64
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")
+          test "$GITHUB_REF" = "refs/tags/v$VERSION"
+          cmp CHANGELOG.md "$APP_PATH/Contents/Resources/CHANGELOG.md"
 
       #-----------------------------------------------------------------------------
       # Codesign the app bundle + frameworks (only when a cert was imported).
@@ -275,6 +285,8 @@ jobs:
             sleep "$delay"
           done
           xcrun stapler validate "${{ env.DMG_NAME }}"
+          spctl -a -vvv --type open --context context:primary-signature "${{ env.DMG_NAME }}"
+          shasum -a 256 "${{ env.DMG_NAME }}" | tee "${{ env.DMG_NAME }}.sha256"
           echo "Notarization complete."
 
       #-----------------------------------------------------------------------------
@@ -298,7 +310,7 @@ jobs:
           else
             echo "See CHANGELOG.md for full details." > "$NOTES_FILE"
           fi
-          gh release create "$TAG" "${{ env.DMG_NAME }}" \
+          gh release create "$TAG" "${{ env.DMG_NAME }}" "${{ env.DMG_NAME }}.sha256" \
             --title "$TITLE" \
             --notes-file "$NOTES_FILE" \
             --draft=false

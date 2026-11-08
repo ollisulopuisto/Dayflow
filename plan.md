@@ -68,3 +68,17 @@ Tip SHAs for deleted branches are in the session scratchpad
   queue tests pass after it. Ruff default E4/E7/E9/F checks pass; the stricter
   inherited configuration has existing warnings, with no new warnings introduced.
 - Native macOS tests and CodeQL will be checked on the pushed PR, not claimed locally.
+
+## Release 2.8.1 preparation (2026-11-08, Instinct)
+
+- Release requested after Olli merged #99. Bump marketing version to 2.8.1 and
+  build to 173; include the Studio queue acknowledgment fixes in both changelogs.
+- Keep automatic What's New and the existing app-menu release notes; add the
+  same release-notes action in Help to match the GUI baseline.
+- Existing standard public-repository release workflow remains direct-to-Release,
+  without Actions cache/artifact writes. Explicit arm64 build, packaged version
+  and changelog checks, Gatekeeper assessment, and published SHA-256 sidecar added.
+- Local host has no Swift/Xcode, so no native compile or UI acceptance is claimed.
+  Shell syntax, YAML, diff hygiene and Python queue regressions checked locally;
+  native compile/tests are checked in PR CI before Olli's merge and tag dispatch.
+- Human-led merge only. No tag or release until this preparation is merged.
