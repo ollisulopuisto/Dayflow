@@ -99,3 +99,10 @@ PR only, no merge/tag/build. Native smoke validation awaits macOS CI.
   project settings. Correct the plist to 2.8.1/173 and update the metadata contract.
 - Release tag held: packaged-version guard would reject the stale bundle.
 - Local upstream-merge contract tests and plist/project consistency checks pass.
+
+## 2026-11-08 - Require signing identity before notarization
+
+Follow-up to #102: release import now fails immediately if the signing
+certificate is absent, rather than reaching notary setup with a nonexistent
+keychain or publishing an unsigned app. This release route already requires
+notarization; no unsigned release fallback is supported. Local guards pass.

@@ -45,6 +45,8 @@ class CredentialTests(unittest.TestCase):
         text = (ROOT / ".github/workflows/release.yml").read_text()
         for bad in ['security create-keychain -p', 'security import "$CERT', '--password "$']:
             self.assertNotIn(bad, text)
+        self.assertIn("BUILD_CERTIFICATE_BASE64 is required", text)
+        self.assertNotIn("skipping code signing", text)
         self.assertIn("macos_ci_credentials.py import-certificate", text)
         self.assertIn("macos_ci_credentials.py store-notary-credentials", text)
         self.assertIn("Native dummy-keychain transport smoke check", text)
