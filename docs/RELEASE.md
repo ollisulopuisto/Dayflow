@@ -133,3 +133,13 @@ This bumps the version, builds, signs, notarizes, creates the GitHub Release,
 updates the appcast, and pushes the tag — all in one go. Requires Xcode,
 Developer ID cert, `sign_update`, `create-dmg`, `gh`, and notarization
 credentials.
+
+## Private manual builds
+
+Dispatch `Release macOS DMG` on merged `main` for an unpublished draft. It uses
+the same required signing, notarization and checksum gates as a tagged release,
+but creates no public version tag or public release and never marks itself latest.
+Downloads include version, manual run number and arm64 architecture. Only the repository owner may dispatch or rerun this manual route. Draft GitHub
+links require repository write access: GitHub drafts are not a per-person privacy
+boundary, so any collaborators with write access can also see them. No Actions artifacts or caches are uploaded.
+Existing version-tag release behavior is unchanged.
