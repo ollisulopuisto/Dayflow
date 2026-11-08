@@ -410,6 +410,26 @@ class EndpointValidationTests(unittest.TestCase):
                 urllib.request.urlopen(req)
             self.assertEqual(ctx.exception.code, 400)
 
+    def test_ack_rejects_path_traversal_job_id(self) -> None:
+        import urllib.error
+        import urllib.request
+        for bad_job_id in (
+            "../../../etc/passwd",
+            "../other/secret",
+            "/etc/passwd",
+            "a/b/c",
+        ):
+            req = urllib.request.Request(
+                f"{self.url}/v1/ack",
+                data=json.dumps({"job_id": bad_job_id, "device_id": "mac"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400)
+            self.assertFalse((self.server.COMPLETE / f"{bad_job_id}.json").exists())
+
     def test_oversized_identifiers_rejected(self) -> None:
         import urllib.request
         import urllib.error

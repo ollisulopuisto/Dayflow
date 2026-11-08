@@ -582,6 +582,14 @@ class Handler(BaseHTTPRequestHandler):
             if not is_valid_identifier(device_id):
                 return self.respond(400, {"error": "invalid device id"})
             result_name = os.path.basename(f"{job_id}.json")
+            # Belt-and-braces path traversal guard: is_valid_identifier already
+            # restricts job_id to alnum/dash, but make sure the resolved result
+            # path cannot escape the COMPLETE directory before opening/unlinking.
+            result_path = (COMPLETE / result_name).resolve()
+            try:
+                result_path.relative_to(COMPLETE.resolve())
+            except ValueError:
+                return self.respond(400, {"error": "invalid job id"})
             complete_fd = None
             try:
                 # Use a directory-relative name and reject symlinks before reading or unlinking.
