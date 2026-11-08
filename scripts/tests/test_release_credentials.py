@@ -115,8 +115,11 @@ class CredentialTests(unittest.TestCase):
         self.assertIn('test "$GITHUB_REF" = refs/heads/main', text)
         self.assertIn('DRAFT_ARGS=(--draft --prerelease --latest=false --target "$GITHUB_SHA")', text)
         self.assertIn('"${DRAFT_ARGS[@]}"', text)
-        self.assertIn('manual.${GITHUB_RUN_NUMBER}-macos-arm64.dmg', text)
+        self.assertIn('manual.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-macos-arm64.dmg', text)
         self.assertIn('test "$VERSION" = "$RELEASE_VERSION"', text)
+        self.assertIn('test "$GITHUB_ACTOR" = ollisulopuisto', text)
+        self.assertIn('test "$GITHUB_TRIGGERING_ACTOR" = ollisulopuisto', text)
+        self.assertIn('manual-dayflow-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}', text)
         self.assertIn("if: github.event_name != 'workflow_dispatch'", text)
 
     def test_workflow_transport(self):

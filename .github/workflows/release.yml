@@ -28,11 +28,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Manual builds are owner-only drafts from merged main, never a public tag.
+      # Manual builds are unpublished drafts from merged main, never a public tag.
       - name: Validate release ref
         run: |
           if [[ "$GITHUB_EVENT_NAME" = workflow_dispatch ]]; then
             test "$GITHUB_REF" = refs/heads/main
+            test "$GITHUB_ACTOR" = ollisulopuisto
+            test "$GITHUB_TRIGGERING_ACTOR" = ollisulopuisto
           else
             case "$GITHUB_REF" in refs/tags/v*) ;; *) exit 1 ;; esac
           fi
@@ -51,7 +53,7 @@ jobs:
           fi
           echo "RELEASE_VERSION=$VERSION" >> "$GITHUB_ENV"
           if [[ "$GITHUB_EVENT_NAME" = workflow_dispatch ]]; then
-            echo "DMG_NAME=${{ env.APP_NAME }}-${VERSION}-manual.${GITHUB_RUN_NUMBER}-macos-arm64.dmg" >> "$GITHUB_ENV"
+            echo "DMG_NAME=${{ env.APP_NAME }}-${VERSION}-manual.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-macos-arm64.dmg" >> "$GITHUB_ENV"
           else
             echo "DMG_NAME=${{ env.APP_NAME }}-${VERSION}.dmg" >> "$GITHUB_ENV"
           fi
@@ -303,7 +305,7 @@ jobs:
         run: |
           DRAFT_ARGS=(--draft=false)
           if [[ "$GITHUB_EVENT_NAME" = workflow_dispatch ]]; then
-            TAG="manual-dayflow-${GITHUB_RUN_ID}"
+            TAG="manual-dayflow-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             DRAFT_ARGS=(--draft --prerelease --latest=false --target "$GITHUB_SHA")
           else
             TAG="${GITHUB_REF#refs/tags/}"
