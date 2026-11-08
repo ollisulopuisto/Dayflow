@@ -41,6 +41,12 @@ class CredentialTests(unittest.TestCase):
                    "TEST_MARKER": str(marker)}
             with patch.dict(os.environ, env): HELPER.store_notary_credentials()
             self.assertEqual(marker.read_text(), "passed")
+    def test_release_guide_matches_required_secrets(self):
+        guide = (ROOT / "docs/RELEASE.md").read_text()
+        for name in ["BUILD_CERTIFICATE_BASE64", "P12_PASSWORD", "KEYCHAIN_PASSWORD", "APPLE_APP_PASSWORD"]:
+            self.assertIn(name, guide)
+        self.assertNotIn("builds unsigned without it", guide)
+        self.assertIn("no unsigned or unnotarized release fallback", guide)
     def test_workflow_transport(self):
         text = (ROOT / ".github/workflows/release.yml").read_text()
         for bad in ['security create-keychain -p', 'security import "$CERT', '--password "$']:
