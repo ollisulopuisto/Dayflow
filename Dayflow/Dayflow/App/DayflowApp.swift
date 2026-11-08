@@ -447,6 +447,13 @@ struct DayflowApp: App {
         }
       }
 
+      CommandGroup(after: .help) {
+        Button("View Release Notes") {
+          NSApp.activate(ignoringOtherApps: true)
+          NotificationCenter.default.post(name: .showWhatsNew, object: nil)
+        }
+      }
+
       // Add Sparkle's update menu item
       CommandGroup(after: .appInfo) {
         Button("Check for Updates…") {

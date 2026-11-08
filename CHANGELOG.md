@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.8.1] - 2026-11-08
+
+### Fixed
+- Reject unsafe Studio queue acknowledgment paths and return controlled errors for cyclic links or filesystem failures.
+- Make release notes available from the Help menu as well as the app menu.
+
+### Build
+- Build and verify the release app for Apple Silicon only.
+
 ## [2.8.0] - 2026-11-07
 
 ### Changed
