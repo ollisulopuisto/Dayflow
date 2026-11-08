@@ -53,3 +53,18 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 Only `main` and `fork/main` (same commit) plus `fork/ui-refresh-dark-mode` remain.
 Tip SHAs for deleted branches are in the session scratchpad
 (`branch-tips-before-cleanup.txt`, `branch-tips-final.txt`).
+
+## PR #99 follow-up (2026-11-08, Instinct)
+
+- Fixed the Devin review finding: `/v1/ack` now runs both result and complete-directory
+  resolution inside its filesystem error handler. Cyclic links (`RuntimeError` on
+  older Python or `OSError` on newer versions) and permission failures return JSON
+  HTTP 500 rather than dropping the connection.
+- Kept the containment guard, directory-relative access, `O_NOFOLLOW`, and device
+  ownership check. No service configuration, deployment, or release changes.
+- Added HTTP regression tests for a real cyclic link, errors from both resolve
+  calls, an external symlink, owned-result acknowledgment/retry, and foreign ownership.
+- Validation: the new regressions reproduced five errors before the fix; all 41
+  queue tests pass after it. Ruff default E4/E7/E9/F checks pass; the stricter
+  inherited configuration has existing warnings, with no new warnings introduced.
+- Native macOS tests and CodeQL will be checked on the pushed PR, not claimed locally.

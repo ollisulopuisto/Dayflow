@@ -582,16 +582,15 @@ class Handler(BaseHTTPRequestHandler):
             if not is_valid_identifier(device_id):
                 return self.respond(400, {"error": "invalid device id"})
             result_name = os.path.basename(f"{job_id}.json")
-            # Belt-and-braces path traversal guard: is_valid_identifier already
-            # restricts job_id to alnum/dash, but make sure the resolved result
-            # path cannot escape the COMPLETE directory before opening/unlinking.
-            result_path = (COMPLETE / result_name).resolve()
-            try:
-                result_path.relative_to(COMPLETE.resolve())
-            except ValueError:
-                return self.respond(400, {"error": "invalid job id"})
             complete_fd = None
             try:
+                # Resolve inside the error handler: loops and permission errors
+                # must return JSON rather than dropping the client's connection.
+                result_path = (COMPLETE / result_name).resolve()
+                try:
+                    result_path.relative_to(COMPLETE.resolve())
+                except ValueError:
+                    return self.respond(400, {"error": "invalid job id"})
                 # Use a directory-relative name and reject symlinks before reading or unlinking.
                 complete_fd = os.open(COMPLETE, os.O_RDONLY | os.O_DIRECTORY)
                 result_fd = os.open(result_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=complete_fd)
@@ -603,7 +602,7 @@ class Handler(BaseHTTPRequestHandler):
             except FileNotFoundError:
                 # Missing directory, missing result, or a concurrent ack all mean it's gone.
                 pass
-            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            except (OSError, RuntimeError, json.JSONDecodeError, UnicodeDecodeError):
                 return self.respond(500, {"error": "could not acknowledge job"})
             finally:
                 if complete_fd is not None:
