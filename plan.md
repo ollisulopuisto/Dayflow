@@ -93,3 +93,9 @@ pattern, with dummy-data regression tests and an actual disposable macOS keychai
 smoke check before real credential setup. Bare-filename checksums are retained.
 Release routes remain direct GitHub Releases without cache/artifact writes.
 PR only, no merge/tag/build. Native smoke validation awaits macOS CI.
+## Release 2.8.1 metadata correction (2026-11-08, Instinct)
+
+- Final review of #100 found literal Info.plist versions were not updated with
+  project settings. Correct the plist to 2.8.1/173 and update the metadata contract.
+- Release tag held: packaged-version guard would reject the stale bundle.
+- Local upstream-merge contract tests and plist/project consistency checks pass.
