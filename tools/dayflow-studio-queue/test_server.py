@@ -410,6 +410,86 @@ class EndpointValidationTests(unittest.TestCase):
                 urllib.request.urlopen(req)
             self.assertEqual(ctx.exception.code, 400)
 
+    def test_ack_rejects_path_traversal_job_id(self) -> None:
+        import urllib.error
+        import urllib.request
+        for bad_job_id in (
+            "../../../etc/passwd",
+            "../other/secret",
+            "/etc/passwd",
+            "a/b/c",
+        ):
+            req = urllib.request.Request(
+                f"{self.url}/v1/ack",
+                data=json.dumps({"job_id": bad_job_id, "device_id": "mac"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400)
+            self.assertFalse((self.server.COMPLETE / f"{bad_job_id}.json").exists())
+
+    def post_ack(self, job_id: str = "job-1", expected_status: int = 200) -> dict:
+        import urllib.error
+        import urllib.request
+        req = urllib.request.Request(
+            f"{self.url}/v1/ack",
+            data=json.dumps({"job_id": job_id, "device_id": "mac"}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            response = urllib.request.urlopen(req)
+        except urllib.error.HTTPError as error:
+            response = error
+        with response:
+            self.assertEqual(response.code, expected_status)
+            return json.load(response)
+
+    def test_ack_cyclic_result_link_returns_json_error(self) -> None:
+        result = self.server.COMPLETE / "job-1.json"
+        result.symlink_to(result.name)
+        self.assertEqual(self.post_ack(expected_status=500), {"error": "could not acknowledge job"})
+        self.assertTrue(result.is_symlink())
+
+    def test_ack_resolution_errors_return_json_error(self) -> None:
+        from unittest.mock import patch
+        original_resolve = Path.resolve
+        result = self.server.COMPLETE / "job-1.json"
+        for target in (result, self.server.COMPLETE):
+            for error in (PermissionError("denied"), RuntimeError("symlink loop")):
+                with self.subTest(target=target.name, error=type(error).__name__):
+                    def resolve(path, *args, target=target, error=error, **kwargs):
+                        if path == target:
+                            raise error
+                        return original_resolve(path, *args, **kwargs)
+                    with patch.object(Path, "resolve", resolve):
+                        self.assertEqual(self.post_ack(expected_status=500),
+                                         {"error": "could not acknowledge job"})
+
+    def test_ack_external_result_link_does_not_remove_target(self) -> None:
+        target = self.server.ROOT / "outside.json"
+        target.write_text(json.dumps({"device_id": "mac"}))
+        result = self.server.COMPLETE / "job-1.json"
+        result.symlink_to(target)
+        self.assertEqual(self.post_ack(expected_status=400), {"error": "invalid job id"})
+        self.assertTrue(target.exists())
+        self.assertTrue(result.is_symlink())
+
+    def test_ack_removes_owned_result_and_is_idempotent(self) -> None:
+        result = self.server.COMPLETE / "job-1.json"
+        result.write_text(json.dumps({"device_id": "mac"}))
+        self.assertEqual(self.post_ack(), {"acknowledged": True})
+        self.assertFalse(result.exists())
+        self.assertEqual(self.post_ack(), {"acknowledged": True})
+
+    def test_ack_keeps_another_devices_result(self) -> None:
+        result = self.server.COMPLETE / "job-1.json"
+        result.write_text(json.dumps({"device_id": "another-mac"}))
+        self.assertEqual(self.post_ack(expected_status=403), {"error": "job belongs to another device"})
+        self.assertTrue(result.exists())
+
     def test_oversized_identifiers_rejected(self) -> None:
         import urllib.request
         import urllib.error
