@@ -515,11 +515,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid job id"})
             if not is_valid_identifier(body.get("device_id")):
                 return self.respond(400, {"error": "invalid device id"})
-            # Security: Validate batch_id type to prevent downstream deserialization failures and orphan results
-            batch_id = body.get("batch_id")
-            if type(batch_id) is not int or batch_id < 0:
+            batch_id = body["batch_id"]
+            if type(batch_id) is not int or not 0 <= batch_id <= (1 << 63) - 1:
                 return self.respond(400, {"error": "invalid batch id"})
-            if "categories" in body and not isinstance(body["categories"], list):
+            categories = body.get("categories", [])
+            if not isinstance(categories, list) or any(
+                not isinstance(category, dict)
+                or not isinstance(category.get("name"), str)
+                or not category["name"].strip()
+                for category in categories
+            ):
                 return self.respond(400, {"error": "invalid categories"})
             if not body["screenshots"] or len(body["screenshots"]) > 15:
                 return self.respond(400, {"error": "a job must contain 1 to 15 screenshots"})
