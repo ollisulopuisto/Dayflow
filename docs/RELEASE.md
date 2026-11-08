@@ -2,13 +2,13 @@
 
 Dayflow releases are produced automatically by GitHub Actions. Pushing a tag
 matching `v*` (e.g. `v2.7.8`) to this repository triggers the
-[release workflow](.github/workflows/release.yml), which:
+[release workflow](../.github/workflows/release.yml), which:
 
 1. Builds the app with Xcode (Release configuration)
-2. Codesigns it with a Developer ID certificate (if configured)
+2. Codesigns it with the required Developer ID certificate
 3. Creates a signed DMG with `create-dmg`
-4. Notarizes the DMG with Apple notarytool (if credentials are configured)
-5. Creates a GitHub Release and uploads the DMG as an asset
+4. Notarizes the DMG with the required Apple credentials, staples its ticket, and checks Gatekeeper
+5. Creates a GitHub Release and uploads the versioned arm64 DMG and SHA-256 sidecar
 6. Optionally uploads dSYMs to Sentry for crash symbolication
 
 ## Making a release
@@ -17,8 +17,11 @@ matching `v*` (e.g. `v2.7.8`) to this repository triggers the
    (`MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`) and in
    `Dayflow/Dayflow/Info.plist` (`CFBundleShortVersionString` and
    `CFBundleVersion`).
-2. Add a CHANGELOG entry under a new `## Unreleased` → `## vX.Y.Z` section.
-3. Commit the changes:
+2. Add a `## [X.Y.Z] - YYYY-MM-DD` entry to `CHANGELOG.md` and copy it to
+   `Dayflow/Dayflow/CHANGELOG.md` for the bundled What's New. Update the release
+   metadata contract in `scripts/ci/test_upstream_merge_contract.py`.
+3. Open a PR for the changes, wait for checks, and have the owner merge it.
+   Build releases from the latest merged main. Example commit:
    ```
    git commit -m "release: bump to vX.Y.Z (build N)"
    ```
@@ -69,11 +72,12 @@ Configure these in the repository settings → Secrets and variables → Actions
 
 | Secret | Purpose | Required? |
 |--------|---------|-----------|
-| `SIGNING_CERTIFICATE_P12` | Base64-encoded Developer ID Application `.p12` certificate | No (builds unsigned without it) |
-| `SIGNING_CERTIFICATE_PASSWORD` | Password for the `.p12` | No (needed with the above) |
-| `NOTARY_APPLE_ID` | Apple ID for notarization | No |
-| `NOTARY_APP_PASSWORD` | App-specific password for notarization | No |
-| `NOTARY_TEAM_ID` | Apple Developer Team ID | No |
+| `BUILD_CERTIFICATE_BASE64` | Base64-encoded Developer ID Application `.p12` certificate for team `LWSR8T5392` | Yes |
+| `P12_PASSWORD` | Password for the `.p12` | Yes |
+| `KEYCHAIN_PASSWORD` | Password for the disposable CI signing keychain | Yes |
+| `NOTARY_APPLE_ID` or `APPLE_ID` | Apple ID for notarization (NOTARY name wins) | Yes, one |
+| `NOTARY_APP_PASSWORD` or `APPLE_APP_PASSWORD` | App-specific password (NOTARY name wins) | Yes, one |
+| `NOTARY_TEAM_ID` | Apple Developer Team ID | No, defaults to `LWSR8T5392` |
 | `DAYFLOW_BACKEND_URL` | Backend URL injected into `Info.plist` | No (app won't connect without it) |
 | `POSTHOG_API_KEY` | PostHog analytics key injected into `Info.plist` | No |
 | `SENTRY_DSN` | Sentry crash-reporting DSN injected into `Info.plist` | No |
@@ -92,14 +96,18 @@ base64 -i cert.p12 | pbcopy  # then paste into the secret
 ```
 
 Import it in the workflow (already handled automatically when
-`SIGNING_CERTIFICATE_P12` is set).
+`BUILD_CERTIFICATE_BASE64`, `P12_PASSWORD`, and `KEYCHAIN_PASSWORD` are set).
 
 ### Setting up notarization
 
-Create a notarytool keychain profile locally, or provide `NOTARY_APPLE_ID`,
-`NOTARY_APP_PASSWORD` (app-specific password), and `NOTARY_TEAM_ID` as secrets.
-Without notarization, the DMG will still be built and attached to the release,
-but macOS Gatekeeper will block it on first launch for end users.
+The CI workflow creates its own temporary keychain profile. Provide the Apple ID
+and app-specific password secrets listed above. A local profile is not available
+on a fresh GitHub runner. Passwords reach keychain tools over stdin or a private,
+echo-disabled TTY, never process arguments; submit/log use the stored profile.
+
+Missing signing or notarization credentials fail the release before publication.
+There is no unsigned or unnotarized release fallback. A local unsigned compile is
+still available via `scripts/build_local.sh --unsigned` and is not a release.
 
 ## Sparkle auto-updates
 

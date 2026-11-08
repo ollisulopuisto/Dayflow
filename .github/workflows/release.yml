@@ -80,9 +80,8 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           if [[ -z "$SIGNING_CERTIFICATE_P12" ]]; then
-            echo "No BUILD_CERTIFICATE_BASE64 secret; skipping code signing."
-            echo "SIGN_ID=" >> $GITHUB_ENV
-            exit 0
+            echo "::error::BUILD_CERTIFICATE_BASE64 is required for a signed, notarized release."
+            exit 1
           fi
           set -euo pipefail
           test -n "$SIGNING_CERTIFICATE_PASSWORD"
