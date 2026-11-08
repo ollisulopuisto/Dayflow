@@ -83,6 +83,16 @@ Tip SHAs for deleted branches are in the session scratchpad
   native compile/tests are checked in PR CI before Olli's merge and tag dispatch.
 - Human-led merge only. No tag or release until this preparation is merged.
 
+## 2026-11-08 - Release credential transport hardening
+
+Keep certificate/keychain passwords out of process argv via security -i stdin;
+store notary credentials via echo-disabled private TTY and use keychain profiles
+for submit/log. Child environments drop secret aliases, errors withhold output,
+and line-protocol values reject newline/NUL injection. Reuse the Kuulas transport
+pattern, with dummy-data regression tests and an actual disposable macOS keychain
+smoke check before real credential setup. Bare-filename checksums are retained.
+Release routes remain direct GitHub Releases without cache/artifact writes.
+PR only, no merge/tag/build. Native smoke validation awaits macOS CI.
 ## Release 2.8.1 metadata correction (2026-11-08, Instinct)
 
 - Final review of #100 found literal Info.plist versions were not updated with

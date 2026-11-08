@@ -67,6 +67,12 @@ jobs:
       # Map the repository's generic base64 .p12 and password secrets to the
       # names this workflow uses; secret values stay in the environment.
       #-----------------------------------------------------------------------------
+      - name: Credential transport guards
+        run: python3 -m unittest discover -s scripts/tests -p test_release_credentials.py -v
+
+      - name: Native dummy-keychain transport smoke check
+        run: python3 tests/manual/test_macos_keychain_transport.py -v
+
       - name: Import code-signing certificate
         env:
           SIGNING_CERTIFICATE_P12: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -84,15 +90,9 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/dayflow-signing.keychain-db"
           CERTIFICATE_PATH="$RUNNER_TEMP/dayflow-certificate.p12"
           printf '%s' "$SIGNING_CERTIFICATE_P12" | base64 -D -o "$CERTIFICATE_PATH"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" \
-            -P "$SIGNING_CERTIFICATE_PASSWORD" \
-            -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          export KEYCHAIN_PATH CERTIFICATE_PATH
+          export P12_PASSWORD="$SIGNING_CERTIFICATE_PASSWORD"
+          python3 scripts/macos_ci_credentials.py import-certificate
           rm -f "$CERTIFICATE_PATH"
           security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
             | grep -F 'Developer ID Application: Olli Sulopuisto (LWSR8T5392)'
@@ -231,10 +231,6 @@ jobs:
           codesign --force --timestamp --sign "$SIGN_ID" "${{ env.DMG_NAME }}"
           codesign --verify --verbose=2 "${{ env.DMG_NAME }}"
 
-      - name: Remove signing keychain
-        if: always()
-        run: security delete-keychain "$RUNNER_TEMP/dayflow-signing.keychain-db" || true
-
       #-----------------------------------------------------------------------------
       # Notarize every release DMG. Credentials must be configured as repository secrets.
       #-----------------------------------------------------------------------------
@@ -250,11 +246,12 @@ jobs:
             echo "::error::APPLE_ID / APPLE_APP_PASSWORD secrets are missing; a release must be notarised."
             exit 1
           fi
+          export APPLE_ID="$NOTARY_APPLE_ID" APPLE_APP_PASSWORD="$NOTARY_APP_PASSWORD" APPLE_TEAM_ID="$NOTARY_TEAM_ID"
+          export KEYCHAIN_PATH="$RUNNER_TEMP/dayflow-signing.keychain-db"
+          python3 scripts/macos_ci_credentials.py store-notary-credentials
           echo "Submitting DMG for notarization…"
           SUBMISSION=$(xcrun notarytool submit "${{ env.DMG_NAME }}" \
-            --apple-id "$NOTARY_APPLE_ID" \
-            --team-id "$NOTARY_TEAM_ID" \
-            --password "$NOTARY_APP_PASSWORD" \
+            --keychain-profile dayflow-ci-notary --keychain "$KEYCHAIN_PATH" \
             --output-format json \
             --wait)
           echo "$SUBMISSION"
@@ -263,9 +260,7 @@ jobs:
           if [[ "$STATUS" != "Accepted" ]]; then
             echo "::error::Apple notarization finished with status: $STATUS"
             xcrun notarytool log "$SUBMISSION_ID" \
-              --apple-id "$NOTARY_APPLE_ID" \
-              --team-id "$NOTARY_TEAM_ID" \
-              --password "$NOTARY_APP_PASSWORD" \
+              --keychain-profile dayflow-ci-notary --keychain "$KEYCHAIN_PATH" \
               --output-format json || true
             exit 1
           fi
@@ -287,7 +282,12 @@ jobs:
           xcrun stapler validate "${{ env.DMG_NAME }}"
           spctl -a -vvv --type open --context context:primary-signature "${{ env.DMG_NAME }}"
           shasum -a 256 "${{ env.DMG_NAME }}" | tee "${{ env.DMG_NAME }}.sha256"
+          shasum -a 256 -c "${{ env.DMG_NAME }}.sha256"
           echo "Notarization complete."
+
+      - name: Remove signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/dayflow-signing.keychain-db" || true
 
       #-----------------------------------------------------------------------------
       # Create GitHub Release and upload the DMG as an asset.
