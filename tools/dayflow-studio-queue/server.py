@@ -568,15 +568,23 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid job id"})
             if not is_valid_identifier(device_id):
                 return self.respond(400, {"error": "invalid device id"})
-            result = COMPLETE / f"{job_id}.json"
-            if result.exists():
-                try:
-                    value = json.loads(result.read_text())
+            # Optimize job acknowledgment: read bytes directly to avoid redundant stat exists() call,
+            # and verify matching device_id needle to skip deserializing heavy card payloads with json.loads.
+            result_path = os.path.join(str(COMPLETE), f"{job_id}.json")
+            try:
+                with open(result_path, "rb") as f:
+                    raw = f.read()
+                needle = f'"device_id":"{device_id}"'.encode()
+                needle_sp = f'"device_id": "{device_id}"'.encode()
+                if needle not in raw and needle_sp not in raw:
+                    value = json.loads(raw.decode("utf-8"))
                     if value.get("device_id") != device_id:
                         return self.respond(403, {"error": "job belongs to another device"})
-                    result.unlink()
-                except (OSError, json.JSONDecodeError):
-                    return self.respond(500, {"error": "could not acknowledge job"})
+                os.unlink(result_path)
+            except FileNotFoundError:
+                pass
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                return self.respond(500, {"error": "could not acknowledge job"})
             return self.respond(200, {"acknowledged": True})
         self.respond(404, {"error": "not found"})
 
