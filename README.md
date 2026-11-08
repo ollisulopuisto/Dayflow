@@ -19,7 +19,7 @@ The app target supports macOS 14 or later. This fork's release workflow builds
    write access. A missing public download does not mean a draft build is public.
 2. Download the DMG and its `.sha256` file. From their download folder, check it:
    ```sh
-   shasum -a 256 -c Dayflow-<build-name>.dmg.sha256
+   shasum -a 256 -c 'Dayflow-actual-build-name.dmg.sha256'
    ```
    Replace the example filename with the actual checksum filename.
 3. Open the DMG and drag Dayflow into Applications.
