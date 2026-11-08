@@ -82,3 +82,10 @@ Tip SHAs for deleted branches are in the session scratchpad
   Shell syntax, YAML, diff hygiene and Python queue regressions checked locally;
   native compile/tests are checked in PR CI before Olli's merge and tag dispatch.
 - Human-led merge only. No tag or release until this preparation is merged.
+
+## Release 2.8.1 metadata correction (2026-11-08, Instinct)
+
+- Final review of #100 found literal Info.plist versions were not updated with
+  project settings. Correct the plist to 2.8.1/173 and update the metadata contract.
+- Release tag held: packaged-version guard would reject the stale bundle.
+- Local upstream-merge contract tests and plist/project consistency checks pass.
