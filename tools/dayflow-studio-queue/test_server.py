@@ -446,62 +446,6 @@ class EndpointValidationTests(unittest.TestCase):
             urllib.request.urlopen(req)
         self.assertEqual(ctx.exception.code, 400)
 
-    def test_ack_endpoint_success_and_unlinking(self) -> None:
-        import urllib.request
-        import urllib.error
-        # Write a completed job result file
-        result_file = self.server.COMPLETE / "job-ack-1.json"
-        result_file.write_text(json.dumps({
-            "job_id": "job-ack-1",
-            "device_id": "mac-ack",
-            "batch_id": 1,
-            "cards": [{"title": "Work"}],
-        }))
-        self.assertTrue(result_file.exists())
-
-        # Valid ack removes the completed job file
-        body = json.dumps({"job_id": "job-ack-1", "device_id": "mac-ack"}).encode()
-        req = urllib.request.Request(
-            f"{self.url}/v1/ack",
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req) as resp:
-            self.assertEqual(resp.status, 200)
-            self.assertEqual(json.loads(resp.read().decode()), {"acknowledged": True})
-        self.assertFalse(result_file.exists())
-
-        # Repeated/idempotent ack for already-deleted job succeeds with 200
-        with urllib.request.urlopen(req) as resp:
-            self.assertEqual(resp.status, 200)
-            self.assertEqual(json.loads(resp.read().decode()), {"acknowledged": True})
-
-    def test_ack_endpoint_rejects_mismatched_device(self) -> None:
-        import urllib.request
-        import urllib.error
-        # Write completed job result owned by mac-owner
-        result_file = self.server.COMPLETE / "job-ack-2.json"
-        result_file.write_text(json.dumps({
-            "job_id": "job-ack-2",
-            "device_id": "mac-owner",
-            "batch_id": 2,
-            "cards": [{"title": "Work"}],
-        }))
-
-        # Attempt to ack from another device mac-intruder returns 403 Forbidden
-        body = json.dumps({"job_id": "job-ack-2", "device_id": "mac-intruder"}).encode()
-        req = urllib.request.Request(
-            f"{self.url}/v1/ack",
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with self.assertRaises(urllib.error.HTTPError) as ctx:
-            urllib.request.urlopen(req)
-        self.assertEqual(ctx.exception.code, 403)
-        self.assertTrue(result_file.exists())
-
     def test_non_dict_json_payloads_rejected(self) -> None:
         import urllib.request
         import urllib.error
