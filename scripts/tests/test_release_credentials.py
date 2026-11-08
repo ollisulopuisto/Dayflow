@@ -110,6 +110,15 @@ class CredentialTests(unittest.TestCase):
         self.assertNotIn("builds unsigned without it", guide)
         self.assertIn("no unsigned or unnotarized release fallback", guide)
 
+    def test_manual_build_is_private_draft_from_main(self):
+        text = (ROOT / ".github/workflows/release.yml").read_text()
+        self.assertIn('test "$GITHUB_REF" = refs/heads/main', text)
+        self.assertIn('DRAFT_ARGS=(--draft --prerelease --latest=false --target "$GITHUB_SHA")', text)
+        self.assertIn('"${DRAFT_ARGS[@]}"', text)
+        self.assertIn('manual.${GITHUB_RUN_NUMBER}-macos-arm64.dmg', text)
+        self.assertIn('test "$VERSION" = "$RELEASE_VERSION"', text)
+        self.assertIn("if: github.event_name != 'workflow_dispatch'", text)
+
     def test_workflow_transport(self):
         text = (ROOT / ".github/workflows/release.yml").read_text()
         for bad in [
