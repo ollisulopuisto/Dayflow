@@ -578,6 +578,8 @@ class EndpointValidationTests(unittest.TestCase):
             {"image_base64": IMAGE, "captured_at": True},  # bool timestamp
             {"image_base64": 12345, "captured_at": 1792015200},  # non-string image_base64
             {"image_base64": IMAGE, "captured_at": 10**14},  # timestamp out of bounds
+            {"image_base64": IMAGE, "captured_at": 1792015199},  # captured_at < start_ts
+            {"image_base64": IMAGE, "captured_at": 1792015801},  # captured_at > end_ts
         ]
         for bad_shot in invalid_screenshots:
             bad_job = make_job("bad-shot-job")
