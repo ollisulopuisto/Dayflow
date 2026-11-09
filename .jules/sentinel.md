@@ -1,3 +1,11 @@
+## 2026-11-10 - Schedule Window Format Type Validation Preventing Unhandled Request Crashes
+
+**Vulnerability:** In `dayflow-studio-queue`, `/v1/jobs` inspected schedule window fields (`window_start`, `window_end`) by attempting string splitting without asserting their primitive string type. Supplying non-string values (such as integers, nulls, booleans, arrays, or objects) resulted in an unhandled `AttributeError`, bypassing standard HTTP error handling and abruptly terminating request threads.
+
+**Learning:** When string parsing routines like `.split()` are invoked on optional or dictionary-extracted fields with defaults, omitting explicit type checks permits valid non-string JSON primitives and collections to trigger unhandled `AttributeError` exceptions that escape common validation exception tuples (`ValueError`, `KeyError`, `TypeError`).
+
+**Prevention:** Validate primitive types (`isinstance(val, str)`) prior to invoking string manipulation methods on input fields, and include `AttributeError` in top-level request validation exception guards as defense in depth.
+
 ## 2026-11-08 - Screenshot Capture Timestamp Relational Range Validation
 
 **Vulnerability:** In `dayflow-studio-queue`, `/v1/jobs` verified screenshot timestamp primitive types (`captured_at`) and parseability via `datetime.fromtimestamp()`, but omitted validating that each capture timestamp was contained within the job's batch time range (`start_ts <= captured_at <= end_ts`). Payloads with out-of-range capture timestamps caused downstream AI timeline prompts with discordant image timestamps, producing cards that failed downstream range checks in `parse_cards()` and triggering repeated job failures.
