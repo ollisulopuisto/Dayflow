@@ -235,20 +235,24 @@ def parse_cards(answer: str, job: dict) -> list[dict]:
 def card_epoch(clock_text: str, zone: ZoneInfo, anchor_ts: int,
                strictly_after: Optional[int] = None) -> int:
     """Resolve a normalized local clock label to the nearest matching batch date."""
+    # Pre-parse hour/minute and compute candidates as integer timestamps to avoid
+    # redundant datetime allocations, lambda evaluation, and repeated .timestamp() calls.
     hour_minute, meridiem = clock_text.split()
-    hour, minute = map(int, hour_minute.split(":"))
-    hour = hour % 12 + (12 if meridiem == "PM" else 0)
-    anchor = datetime.fromtimestamp(anchor_ts, zone)
-    candidates = [
-        datetime.combine(anchor.date() + timedelta(days=offset), datetime_time(hour, minute), tzinfo=zone)
-        for offset in (-1, 0, 1, 2)
-    ]
+    colon = hour_minute.find(":")
+    hour, minute = int(hour_minute[:colon]), int(hour_minute[colon + 1:])
+    hour24 = (hour % 12) + (12 if meridiem == "PM" else 0)
+    anchor_date = datetime.fromtimestamp(anchor_ts, zone).date()
+    t = datetime_time(hour24, minute)
+    c0 = int(datetime.combine(anchor_date - timedelta(days=1), t, tzinfo=zone).timestamp())
+    c1 = int(datetime.combine(anchor_date, t, tzinfo=zone).timestamp())
+    c2 = int(datetime.combine(anchor_date + timedelta(days=1), t, tzinfo=zone).timestamp())
+    c3 = int(datetime.combine(anchor_date + timedelta(days=2), t, tzinfo=zone).timestamp())
     if strictly_after is not None:
-        candidates = [candidate for candidate in candidates if candidate.timestamp() > strictly_after]
-        if not candidates:
-            return 0
-        return int(min(candidates, key=lambda candidate: candidate.timestamp()).timestamp())
-    return int(min(candidates, key=lambda candidate: abs(candidate.timestamp() - anchor_ts)).timestamp())
+        for c in (c0, c1, c2, c3):
+            if c > strictly_after:
+                return c
+        return 0
+    return min((c0, c1, c2, c3), key=lambda c: abs(c - anchor_ts))
 
 
 def may_process(upload_schedule: dict, now: Optional[datetime] = None) -> bool:

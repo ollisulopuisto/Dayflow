@@ -627,5 +627,43 @@ class SyncFallbackTests(unittest.TestCase):
             gpu.close()
 
 
+class CardEpochTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = load_server()
+        self.zone = ZoneInfo("Europe/Helsinki")
+
+    def test_card_epoch_resolves_closest_anchor_date(self) -> None:
+        # 2026-10-15 10:00:00 EEST (UTC+3) -> timestamp 1792047600
+        anchor_dt = datetime(2026, 10, 15, 10, 0, tzinfo=self.zone)
+        anchor_ts = int(anchor_dt.timestamp())
+        # Resolving 10:15 AM on same day
+        ts_1015 = self.server.card_epoch("10:15 AM", self.zone, anchor_ts)
+        self.assertEqual(ts_1015, anchor_ts + 15 * 60)
+
+        # Evening anchor at 9:00 PM (21:00) resolving 10:30 PM (22:30) on same day
+        evening_anchor_dt = datetime(2026, 10, 15, 21, 0, tzinfo=self.zone)
+        evening_anchor_ts = int(evening_anchor_dt.timestamp())
+        ts_pm = self.server.card_epoch("10:30 PM", self.zone, evening_anchor_ts)
+        expected_pm = int(datetime(2026, 10, 15, 22, 30, tzinfo=self.zone).timestamp())
+        self.assertEqual(ts_pm, expected_pm)
+
+    def test_card_epoch_strictly_after_handles_day_transitions(self) -> None:
+        # Anchor at 11:45 PM
+        anchor_dt = datetime(2026, 10, 15, 23, 45, tzinfo=self.zone)
+        anchor_ts = int(anchor_dt.timestamp())
+        # Strictly after 11:45 PM: 12:15 AM must resolve to next day 2026-10-16 00:15 AM
+        next_day_ts = self.server.card_epoch("12:15 AM", self.zone, anchor_ts, strictly_after=anchor_ts)
+        expected_next = int(datetime(2026, 10, 16, 0, 15, tzinfo=self.zone).timestamp())
+        self.assertEqual(next_day_ts, expected_next)
+        self.assertGreater(next_day_ts, anchor_ts)
+
+    def test_card_epoch_strictly_after_unreachable_returns_zero(self) -> None:
+        anchor_dt = datetime(2026, 10, 15, 10, 0, tzinfo=self.zone)
+        anchor_ts = int(anchor_dt.timestamp())
+        far_future = anchor_ts + 7 * 86400
+        result = self.server.card_epoch("10:15 AM", self.zone, anchor_ts, strictly_after=far_future)
+        self.assertEqual(result, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
