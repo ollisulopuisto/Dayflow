@@ -1,3 +1,11 @@
+## 2026-11-08 - Screenshot Capture Timestamp Relational Range Validation
+
+**Vulnerability:** In `dayflow-studio-queue`, `/v1/jobs` verified screenshot timestamp primitive types (`captured_at`) and parseability via `datetime.fromtimestamp()`, but omitted validating that each capture timestamp was contained within the job's batch time range (`start_ts <= captured_at <= end_ts`). Payloads with out-of-range capture timestamps caused downstream AI timeline prompts with discordant image timestamps, producing cards that failed downstream range checks in `parse_cards()` and triggering repeated job failures.
+
+**Learning:** Verifying individual field types and absolute range boundaries does not guarantee relational consistency between related fields; nested collection items must be bounded by parent or batch scope constraints to prevent poisoned queue jobs from causing downstream validation or processing failures.
+
+**Prevention:** Enforce relational bounds (`start_ts <= shot["captured_at"] <= end_ts`) at API ingress before accepting and persisting queued jobs.
+
 ## 2026-11-07 - Ingress Batch Identifier and Payload Structure Validation
 
 **Vulnerability:** In `dayflow-studio-queue`, `/v1/jobs` verified the presence of `batch_id` without verifying its primitive type or range, and accepted arbitrary non-list values for `categories`. Submitting boolean or string-encoded `batch_id` values persisted through processing, but failed downstream deserialization on macOS client poll loops (`result["batch_id"] as? NSNumber`), causing completed jobs to remain unacknowledged and accumulating indefinitely in storage.

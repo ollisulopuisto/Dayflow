@@ -561,6 +561,8 @@ class Handler(BaseHTTPRequestHandler):
                     base64.b64decode(shot["image_base64"], validate=True)
                     if type(shot.get("captured_at")) is not int:
                         raise ValueError("invalid captured_at type")
+                    if not (start_ts <= shot["captured_at"] <= end_ts):
+                        raise ValueError("screenshot captured_at outside batch time range")
                     datetime.fromtimestamp(shot["captured_at"], tz)
             except (ValueError, KeyError, TypeError, OverflowError, ZoneInfoNotFoundError):
                 return self.respond(400, {"error": "invalid screenshot or processing schedule"})
