@@ -587,7 +587,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid job id"})
             if not is_valid_identifier(device_id):
                 return self.respond(400, {"error": "invalid device id"})
+            # job_id passed is_valid_identifier ([A-Za-z0-9-]{1,128}), so f"{job_id}.json" is a
+            # single path component: it cannot contain "/" or "..". basename() is belt-and-suspenders
+            # in case the validator is ever relaxed. The name is therefore safe to use with dir_fd.
             result_name = os.path.basename(f"{job_id}.json")
+            if "/" in result_name or "\\" in result_name or result_name in (".", ".."):
+                # Defensive: never let a job id escape the result directory.
+                return self.respond(400, {"error": "invalid job id"})
             complete_fd = None
             try:
                 # Resolve inside the error handler: loops and permission errors
@@ -597,7 +603,9 @@ class Handler(BaseHTTPRequestHandler):
                     result_path.relative_to(COMPLETE.resolve())
                 except ValueError:
                     return self.respond(400, {"error": "invalid job id"})
-                # Use a directory-relative name and reject symlinks before reading or unlinking.
+                # Open and unlink relative to COMPLETE's directory fd, rejecting symlinks
+                # (O_NOFOLLOW). result_name is a single safe path component, so it cannot
+                # escape COMPLETE.
                 complete_fd = os.open(COMPLETE, os.O_RDONLY | os.O_DIRECTORY)
                 result_fd = os.open(result_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=complete_fd)
                 with os.fdopen(result_fd, "rb") as f:

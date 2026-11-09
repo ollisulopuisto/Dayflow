@@ -526,6 +526,14 @@ class EndpointValidationTests(unittest.TestCase):
             urllib.request.urlopen(req)
         self.assertEqual(ctx.exception.code, 400)
 
+    def test_identifier_rejects_path_traversal_and_special_chars(self) -> None:
+        # is_valid_identifier suojaa /v1/ack-polkusyöttöjä: sallittu vain [A-Za-z0-9-]{1,128},
+        # joten tunnisteesta ei voi muodostua polkua COMPLETEn ulkopuolelle.
+        for bad in ("../x", "..", ".", "a/b", "a\\b", "a b", "a;b", "a'b", "", "   ", "../../etc/passwd"):
+            self.assertFalse(self.server.is_valid_identifier(bad), f"tunniste '{bad}' pitäisi hylätä")
+        for good in ("job-1", "a", "A", "z9", "a" * 128):
+            self.assertTrue(self.server.is_valid_identifier(good), f"tunniste '{good}' pitäisi kelvata")
+
     def test_non_dict_json_payloads_rejected(self) -> None:
         import urllib.request
         import urllib.error
