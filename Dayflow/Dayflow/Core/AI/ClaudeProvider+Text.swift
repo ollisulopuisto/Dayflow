@@ -64,6 +64,7 @@ extension ClaudeProvider {
 
     let run: ChatCLIRunResult
     do {
+      try await ProviderConsentGate.requireCLI(cliTool)
       run = try await Task.detached {
         try self.runAndScrub(
           prompt: prompt,

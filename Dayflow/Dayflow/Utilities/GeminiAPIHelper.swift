@@ -27,6 +27,7 @@ final class GeminiAPIHelper {
         throw APIError.networkError(
           String(localized: "Outside network access is blocked. Grant permission in the network alarm."))
       }
+      try await ProviderConsentGate.requireHTTP(url)
       return try await URLSession.shared.data(for: request)
     }
     logsRequests = true

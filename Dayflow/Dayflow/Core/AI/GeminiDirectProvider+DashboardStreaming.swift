@@ -20,6 +20,7 @@ extension GeminiDirectProvider {
     request.timeoutInterval = 180
     request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
+    try await ProviderConsentGate.requireHTTP(request.url)
     let (bytes, response) = try await URLSession.shared.bytes(for: request)
     guard let httpResponse = response as? HTTPURLResponse else {
       throw NSError(
@@ -111,6 +112,7 @@ extension GeminiDirectProvider {
     request.timeoutInterval = 180
     request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
+    try await ProviderConsentGate.requireHTTP(request.url)
     let (data, response) = try await URLSession.shared.data(for: request)
     guard let httpResponse = response as? HTTPURLResponse else {
       throw NSError(

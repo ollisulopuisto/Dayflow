@@ -31,6 +31,7 @@ final class ClaudeProvider: AgentCLISupporting {
     inlineImages: [ClaudeInlineImage] = [],
     environmentOverrides: [String: String] = [:]
   ) async throws -> ChatCLIRunResult {
+    try await ProviderConsentGate.requireCLI(.claude)
     let runner = runner
     let workingDirectory = config.workingDirectory
     return try await Task.detached(priority: .utility) {

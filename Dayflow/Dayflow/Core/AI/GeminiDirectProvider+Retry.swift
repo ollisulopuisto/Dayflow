@@ -27,6 +27,12 @@ extension GeminiDirectProvider {
   }
 
   func classifyError(_ error: Error) -> RetryStrategy {
+    // A declined provider consent is a user decision, not a transient failure:
+    // never retry it, or the user would be prompted again on each attempt.
+    if error is ProviderConsentError {
+      return .noRetry
+    }
+
     // JSON/Parsing errors - should retry immediately (different LLM response likely)
     if error is DecodingError {
       return .immediate

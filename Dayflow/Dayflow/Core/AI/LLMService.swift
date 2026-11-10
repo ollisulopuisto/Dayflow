@@ -21,6 +21,9 @@ enum LLMURLSession {
   }()
 
   static func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+    // Ask once per external AI provider before the first send; hosts on this
+    // Mac or the local network pass through (network scope covers those).
+    try await ProviderConsentGate.requireHTTP(request.url)
     var req = request
     req.cachePolicy = .reloadIgnoringLocalCacheData
     if let body = req.httpBody {
@@ -33,6 +36,8 @@ enum LLMURLSession {
   static func upload(for request: URLRequest, fromFile fileURL: URL) async throws -> (
     Data, URLResponse
   ) {
+    // Ask once per external AI provider before the first send.
+    try await ProviderConsentGate.requireHTTP(request.url)
     var req = request
     req.cachePolicy = .reloadIgnoringLocalCacheData
     req.httpBody = nil
@@ -487,6 +492,11 @@ final class LLMService: LLMServicing {
       let usingBackup = activeContext.id != primaryContext.id
       return (value, activeContext, usingBackup)
     } catch {
+      // A declined provider consent is a user decision, not a provider failure:
+      // do not fall back to another provider and send it the same data.
+      if error is ProviderConsentError {
+        throw error
+      }
       guard activeContext.id == primaryContext.id, let backupContext else {
         throw error
       }
