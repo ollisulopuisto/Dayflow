@@ -603,6 +603,24 @@ class EndpointValidationTests(unittest.TestCase):
             self.assertEqual(ctx.exception.code, 400)
             self.assertFalse((self.server.PENDING / "bad-shot-job.json").exists())
 
+    def test_window_format_validation_on_job_submission(self) -> None:
+        import urllib.error
+        import urllib.request
+        for key in ("window_start", "window_end"):
+            for bad_val in (123, None, True, False, ["07:00"], {"time": "07:00"}, "invalid"):
+                bad_job = make_job("bad-window-job")
+                bad_job[key] = bad_val
+                req = urllib.request.Request(
+                    f"{self.url}/v1/jobs",
+                    data=json.dumps(bad_job).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(req)
+                self.assertEqual(ctx.exception.code, 400)
+                self.assertFalse((self.server.PENDING / "bad-window-job.json").exists())
+
 
 class AuthTests(unittest.TestCase):
     def setUp(self) -> None:
