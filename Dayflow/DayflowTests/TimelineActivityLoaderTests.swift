@@ -232,28 +232,13 @@ final class SidebarShortcutTests: XCTestCase {
     XCTAssertEqual(SidebarIcon.forCommandNumber(2), .daily)
     XCTAssertEqual(SidebarIcon.forCommandNumber(3), .weekly)
     XCTAssertEqual(SidebarIcon.forCommandNumber(4), .chat)
-    XCTAssertEqual(SidebarIcon.forCommandNumber(5), .flow)
-    XCTAssertEqual(SidebarIcon.forCommandNumber(6), .agents)
+    XCTAssertEqual(SidebarIcon.forCommandNumber(5), .agents)
   }
 
   func testCommandNumbersOutsideTheMainSectionsSelectNothing() {
     XCTAssertNil(SidebarIcon.forCommandNumber(0))
-    XCTAssertNil(SidebarIcon.forCommandNumber(7))
+    XCTAssertNil(SidebarIcon.forCommandNumber(6))
     XCTAssertNil(SidebarIcon.forCommandNumber(9))
-  }
-}
-
-final class SidebarFlowVisibilityTests: XCTestCase {
-  func testHidingFlowRemovesOnlyFlowFromTheSidebar() {
-    let visible = SidebarIcon.visibleIcons(hideFlow: true)
-    XCTAssertFalse(visible.contains(.flow))
-    XCTAssertEqual(visible.count, SidebarIcon.allCases.count - 1)
-    XCTAssertTrue(visible.contains(.timeline))
-    XCTAssertTrue(visible.contains(.settings))
-  }
-
-  func testShowingFlowKeepsTheFullSidebar() {
-    XCTAssertEqual(SidebarIcon.visibleIcons(hideFlow: false), SidebarIcon.allCases)
   }
 }
 
@@ -299,13 +284,13 @@ final class TimelineZoomAndHintTests: XCTestCase {
 
   func testSidebarShortcutLabelsAreVisibleText() {
     XCTAssertEqual(SidebarIcon.timeline.shortcutLabel, "⌘1")
-    XCTAssertEqual(SidebarIcon.agents.shortcutLabel, "⌘6")
+    XCTAssertEqual(SidebarIcon.agents.shortcutLabel, "⌘5")
     XCTAssertEqual(SidebarIcon.settings.shortcutLabel, "⌘,")
   }
 
   func testSidebarHintsShowCommandNumbers() {
     XCTAssertEqual(SidebarIcon.timeline.shortcutHint, "Timeline (⌘1)")
-    XCTAssertEqual(SidebarIcon.agents.shortcutHint, "Agents (⌘6)")
+    XCTAssertEqual(SidebarIcon.agents.shortcutHint, "Agents (⌘5)")
     XCTAssertEqual(SidebarIcon.settings.shortcutHint, "Settings (⌘,)")
   }
 }

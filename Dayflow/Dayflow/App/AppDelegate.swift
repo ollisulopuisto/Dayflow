@@ -13,8 +13,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   enum PendingNotificationNavigationDestination: Equatable {
     case daily(day: String?)
     case weekly
-    case support
-    case flow
     case timeline
   }
 
@@ -105,9 +103,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     sigterm.resume()
     self.sigtermSource = sigterm
-    #if DEBUG
-      if #available(macOS 15.0, *) { FlowDebugRecorder.shared.install() }
-    #endif
 
     // Configure crash reporting (Sentry) from shared telemetry preference.
     SentryHelper.setEnabled(AnalyticsService.shared.isOptedIn)
@@ -226,21 +221,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Start Daily and Weekly notifications and retire legacy Journal reminders
     NotificationService.shared.start()
     DayflowAuthManager.shared.loadStoredSessionIfNeeded()
-    // The support chat WKWebView spawns WebContent/Networking processes (~23 ms on main);
-    // it only feeds an unread badge, so it can wait until the first frame is long gone.
-    DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
-      SupportChatSession.shared.start()
-      SupportChatSession.startFlowWaitlistMonitoring()
-    }
 
     // Start daily recap generation scheduler (checks every 5 minutes)
     DailyRecapScheduler.shared.start()
 
-    // Flow desktop overlay and early-bird alerts start lazily when Flow is enabled
-    if DayflowAuthManager.shared.flowEnabled {
-      FlowOverlayController.shared.start()
-      FlowEarlyBirdController.shared.start()
-    }
     DailyBriefMenuBarNotice.shared.start()
 
     if !isBackgroundLaunch {
