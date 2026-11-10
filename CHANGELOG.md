@@ -2,6 +2,9 @@
 
 ## [2.8.3] - 2026-11-10
 
+### Fixed
+- Keep Xcode's version and build settings in sync with the app's 2.8.3 / 175 bundle metadata; the release contract test now follows the current changelog version instead of remaining pinned to 2.8.1.
+
 ### Added
 - First-send consent for external AI providers: before Dayflow first sends data to Claude, Codex/ChatGPT, Antigravity, Google Gemini, Dayflow Cloud, or an OpenAI-compatible endpoint, a blocking prompt names the provider, the destination, and what is sent (screenshots, extracted text, prompts). Allowing is remembered per provider; declining sends nothing and asks again next time. Covers the agent CLIs, which talk to the network directly and bypass the network scope gate.
 
