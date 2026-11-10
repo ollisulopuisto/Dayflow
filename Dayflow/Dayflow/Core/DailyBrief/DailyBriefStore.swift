@@ -677,22 +677,27 @@ final class DailyBriefStore: ObservableObject {
     guard brief != nil else { return }
     // The handoff hands the user's brief text to an external agent (a CLI that
     // sends it, or a prefilled web URL that carries it), so first-send consent
-    // for that provider applies here too.
-    let tool: ChatCLITool = docketAgent == .claude ? .claude : .codex
+    // for that provider applies here too. Capture the agent and method now: a
+    // settings change during the consent wait must not swap the provider the
+    // user just consented to.
+    let agent = docketAgent
+    let method = docketHandoffMethod
+    let tool: ChatCLITool = agent == .claude ? .claude : .codex
     Task { @MainActor in
       do {
-        try await ProviderConsentGate.requireCLI(tool)
+        try await ProviderConsentGate.require(ProviderConsentDescriptors.forDocketHandoff(tool))
       } catch {
         return  // declined: nothing is sent and no handoff is recorded
       }
-      performHandOffDocket(item, card: card)
+      performHandOffDocket(item, card: card, agent: agent, method: method)
     }
   }
 
-  private func performHandOffDocket(_ item: DailyBriefDocketItem, card: DocketLiftedCard?) {
+  private func performHandOffDocket(
+    _ item: DailyBriefDocketItem, card: DocketLiftedCard?,
+    agent: DailyBriefAgent, method: DailyBriefHandoff.Method
+  ) {
     guard brief != nil else { return }
-    let agent = docketAgent
-    let method = docketHandoffMethod
     let prompt = docketPrompt(for: item)
     let folder = docketFolder(for: item.title)
     var entry = DailyBriefHandoff(

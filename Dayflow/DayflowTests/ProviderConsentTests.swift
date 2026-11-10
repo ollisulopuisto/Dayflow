@@ -70,6 +70,17 @@ final class ProviderConsentTests: XCTestCase {
     XCTAssertEqual(httpDescriptor?.key, "http.llm.example.com:8080")
   }
 
+  func testDocketHandoffNamesWebAndAPIDestinations() {
+    let claude = ProviderConsentDescriptors.forDocketHandoff(.claude)
+    XCTAssertEqual(claude.key, "cli.claude")  // shared with the CLI send path
+    XCTAssertTrue(claude.destination.contains("claude.ai"))
+    XCTAssertTrue(claude.destination.contains("api.anthropic.com"))
+    let codex = ProviderConsentDescriptors.forDocketHandoff(.codex)
+    XCTAssertEqual(codex.key, "cli.codex")
+    XCTAssertTrue(codex.destination.contains("chatgpt.com"))
+    XCTAssertTrue(codex.destination.contains("api.openai.com"))
+  }
+
   func testCLIDescriptorsAreToolScoped() {
     XCTAssertEqual(ProviderConsentDescriptors.forCLITool(.claude).key, "cli.claude")
     XCTAssertEqual(ProviderConsentDescriptors.forCLITool(.codex).key, "cli.codex")
@@ -118,6 +129,12 @@ final class ProviderConsentTests: XCTestCase {
     await coordinator.respond(true)
     let claudeAllowed = await claudeTask.value
     XCTAssertTrue(claudeAllowed)
+
+    // The dismissal settles before the queued provider is presented, so
+    // SwiftUI observes the alert binding go false before it goes true again.
+    pending = await coordinator.pendingDescriptor
+    XCTAssertNil(pending)
+    try? await Task.sleep(nanoseconds: 150_000_000)
 
     // Codex is still waiting on its own modal, now on screen.
     pending = await coordinator.pendingDescriptor

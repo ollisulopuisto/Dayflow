@@ -70,6 +70,29 @@ enum ProviderConsentDescriptors {
     }
   }
 
+  /// The Daily Brief docket handoff uses the provider's CLI when it is
+  /// installed and falls back to a prefilled web URL otherwise, so its prompt
+  /// names both destinations. It shares the provider's consent key: asking
+  /// once per provider still holds across all send paths.
+  static func forDocketHandoff(_ tool: ChatCLITool) -> ProviderConsentDescriptor {
+    let base = forCLITool(tool)
+    let destination: String
+    switch tool {
+    case .claude:
+      destination = "claude.ai or api.anthropic.com"
+    case .codex:
+      destination = "chatgpt.com or api.openai.com"
+    case .agy:
+      destination = base.destination
+    }
+    return ProviderConsentDescriptor(
+      key: base.key,
+      providerName: base.providerName,
+      destination: destination,
+      dataSummary: String(localized: "the task title and notes from your Daily Brief")
+    )
+  }
+
   /// Consent descriptor for an AI provider reached over HTTP, or nil when the
   /// host is this Mac or the local network - those connections ask through the
   /// network access scope instead.
@@ -164,6 +187,8 @@ final class ProviderConsentCoordinator: ObservableObject {
   /// Waiting consent checks, grouped by descriptor key so a decision resumes
   /// only the waiters for the provider it named - never another provider's.
   private var waiters: [String: [CheckedContinuation<Bool, Never>]] = [:]
+  /// Set while a presentation hop is enqueued, so requests coalesce.
+  private var presentationScheduled = false
 
   /// Internal rather than private so tests can exercise the queueing.
   init() {}
@@ -176,16 +201,14 @@ final class ProviderConsentCoordinator: ObservableObject {
     if !queue.contains(where: { $0.key == descriptor.key }) {
       queue.append(descriptor)
     }
-    if pendingDescriptor == nil {
-      presentNext()
-    }
+    schedulePresentation()
     return await withCheckedContinuation { continuation in
       waiters[descriptor.key, default: []].append(continuation)
     }
   }
 
   /// Dismisses the current modal, resumes only the checks waiting on the
-  /// provider it named, and shows the next queued provider, if any.
+  /// provider it named, and queues the next provider's modal, if any.
   func respond(_ allowed: Bool) {
     guard let descriptor = pendingDescriptor else { return }
     queue.removeAll { $0.key == descriptor.key }
@@ -193,11 +216,25 @@ final class ProviderConsentCoordinator: ObservableObject {
     isShowingModal = false
     let waitingRequests = waiters.removeValue(forKey: descriptor.key) ?? []
     waitingRequests.forEach { $0.resume(returning: allowed) }
-    presentNext()
+    schedulePresentation()
+  }
+
+  /// Presents one runloop turn later. SwiftUI must observe the alert binding
+  /// go false and finish dismissing before it goes true again; flipping it in
+  /// the same turn can swallow the transition, and a queued provider's send
+  /// would wait on an alert that never appears.
+  private func schedulePresentation() {
+    guard !presentationScheduled else { return }
+    presentationScheduled = true
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.presentationScheduled = false
+      self.presentNext()
+    }
   }
 
   private func presentNext() {
-    guard let next = queue.first else { return }
+    guard pendingDescriptor == nil, let next = queue.first else { return }
     pendingDescriptor = next
     isShowingModal = true
     presentHost()
