@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.2] - 2026-11-10
+
+### Removed
+- Disable Flow entirely: the Flow tab, menu bar pill, distraction nudges, waitlist and access-code signup, and its WKWebView (which loaded dayflow.so and used the microphone) are gone, along with the audio-input entitlement and microphone usage description.
+- Remove the in-app Support chat and bug report web views, which loaded dayflow.so and third-party scripts at launch.
+- Remove the Twitter/X embed from the What's New sheet; social previews now render as a local card that opens the link in the browser. What's New content itself has always been built from the bundled changelog, not fetched remotely.
+
 ## [2.8.1] - 2026-11-08
 
 ### Fixed

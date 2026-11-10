@@ -17,15 +17,14 @@ private enum SidebarMetrics {
 }
 
 extension SidebarIcon {
-  /// Sections reachable with Cmd+1 ... Cmd+6, in sidebar order.
+  /// Sections reachable with Cmd+1 ... Cmd+5, in sidebar order.
   static func forCommandNumber(_ number: Int) -> SidebarIcon? {
     switch number {
     case 1: return .timeline
     case 2: return .daily
     case 3: return .weekly
     case 4: return .chat
-    case 5: return .flow
-    case 6: return .agents
+    case 5: return .agents
     default: return nil
     }
   }
@@ -36,9 +35,7 @@ enum SidebarIcon: CaseIterable {
   case daily
   case weekly
   case chat
-  case flow
   case agents
-  case bug
   case settings
 
   var assetName: String? {
@@ -47,18 +44,14 @@ enum SidebarIcon: CaseIterable {
     case .daily: return "DailyIcon"
     case .weekly: return "WeeklyIcon"
     case .chat: return "ChatIcon"
-    case .flow: return "FlowIcon"
     case .agents: return "AgentsIcon"
-    case .bug: return nil
     case .settings: return nil
     }
   }
 
   var systemNameFallback: String? {
     switch self {
-    case .flow: return "water.waves"
     case .agents: return "sparkles"
-    case .bug: return "exclamationmark.bubble.fill"
     case .settings: return "gearshape.fill"
     default: return nil
     }
@@ -76,9 +69,7 @@ enum SidebarIcon: CaseIterable {
         localized: "sidebar.weekly", defaultValue: "Weekly",
         comment: "Short sidebar label for the weekly recap view.")
     case .chat: return String(localized: "Chat")
-    case .flow: return String(localized: "Flow")
     case .agents: return String(localized: "Agents")
-    case .bug: return String(localized: "Support")
     case .settings: return String(localized: "Settings")
     }
   }
@@ -89,26 +80,13 @@ enum SidebarIcon: CaseIterable {
     case .daily: return "daily"
     case .weekly: return "weekly"
     case .chat: return "dashboard"
-    case .flow: return "flow"
     case .agents: return "agents"
-    case .bug: return "bug_report"
     case .settings: return "settings"
     }
   }
 }
 
 extension SidebarIcon {
-  /// Flow is hidden from the sidebar unless the user turns "Show Flow" on in Settings > Other.
-  static let hideFlowKey = "hideFlowInSidebar"
-
-  static var hidesFlowByDefault: Bool {
-    UserDefaults.standard.object(forKey: hideFlowKey) as? Bool ?? true
-  }
-
-  static func visibleIcons(hideFlow: Bool) -> [SidebarIcon] {
-    allCases.filter { !(hideFlow && $0 == .flow) }
-  }
-
   /// The Cmd+number that selects this section, if it has one.
   var commandNumber: Int? {
     switch self {
@@ -116,8 +94,7 @@ extension SidebarIcon {
     case .daily: return 2
     case .weekly: return 3
     case .chat: return 4
-    case .flow: return 5
-    case .agents: return 6
+    case .agents: return 5
     default: return nil
     }
   }
@@ -139,11 +116,10 @@ extension SidebarIcon {
 struct SidebarView: View {
   @Binding var selectedIcon: SidebarIcon
   @ObservedObject private var badgeManager = NotificationBadgeManager.shared
-  @AppStorage(SidebarIcon.hideFlowKey) private var hideFlow = true
 
   var body: some View {
     VStack(alignment: .center, spacing: SidebarMetrics.itemSpacing) {
-      ForEach(SidebarIcon.visibleIcons(hideFlow: hideFlow), id: \.self) { icon in
+      ForEach(SidebarIcon.allCases, id: \.self) { icon in
         SidebarIconButton(
           icon: icon,
           isSelected: selectedIcon == icon,
@@ -158,10 +134,6 @@ struct SidebarView: View {
 
   private func shouldShowBadge(for icon: SidebarIcon) -> Bool {
     switch icon {
-    case .bug:
-      return badgeManager.supportUnreadCount > 0
-    case .flow:
-      return badgeManager.flowWaitlistUnreadCount > 0
     case .daily:
       return badgeManager.hasPendingDailyRecap
     default:

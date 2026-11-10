@@ -42,7 +42,6 @@ struct ClaudeCLIExecutionProfile: Sendable {
     case optimizedTranscriptionCorrection
     case optimizedCardGeneration
     case oneStepTimeline
-    case flowAgent
     case structuredOutput
   }
 
@@ -96,26 +95,6 @@ struct ClaudeCLIExecutionProfile: Sendable {
     + "attached to the user message, each labeled with its time. Treat the pixels as "
     + "authoritative. Return only the JSON requested by the user."
 
-  /// The Flow focus companion: one resumable conversation per session that
-  /// reads a screenshot each turn and answers with a JSON verdict.
-  static let flowAgent = ClaudeCLIExecutionProfile(
-    kind: .flowAgent,
-    allowedReadPath: nil
-  )
-
-  private static let flowAgentSystemPrompt =
-    "You are the focus companion inside Dayflow. When a message lists a local image "
-    + "file, use Read exactly once on it to look at the user's screen, then answer with "
-    + "only the JSON the user asked for. The one other file you may touch is timeline.json "
-    + "in your working directory, and only when a message asks for a timeline update. "
-    + "Do not inspect any other files or use any other tools."
-
-  /// The Flow agent's working directory holds only the current screenshot
-  /// and timeline.json; it may read and edit inside it and nowhere else.
-  func allowingFlowWorkspace(at directory: String) -> ClaudeCLIExecutionProfile {
-    ClaudeCLIExecutionProfile(kind: .flowAgent, allowedReadPath: directory)
-  }
-
   func allowingRead(at path: String) -> ClaudeCLIExecutionProfile {
     ClaudeCLIExecutionProfile(
       kind: kind,
@@ -141,13 +120,6 @@ struct ClaudeCLIExecutionProfile: Sendable {
         name: "dayflow-timeline",
         tools: LoginShellRunner.shellEscape(""),
         settings: #"{"alwaysThinkingEnabled":true,"effortLevel":"medium"}"#,
-        persistenceArguments: persistenceArguments)
-
-    case .flowAgent:
-      return transcriptionCommandArguments(
-        systemPrompt: Self.flowAgentSystemPrompt,
-        name: "dayflow-flow",
-        tools: "Read,Edit,Write",
         persistenceArguments: persistenceArguments)
 
     case .optimizedCardGeneration:
@@ -206,13 +178,7 @@ struct ClaudeCLIExecutionProfile: Sendable {
       "--name", LoginShellRunner.shellEscape(name),
     ]
     arguments.append(contentsOf: persistenceArguments)
-    if let allowedReadPath, kind == .flowAgent {
-      arguments.append(contentsOf: [
-        "--allowedTools",
-        LoginShellRunner.shellEscape("Read(/\(allowedReadPath)/**)"),
-        LoginShellRunner.shellEscape("Edit(/\(allowedReadPath)/**)"),
-      ])
-    } else if let allowedReadPath {
+    if let allowedReadPath {
       // Claude permission rules use // for absolute paths; / is project-relative.
       arguments.append(contentsOf: [
         "--allowedTools",
@@ -226,7 +192,7 @@ struct ClaudeCLIExecutionProfile: Sendable {
     switch kind {
     case .optimizedCardGeneration, .oneStepTimeline, .structuredOutput:
       return [:]
-    case .optimizedTranscription, .optimizedTranscriptionCorrection, .flowAgent:
+    case .optimizedTranscription, .optimizedTranscriptionCorrection:
       return ["MAX_THINKING_TOKENS": "0"]
     }
   }
