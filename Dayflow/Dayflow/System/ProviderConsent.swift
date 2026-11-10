@@ -12,6 +12,7 @@
 //  and the prompt returns on the next attempt.
 //
 
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -87,8 +88,12 @@ enum ProviderConsentDescriptors {
     case "api.siliconflow.cn":
       providerName = "SiliconFlow"
     default:
+      // The endpoint already carries its scheme, so parse it directly and only
+      // add one when missing.
       if let endpoint = DayflowBackendConfiguration.endpoint(),
-        let endpointHost = URL(string: "https://\(endpoint)")?.host?.lowercased(),
+        let endpointHost = URL(
+          string: endpoint.contains("://") ? endpoint : "https://\(endpoint)")?.host?
+          .lowercased(),
         endpointHost == host
       {
         providerName = String(localized: "Dayflow Cloud")
@@ -96,10 +101,19 @@ enum ProviderConsentDescriptors {
         providerName = String(localized: "your OpenAI-compatible endpoint")
       }
     }
+    // A non-default port is part of the destination: pointing the same host at
+    // a different port is a different service, so it asks again.
+    let schemeDefaultPort = url.scheme == "https" ? 443 : 80
+    let portSuffix: String
+    if let port = url.port, port != schemeDefaultPort {
+      portSuffix = ":\(port)"
+    } else {
+      portSuffix = ""
+    }
     return ProviderConsentDescriptor(
-      key: "http.\(host)",
+      key: "http.\(host)\(portSuffix)",
       providerName: providerName,
-      destination: host,
+      destination: "\(host)\(portSuffix)",
       dataSummary: screenDataSummary
     )
   }
@@ -138,30 +152,55 @@ final class ProviderConsentCoordinator: ObservableObject {
   /// The provider awaiting a decision, named in the modal.
   @Published private(set) var pendingDescriptor: ProviderConsentDescriptor?
 
-  private var continuations: [CheckedContinuation<Bool, Never>] = []
+  /// Brings the app forward so the modal is seen even when Dayflow launched in
+  /// the background without a main window. Tests replace it with a no-op.
+  var presentHost: @MainActor () -> Void = {
+    NSApp.activate(ignoringOtherApps: true)
+    MainWindowController.shared.showMainWindow()
+  }
 
-  private init() {}
+  /// Providers waiting for their turn, first in the queue is on screen.
+  private var queue: [ProviderConsentDescriptor] = []
+  /// Waiting consent checks, grouped by descriptor key so a decision resumes
+  /// only the waiters for the provider it named - never another provider's.
+  private var waiters: [String: [CheckedContinuation<Bool, Never>]] = [:]
 
-  /// Shows the consent modal for `descriptor` and waits for the decision.
-  /// Returns `true` only if the user taps "Allow". Concurrent requests share
-  /// the one modal; a declined descriptor simply asks again on its next send.
+  /// Internal rather than private so tests can exercise the queueing.
+  init() {}
+
+  /// Shows the consent modal for `descriptor` and waits for its decision.
+  /// Returns `true` only if the user taps "Allow" for this provider. Requests
+  /// for other providers queue behind the current modal and keep waiting; a
+  /// declined descriptor simply asks again on its next send.
   func requestConsent(for descriptor: ProviderConsentDescriptor) async -> Bool {
-    if !isShowingModal {
-      pendingDescriptor = descriptor
-      isShowingModal = true
+    if !queue.contains(where: { $0.key == descriptor.key }) {
+      queue.append(descriptor)
+    }
+    if pendingDescriptor == nil {
+      presentNext()
     }
     return await withCheckedContinuation { continuation in
-      continuations.append(continuation)
+      waiters[descriptor.key, default: []].append(continuation)
     }
   }
 
-  /// Dismisses the modal and resumes the waiting consent checks.
+  /// Dismisses the current modal, resumes only the checks waiting on the
+  /// provider it named, and shows the next queued provider, if any.
   func respond(_ allowed: Bool) {
-    isShowingModal = false
+    guard let descriptor = pendingDescriptor else { return }
+    queue.removeAll { $0.key == descriptor.key }
     pendingDescriptor = nil
-    let waitingRequests = continuations
-    continuations.removeAll()
+    isShowingModal = false
+    let waitingRequests = waiters.removeValue(forKey: descriptor.key) ?? []
     waitingRequests.forEach { $0.resume(returning: allowed) }
+    presentNext()
+  }
+
+  private func presentNext() {
+    guard let next = queue.first else { return }
+    pendingDescriptor = next
+    isShowingModal = true
+    presentHost()
   }
 }
 

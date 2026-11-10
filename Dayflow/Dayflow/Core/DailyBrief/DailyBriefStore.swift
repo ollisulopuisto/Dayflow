@@ -675,6 +675,22 @@ final class DailyBriefStore: ObservableObject {
   /// `card` is the front card as it left the deck, for transitions that carry it.
   func handOffDocket(_ item: DailyBriefDocketItem, card: DocketLiftedCard? = nil) {
     guard brief != nil else { return }
+    // The handoff hands the user's brief text to an external agent (a CLI that
+    // sends it, or a prefilled web URL that carries it), so first-send consent
+    // for that provider applies here too.
+    let tool: ChatCLITool = docketAgent == .claude ? .claude : .codex
+    Task { @MainActor in
+      do {
+        try await ProviderConsentGate.requireCLI(tool)
+      } catch {
+        return  // declined: nothing is sent and no handoff is recorded
+      }
+      performHandOffDocket(item, card: card)
+    }
+  }
+
+  private func performHandOffDocket(_ item: DailyBriefDocketItem, card: DocketLiftedCard?) {
+    guard brief != nil else { return }
     let agent = docketAgent
     let method = docketHandoffMethod
     let prompt = docketPrompt(for: item)

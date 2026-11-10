@@ -54,6 +54,22 @@ final class ProviderConsentTests: XCTestCase {
     XCTAssertEqual(descriptor?.destination, "llm.example.com")
   }
 
+  func testNonDefaultPortIsPartOfTheKey() {
+    let descriptor = ProviderConsentDescriptors.forHTTPURL(
+      URL(string: "https://llm.example.com:8443/v1/chat/completions"))
+    XCTAssertEqual(descriptor?.key, "http.llm.example.com:8443")
+    XCTAssertEqual(descriptor?.destination, "llm.example.com:8443")
+  }
+
+  func testDefaultPortIsDroppedFromTheKey() {
+    let descriptor = ProviderConsentDescriptors.forHTTPURL(
+      URL(string: "https://llm.example.com:443/v1/chat/completions"))
+    XCTAssertEqual(descriptor?.key, "http.llm.example.com")
+    let httpDescriptor = ProviderConsentDescriptors.forHTTPURL(
+      URL(string: "http://llm.example.com:8080/v1/chat/completions"))
+    XCTAssertEqual(httpDescriptor?.key, "http.llm.example.com:8080")
+  }
+
   func testCLIDescriptorsAreToolScoped() {
     XCTAssertEqual(ProviderConsentDescriptors.forCLITool(.claude).key, "cli.claude")
     XCTAssertEqual(ProviderConsentDescriptors.forCLITool(.codex).key, "cli.codex")
@@ -71,5 +87,75 @@ final class ProviderConsentTests: XCTestCase {
     store.recordConsent(key: "cli.claude")
     let otherDefaults = UserDefaults(suiteName: "ProviderConsentTests.other.\(UUID().uuidString)")!
     XCTAssertFalse(ProviderConsentStore(defaults: otherDefaults).hasConsented(key: "cli.claude"))
+  }
+
+  // MARK: - Coordinator queueing
+
+  private static let claudeDescriptor = ProviderConsentDescriptor(
+    key: "cli.claude", providerName: "Claude", destination: "api.anthropic.com",
+    dataSummary: "data")
+  private static let codexDescriptor = ProviderConsentDescriptor(
+    key: "cli.codex", providerName: "Codex", destination: "api.openai.com",
+    dataSummary: "data")
+
+  /// Approving one provider must never resume or authorize a concurrent send
+  /// to another provider: each decision resumes only its own waiters.
+  func testApprovalResumesOnlyTheShownProvider() async {
+    let coordinator = await MainActor.run { () -> ProviderConsentCoordinator in
+      let coordinator = ProviderConsentCoordinator()
+      coordinator.presentHost = {}
+      return coordinator
+    }
+
+    let claudeTask = Task { await coordinator.requestConsent(for: Self.claudeDescriptor) }
+    try? await Task.sleep(nanoseconds: 50_000_000)
+    let codexTask = Task { await coordinator.requestConsent(for: Self.codexDescriptor) }
+    try? await Task.sleep(nanoseconds: 50_000_000)
+
+    var pending = await coordinator.pendingDescriptor
+    XCTAssertEqual(pending?.key, "cli.claude")
+
+    await coordinator.respond(true)
+    let claudeAllowed = await claudeTask.value
+    XCTAssertTrue(claudeAllowed)
+
+    // Codex is still waiting on its own modal, now on screen.
+    pending = await coordinator.pendingDescriptor
+    XCTAssertEqual(pending?.key, "cli.codex")
+
+    await coordinator.respond(false)
+    let codexAllowed = await codexTask.value
+    XCTAssertFalse(codexAllowed)
+    let isShowing = await coordinator.isShowingModal
+    XCTAssertFalse(isShowing)
+  }
+
+  /// Two waits on the same provider share its single prompt.
+  func testConcurrentWaitsForSameProviderShareOnePrompt() async {
+    let coordinator = await MainActor.run { () -> ProviderConsentCoordinator in
+      let coordinator = ProviderConsentCoordinator()
+      coordinator.presentHost = {}
+      return coordinator
+    }
+
+    let first = Task { await coordinator.requestConsent(for: Self.claudeDescriptor) }
+    try? await Task.sleep(nanoseconds: 50_000_000)
+    let second = Task { await coordinator.requestConsent(for: Self.claudeDescriptor) }
+    try? await Task.sleep(nanoseconds: 50_000_000)
+
+    let pending = await coordinator.pendingDescriptor
+    XCTAssertEqual(pending?.key, "cli.claude")
+
+    await coordinator.respond(true)
+    let firstAllowed = await first.value
+    let secondAllowed = await second.value
+    XCTAssertTrue(firstAllowed)
+    XCTAssertTrue(secondAllowed)
+
+    // No second modal was queued for the same provider.
+    let next = await coordinator.pendingDescriptor
+    XCTAssertNil(next)
+    let isShowing = await coordinator.isShowingModal
+    XCTAssertFalse(isShowing)
   }
 }

@@ -492,6 +492,11 @@ final class LLMService: LLMServicing {
       let usingBackup = activeContext.id != primaryContext.id
       return (value, activeContext, usingBackup)
     } catch {
+      // A declined provider consent is a user decision, not a provider failure:
+      // do not fall back to another provider and send it the same data.
+      if error is ProviderConsentError {
+        throw error
+      }
       guard activeContext.id == primaryContext.id, let backupContext else {
         throw error
       }
