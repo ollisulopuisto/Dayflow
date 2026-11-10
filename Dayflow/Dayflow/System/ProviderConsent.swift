@@ -45,6 +45,9 @@ enum ProviderConsentDescriptors {
   /// may send to that provider on any send path, and every destination -
   /// including the provider's website, which the Daily Brief docket handoff
   /// uses when the provider's desktop app is not installed.
+  private static let screenDataSummary = String(
+    localized: "screenshots of your screen, text extracted from them, and your prompts")
+
   private static let cliDataSummary = String(
     localized:
       "screenshots of your screen, text extracted from them, your prompts, and Daily Brief task text"
