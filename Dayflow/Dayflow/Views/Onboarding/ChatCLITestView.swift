@@ -123,7 +123,8 @@ struct ChatCLITestView: View {
     Task.detached {
       let outcome: Result<CLIResult, Error> = await {
         do {
-          try await ProviderConsentGate.requireCLI(tool)
+          let consentTool: ChatCLITool = tool == .claude ? .claude : .codex
+          try await ProviderConsentGate.requireCLI(consentTool)
           return .success(try performTest(for: tool))
         } catch {
           return .failure(error)
