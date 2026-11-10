@@ -284,13 +284,13 @@ final class TimelineZoomAndHintTests: XCTestCase {
 
   func testSidebarShortcutLabelsAreVisibleText() {
     XCTAssertEqual(SidebarIcon.timeline.shortcutLabel, "⌘1")
-    XCTAssertEqual(SidebarIcon.agents.shortcutLabel, "⌘6")
+    XCTAssertEqual(SidebarIcon.agents.shortcutLabel, "⌘5")
     XCTAssertEqual(SidebarIcon.settings.shortcutLabel, "⌘,")
   }
 
   func testSidebarHintsShowCommandNumbers() {
     XCTAssertEqual(SidebarIcon.timeline.shortcutHint, "Timeline (⌘1)")
-    XCTAssertEqual(SidebarIcon.agents.shortcutHint, "Agents (⌘6)")
+    XCTAssertEqual(SidebarIcon.agents.shortcutHint, "Agents (⌘5)")
     XCTAssertEqual(SidebarIcon.settings.shortcutHint, "Settings (⌘,)")
   }
 }
