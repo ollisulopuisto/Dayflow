@@ -37,7 +37,8 @@ final class ProviderConsentTests: XCTestCase {
     XCTAssertEqual(descriptor?.key, "http.generativelanguage.googleapis.com")
     XCTAssertEqual(descriptor?.destination, "generativelanguage.googleapis.com")
     XCTAssertFalse(descriptor?.providerName.isEmpty ?? true)
-    XCTAssertFalse(descriptor?.dataSummary.isEmpty ?? true)
+    // Timeline prompts include the user's full name; the disclosure must say so.
+    XCTAssertTrue(descriptor?.dataSummary.contains("name") ?? false)
   }
 
   func testOpenRouterHostMapsToNamedDescriptor() {
@@ -80,6 +81,7 @@ final class ProviderConsentTests: XCTestCase {
     XCTAssertTrue(claude.destination.contains("claude.ai"))
     XCTAssertTrue(claude.dataSummary.contains("screenshots"))
     XCTAssertTrue(claude.dataSummary.contains("Daily Brief"))
+    XCTAssertTrue(claude.dataSummary.contains("name"))
     let codex = ProviderConsentDescriptors.forCLITool(.codex)
     XCTAssertTrue(codex.destination.contains("api.openai.com"))
     XCTAssertTrue(codex.destination.contains("chatgpt.com"))

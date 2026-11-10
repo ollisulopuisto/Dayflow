@@ -46,11 +46,13 @@ enum ProviderConsentDescriptors {
   /// including the provider's website, which the Daily Brief docket handoff
   /// uses when the provider's desktop app is not installed.
   private static let screenDataSummary = String(
-    localized: "screenshots of your screen, text extracted from them, and your prompts")
+    localized:
+      "screenshots of your screen, text extracted from them, your prompts, and your name"
+  )
 
   private static let cliDataSummary = String(
     localized:
-      "screenshots of your screen, text extracted from them, your prompts, and Daily Brief task text"
+      "screenshots of your screen, text extracted from them, your prompts, your Daily Brief task text, and your name"
   )
 
   static func forCLITool(_ tool: ChatCLITool) -> ProviderConsentDescriptor {
