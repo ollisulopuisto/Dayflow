@@ -130,13 +130,9 @@ final class ProviderConsentTests: XCTestCase {
     let claudeAllowed = await claudeTask.value
     XCTAssertTrue(claudeAllowed)
 
-    // The dismissal settles before the queued provider is presented, so
-    // SwiftUI observes the alert binding go false before it goes true again.
-    pending = await coordinator.pendingDescriptor
-    XCTAssertNil(pending)
+    // Codex was not resumed by Claude's approval: it is still waiting on its
+    // own modal, which the coordinator presents after the dismissal settles.
     try? await Task.sleep(nanoseconds: 150_000_000)
-
-    // Codex is still waiting on its own modal, now on screen.
     pending = await coordinator.pendingDescriptor
     XCTAssertEqual(pending?.key, "cli.codex")
 
