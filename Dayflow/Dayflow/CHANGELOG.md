@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.8.3] - 2026-11-10
+
+### Added
+- First-send consent for external AI providers: before Dayflow first sends data to Claude, Codex/ChatGPT, Antigravity, Google Gemini, Dayflow Cloud, or an OpenAI-compatible endpoint, a blocking prompt names the provider, the destination, and what is sent (screenshots, extracted text, prompts). Allowing is remembered per provider; declining sends nothing and asks again next time. Covers the agent CLIs, which talk to the network directly and bypass the network scope gate.
+
 ## [2.8.2] - 2026-11-10
 
 ### Removed

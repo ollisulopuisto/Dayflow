@@ -584,6 +584,9 @@ struct ChatCLIProcessRunner {
     hasRetriedInvalidTransport: Bool = false,
     hasRetriedExecutableResolution: Bool = false
   ) async throws {
+    // CLI subprocesses reach the network directly and bypass NetworkGate, so
+    // consent is checked here before the first send to each provider.
+    try await ProviderConsentGate.requireCLI(tool)
     let toolName = tool.rawValue
     let codexExecutable = try resolvedCodexExecutable(for: tool)
     let executableCommand =
@@ -1485,6 +1488,9 @@ struct ChatCLIProcessRunner {
     hasRetriedExecutableResolution: Bool,
     timeoutSeconds: TimeInterval = Constants.timeoutSeconds
   ) throws -> ChatCLIRunResult {
+    // Fail-safe for this blocking path: the async gates prompt first, but no
+    // run may send data to a provider without remembered consent.
+    try ProviderConsentGate.requireConsentedCLI(tool)
     let toolName = tool.rawValue
     let effectiveProcessEnvironment = mergedProcessEnvironment(
       tool: tool,

@@ -190,6 +190,7 @@ struct DayflowApp: App {
   @AppStorage("didOnboard") private var didOnboard = false
   @StateObject private var systemAppearance = SystemAppearanceObserver()
   @StateObject private var networkCoordinator = NetworkAccessCoordinator.shared
+  @StateObject private var providerConsentCoordinator = ProviderConsentCoordinator.shared
   @AppStorage(DayflowAppearance.storageKey) private var appearance: DayflowAppearance = .system
   @AppStorage("useBlankUI") private var useBlankUI = false
   @State private var showVideoLaunch = LaunchIntro.shouldPlayAtLaunch
@@ -222,6 +223,7 @@ struct DayflowApp: App {
     Window("Dayflow", id: "main") {
       ZStack {
         NetworkAccessModalView(coordinator: networkCoordinator)
+        ProviderConsentModalView(coordinator: providerConsentCoordinator)
 
         // Main app UI or onboarding with entrance animation
         Group {

@@ -323,7 +323,12 @@ final class DailyBriefStore: ObservableObject {
       if let problem = DailyBriefGenerator.claudeReadinessProblem() {
         result = .failure(DailyBriefGenerator.GenerationError(message: problem))
       } else {
-        result = Result { try DailyBriefGenerator.generate(input) }
+        do {
+          try await ProviderConsentGate.requireCLI(.claude)
+          result = Result { try DailyBriefGenerator.generate(input) }
+        } catch {
+          result = .failure(error)
+        }
       }
       await MainActor.run {
         DailyBriefStore.shared.finishRun(
@@ -849,9 +854,15 @@ final class DailyBriefStore: ObservableObject {
     AnalyticsService.shared.capture("daily_brief_summary_started", ["range": range.rawValue])
 
     Task.detached(priority: .userInitiated) {
-      let result = Result {
-        try DailyBriefRangeSummarizer.summarize(
-          range: range, entries: entries, startDay: startDay, endDay: endDay)
+      let result: Result<DailyBriefRangeSummary, Error>
+      do {
+        try await ProviderConsentGate.requireCLI(.claude)
+        result = Result {
+          try DailyBriefRangeSummarizer.summarize(
+            range: range, entries: entries, startDay: startDay, endDay: endDay)
+        }
+      } catch {
+        result = .failure(error)
       }
       await MainActor.run {
         DailyBriefStore.shared.finishSummary(range: range, result: result)

@@ -169,6 +169,7 @@ extension CodexProvider {
   private func runTimelineTurn(
     prompt: String, imagePaths: [String], model: String, reasoningEffort: String?
   ) async throws -> ChatCLIRunResult {
+    try await ProviderConsentGate.requireCLI(.codex)
     let runner = runner
     let workingDirectory = config.workingDirectory
     // The frames go to the CLI as written; the shared image preparation would shrink them to

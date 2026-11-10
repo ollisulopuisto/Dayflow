@@ -18,6 +18,8 @@ extension CodexProvider {
         userInfo: [NSLocalizedDescriptionKey: "No screenshots to transcribe"])
     }
 
+    try await ProviderConsentGate.requireCLI(cliTool)
+
     let callStart = Date()
     let sortedScreenshots = screenshots.sorted { $0.capturedAt < $1.capturedAt }
 

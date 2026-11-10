@@ -143,8 +143,14 @@ final class AgentsRecapStore: ObservableObject {
     AnalyticsService.shared.capture("agents_recap_run_started", ["day": day])
 
     Task.detached(priority: .userInitiated) {
-      let result = AgentsRecapStore.executeRecapRun(
-        prompt: prompt, outputURL: outputURL, startedAt: startedAt)
+      let result: Result<AgentsDayRecap, RecapRunError>
+      do {
+        try await ProviderConsentGate.requireCLI(.claude)
+        result = AgentsRecapStore.executeRecapRun(
+          prompt: prompt, outputURL: outputURL, startedAt: startedAt)
+      } catch {
+        result = .failure(RecapRunError(message: error.localizedDescription))
+      }
       await MainActor.run {
         AgentsRecapStore.shared.completeRun(startedAt: startedAt, day: day, result: result)
       }

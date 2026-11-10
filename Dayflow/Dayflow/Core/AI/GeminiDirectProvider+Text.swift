@@ -37,6 +37,7 @@ extension GeminiDirectProvider {
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
         let requestStart = Date()
+        try await ProviderConsentGate.requireHTTP(request.url)
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
