@@ -685,7 +685,7 @@ final class DailyBriefStore: ObservableObject {
     let tool: ChatCLITool = agent == .claude ? .claude : .codex
     Task { @MainActor in
       do {
-        try await ProviderConsentGate.require(ProviderConsentDescriptors.forDocketHandoff(tool))
+        try await ProviderConsentGate.requireCLI(tool)
       } catch {
         return  // declined: nothing is sent and no handoff is recorded
       }

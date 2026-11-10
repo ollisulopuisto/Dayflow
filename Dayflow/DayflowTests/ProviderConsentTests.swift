@@ -70,15 +70,21 @@ final class ProviderConsentTests: XCTestCase {
     XCTAssertEqual(httpDescriptor?.key, "http.llm.example.com:8080")
   }
 
-  func testDocketHandoffNamesWebAndAPIDestinations() {
-    let claude = ProviderConsentDescriptors.forDocketHandoff(.claude)
-    XCTAssertEqual(claude.key, "cli.claude")  // shared with the CLI send path
-    XCTAssertTrue(claude.destination.contains("claude.ai"))
+  /// One prompt per provider covers every send path: the disclosure names all
+  /// data shapes (screenshots, extracted text, prompts, Daily Brief task text)
+  /// and every destination, including the web fallback the docket handoff uses
+  /// when the provider's desktop app is not installed.
+  func testCLIDescriptorsCoverEverySendPath() {
+    let claude = ProviderConsentDescriptors.forCLITool(.claude)
     XCTAssertTrue(claude.destination.contains("api.anthropic.com"))
-    let codex = ProviderConsentDescriptors.forDocketHandoff(.codex)
-    XCTAssertEqual(codex.key, "cli.codex")
-    XCTAssertTrue(codex.destination.contains("chatgpt.com"))
+    XCTAssertTrue(claude.destination.contains("claude.ai"))
+    XCTAssertTrue(claude.dataSummary.contains("screenshots"))
+    XCTAssertTrue(claude.dataSummary.contains("Daily Brief"))
+    let codex = ProviderConsentDescriptors.forCLITool(.codex)
     XCTAssertTrue(codex.destination.contains("api.openai.com"))
+    XCTAssertTrue(codex.destination.contains("chatgpt.com"))
+    XCTAssertTrue(codex.dataSummary.contains("screenshots"))
+    XCTAssertTrue(codex.dataSummary.contains("Daily Brief"))
   }
 
   func testCLIDescriptorsAreToolScoped() {

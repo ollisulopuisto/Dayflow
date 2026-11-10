@@ -41,8 +41,14 @@ enum ProviderConsentError: LocalizedError {
 }
 
 enum ProviderConsentDescriptors {
-  private static let screenDataSummary = String(
-    localized: "screenshots of your screen, text extracted from them, and your prompts")
+  /// Consent is once per provider, so each descriptor names everything Dayflow
+  /// may send to that provider on any send path, and every destination -
+  /// including the provider's website, which the Daily Brief docket handoff
+  /// uses when the provider's desktop app is not installed.
+  private static let cliDataSummary = String(
+    localized:
+      "screenshots of your screen, text extracted from them, your prompts, and Daily Brief task text"
+  )
 
   static func forCLITool(_ tool: ChatCLITool) -> ProviderConsentDescriptor {
     switch tool {
@@ -50,15 +56,15 @@ enum ProviderConsentDescriptors {
       return ProviderConsentDescriptor(
         key: "cli.claude",
         providerName: String(localized: "Claude (Anthropic)"),
-        destination: "api.anthropic.com",
-        dataSummary: screenDataSummary
+        destination: "api.anthropic.com or claude.ai",
+        dataSummary: cliDataSummary
       )
     case .codex:
       return ProviderConsentDescriptor(
         key: "cli.codex",
         providerName: String(localized: "Codex / ChatGPT (OpenAI)"),
-        destination: "api.openai.com",
-        dataSummary: screenDataSummary
+        destination: "api.openai.com or chatgpt.com",
+        dataSummary: cliDataSummary
       )
     case .agy:
       return ProviderConsentDescriptor(
@@ -68,29 +74,6 @@ enum ProviderConsentDescriptors {
         dataSummary: String(localized: "your chat prompts")
       )
     }
-  }
-
-  /// The Daily Brief docket handoff uses the provider's CLI when it is
-  /// installed and falls back to a prefilled web URL otherwise, so its prompt
-  /// names both destinations. It shares the provider's consent key: asking
-  /// once per provider still holds across all send paths.
-  static func forDocketHandoff(_ tool: ChatCLITool) -> ProviderConsentDescriptor {
-    let base = forCLITool(tool)
-    let destination: String
-    switch tool {
-    case .claude:
-      destination = "claude.ai or api.anthropic.com"
-    case .codex:
-      destination = "chatgpt.com or api.openai.com"
-    case .agy:
-      destination = base.destination
-    }
-    return ProviderConsentDescriptor(
-      key: base.key,
-      providerName: base.providerName,
-      destination: destination,
-      dataSummary: String(localized: "the task title and notes from your Daily Brief")
-    )
   }
 
   /// Consent descriptor for an AI provider reached over HTTP, or nil when the
