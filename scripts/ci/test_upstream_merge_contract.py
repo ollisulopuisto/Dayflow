@@ -22,6 +22,10 @@ class UpstreamMergeContractTests(unittest.TestCase):
         self.assertEqual(project.count(f"MARKETING_VERSION = {info['CFBundleShortVersionString']};"), 6)
         self.assertIn('ONLY_ACTIVE_ARCH = NO;', project)
 
+    def test_bundled_release_notes_match_repository(self):
+        self.assertEqual((ROOT / 'Dayflow/Dayflow/CHANGELOG.md').read_bytes(),
+                         (ROOT / 'CHANGELOG.md').read_bytes())
+
     def test_recording_keeps_both_cleanup_paths(self):
         source = (ROOT / 'Dayflow/Dayflow/Core/Recording/ScreenRecorder.swift').read_text()
         self.assertIn('FrameStore.shared.releaseReadResources()', source)
