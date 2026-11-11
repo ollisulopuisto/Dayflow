@@ -16,6 +16,7 @@ from datetime import datetime, time as datetime_time, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import BinaryIO, Optional
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 ROOT = Path(os.environ.get("DAYFLOW_QUEUE_DIR", "~/Library/Application Support/dayflow-studio-queue")).expanduser()
@@ -481,14 +482,17 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if not authorized(self):
             return self.respond(401, {"error": "unauthorized"})
-        if self.path == "/health":
+        parsed_url = urlparse(self.path)
+        if parsed_url.path == "/health":
             return self.respond(200, {"ok": True, "in_window": in_window(), "pending": len(list(PENDING.glob("*.json"))),
                                       "heartbeat_age_s": round(heartbeat_age(), 1)})
-        if self.path.startswith("/v1/results"):
-            from urllib.parse import parse_qs, urlparse
-            raw_device_id = parse_qs(urlparse(self.path).query).get("device_id", [""])[0]
-            if not is_valid_identifier(raw_device_id):
+        if parsed_url.path == "/v1/results":
+            # Security: Validate exact endpoint path and guard against HTTP parameter pollution (HPP)
+            query_params = parse_qs(parsed_url.query, keep_blank_values=True)
+            device_ids = query_params.get("device_id", [])
+            if len(device_ids) != 1 or not is_valid_identifier(device_ids[0]):
                 return self.respond(400, {"error": "invalid device id"})
+            raw_device_id = device_ids[0]
             results = []
             # Optimize device filtering: use os.scandir to avoid Path object churn, and pre-filter
             # raw bytes before json.loads to skip deserializing non-matching completed jobs.
@@ -514,6 +518,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if not authorized(self):
             return self.respond(401, {"error": "unauthorized"})
+        request_path = urlparse(self.path).path
         try:
             length = int(self.headers.get("Content-Length", "0"))
             if length <= 0 or length > 100_000_000:
@@ -526,7 +531,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid JSON object"})
         except (ValueError, json.JSONDecodeError):
             return self.respond(400, {"error": "invalid JSON"})
-        if self.path == "/v1/jobs":
+        if request_path == "/v1/jobs":
             required = ("job_id", "device_id", "batch_id", "start_ts", "end_ts", "timezone", "screenshots")
             if any(key not in body for key in required) or not isinstance(body["screenshots"], list):
                 return self.respond(400, {"error": "missing job fields"})
@@ -585,7 +590,7 @@ class Handler(BaseHTTPRequestHandler):
             temp.write_bytes(raw_body)
             temp.replace(path)
             return self.respond(202, {"accepted": True})
-        if self.path == "/v1/ack":
+        if request_path == "/v1/ack":
             job_id = body.get("job_id")
             device_id = body.get("device_id")
             if not is_valid_identifier(job_id):

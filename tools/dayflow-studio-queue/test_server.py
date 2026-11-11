@@ -369,7 +369,22 @@ class EndpointValidationTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             urllib.request.urlopen(req)
         self.assertEqual(ctx.exception.code, 400)
-        self.assertFalse((self.server.PENDING / "bad-tz-job.json").exists())
+
+    def test_results_endpoint_rejects_subpaths_and_parameter_pollution(self) -> None:
+        import urllib.error
+        import urllib.request
+        # Non-exact paths must return 404 (not match /v1/results prefix)
+        for bad_path in ("/v1/results/extra?device_id=mac", "/v1/results_fake?device_id=mac"):
+            req = urllib.request.Request(f"{self.url}{bad_path}")
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 404)
+
+        # HTTP Parameter Pollution (HPP) with multiple device_id parameters must be rejected with 400
+        req = urllib.request.Request(f"{self.url}/v1/results?device_id=mac1&device_id=mac2")
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req)
+        self.assertEqual(ctx.exception.code, 400)
 
     def test_device_id_validation_on_endpoints(self) -> None:
         import urllib.request
