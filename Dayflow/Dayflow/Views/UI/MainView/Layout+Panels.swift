@@ -40,6 +40,9 @@ extension MainView {
     }
     .padding(0)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .overlay {
+      PrivacyShieldUpgradeHost()
+    }
   }
 
   private var leftColumn: some View {
@@ -286,13 +289,15 @@ extension MainView {
     let reviewPromptCount = cardsToReviewPromptCount
 
     return ZStack(alignment: .bottom) {
-      HStack(alignment: .bottom) {
+      HStack(alignment: .center, spacing: 10) {
+        copyTimelineButton
+          .opacity(contentOpacity)
         weeklyHoursText
           .opacity(contentOpacity * weeklyHoursOpacity)
 
         Spacer()
 
-        copyTimelineButton
+        PrivacyShieldFooterItem()
           .opacity(contentOpacity)
       }
       .padding(.horizontal, 24)

@@ -52,6 +52,31 @@ class UpstreamMergeContractTests(unittest.TestCase):
             self.assertIn(f'location: {numerator}.0 / 130.0', source)
             self.assertNotIn(f'location: {numerator} / 130', source)
 
+    def test_sync_preserves_privacy_and_capture_guards(self):
+        app = (ROOT / 'Dayflow/Dayflow/App/AppDelegate.swift').read_text()
+        self.assertIn('PrivacyShield.shared.start()', app)
+        self.assertNotIn('SupportChatSession.shared.start()', app)
+        self.assertNotIn('startFlowWaitlistMonitoring()', app)
+        recorder = (ROOT / 'Dayflow/Dayflow/Core/Recording/ScreenRecorder.swift').read_text()
+        self.assertIn('BrowserPrivacy.redactionLabel()', recorder)
+        self.assertIn('await blockedBrowserWindow()', recorder)
+        self.assertIn('if let masker = PrivacyShieldMaskerBox.shared.current()', recorder)
+        self.assertIn('VTCreateCGImageFromCVPixelBuffer', recorder)
+        self.assertIn('try await maskSecrets(in: image, using: masker)', recorder)
+        self.assertNotIn('return placeholder ?? image', recorder)
+        self.assertEqual(recorder.count('guard _captureGeneration == generation'), 2)
+        self.assertNotRegex(recorder, r'idleSecondsAtCapture: idleSecondsAtCapture\)')
+
+    def test_docket_consent_captures_selected_thread_before_handoff(self):
+        source = (ROOT / 'Dayflow/Dayflow/Core/DailyBrief/DailyBriefStore.swift').read_text()
+        handoff = source[source.index('  func handOffDocket('):source.index('  private func finishDocketRun(')]
+        self.assertLess(handoff.index('let agent = thread?.1 ?? pickedApp ?? docketAgent'),
+                        handoff.index('try await ProviderConsentGate.requireCLI(tool)'))
+        self.assertLess(handoff.index('try await ProviderConsentGate.requireCLI(tool)'),
+                        handoff.index('performHandOffDocket(item'))
+        self.assertIn('threadID: thread?.0, briefPickedApp:', handoff)
+        self.assertIn('agent.threadLink(thread: threadID, folder: folder)', handoff)
+
     def test_no_unresolved_conflicts(self):
         result = subprocess.run(['git', 'diff', '--check', 'HEAD'], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.9.0] - 2026-11-11
+
+### Changed
+- Sync upstream v2.9.0: local Privacy Shield, browser privacy categories and docket thread handoffs.
+- Keep the fork's first-send provider consent, disabled Flow/support chat, timeline search, idle capture and upstream updater restrictions.
+
+### Fixed
+- Resolve the source and release metadata conflicts blocking daily upstream sync. Keep monotonic fork build number 176.
+- Apply Privacy Shield to captured sample buffers before storage while retaining zero-copy capture when it is off, and keep capture-generation checks on both storage paths.
+
 ## [2.8.3] - 2026-11-10
 
 ### Fixed

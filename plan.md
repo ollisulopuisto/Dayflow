@@ -114,3 +114,22 @@ closed on stderr even if the interpreter exits zero, and add a real native
 negative smoke check (unlock nonexistent keychain must raise with output withheld).
 One-command security -i status is retained in Apple's source; native CI verifies
 actual runner behavior. No tag/build/merge; local synthetic tests pass.
+
+## 2026-11-11 - Repair upstream v2.9.0 sync
+
+- Reproduced run 42964667287: ten merge-conflicted files, not a token failure.
+- Merge upstream 33517b1c into fork main 5fedfc15 on a review branch; preserve
+  provider consent, disabled Flow/support startup, Studio queue, capture-generation
+  locks, idle throttling, timeline windowing/search and disabled upstream updater.
+- Keep the direct sample-buffer path when Privacy Shield is off. When it is on,
+  convert the frame for local masking before storage and fail closed if masking
+  and placeholder creation fail. Preserve capture-generation checks after awaits.
+- Capture the selected docket provider and thread before awaiting consent, then
+  pass those choices to the handoff instead of reading changed settings later.
+- Adopt upstream browser categories alongside the existing fail-closed browser
+  controls. Keep both sets of preferences; neither silently resets the other.
+- Version 2.9.0, fork build 176 (do not regress to upstream build 141).
+- Local Python contract, credential and queue tests pass. Native macOS compilation,
+  XCTest and actual UI rendering are not available locally; await public macOS PR
+  CI. UI acceptance remains unverified, including the combined privacy settings
+  and footer. No merge, tag, release or Actions storage upload.
