@@ -55,4 +55,37 @@ final class TimelineCardWindowTests: XCTestCase {
       }
     }
   }
+
+  func testWeekScrollOffsetComesFromPaneSpaceFrames() {
+    // At rest the cards layer's top edge sits exactly at the scroll viewport's top edge.
+    XCTAssertEqual(
+      TimelineCardWindow.weekScrollOffset(cardsLayerTopInPane: 240, viewportTopInPane: 240), 0)
+    // Scrolling down moves the layer's pane-space top edge up by the scrolled amount.
+    XCTAssertEqual(
+      TimelineCardWindow.weekScrollOffset(cardsLayerTopInPane: -960, viewportTopInPane: 240), 1200)
+    // Rubber-banding above the top clamps to zero instead of going negative.
+    XCTAssertEqual(
+      TimelineCardWindow.weekScrollOffset(cardsLayerTopInPane: 260, viewportTopInPane: 240), 0)
+  }
+
+  /// Regression: the week grid's card window must be driven by "TimelinePane"-space geometry,
+  /// which moves during scrolling on macOS. Measuring the offset in the ScrollView's own
+  /// coordinate space never updated, pinned the bucket to 0, and dropped every card below the
+  /// initial band (the whole grid after mid-afternoon). Whatever the pane baseline, the
+  /// resulting window must cover the whole viewport at every scroll offset.
+  func testWeekWindowDrivenByPaneFramesCoversTheViewport() {
+    let paneBaseline: CGFloat = 240  // header etc. above the scroll viewport, in pane space
+    for height in [CGFloat(240), 600, 1_200] {
+      for offset in stride(from: CGFloat(0), through: 3_000, by: 17) {
+        let cardsLayerTop = paneBaseline - offset
+        let scrollOffset = TimelineCardWindow.weekScrollOffset(
+          cardsLayerTopInPane: cardsLayerTop, viewportTopInPane: paneBaseline)
+        XCTAssertEqual(scrollOffset, offset)
+        let bucket = TimelineCardWindow.bucket(layerMinY: -scrollOffset)
+        let range = TimelineCardWindow.range(bucket: bucket, viewportHeight: height, overscan: 100)
+        XCTAssertLessThanOrEqual(range.lowerBound, offset, "offset \(offset)")
+        XCTAssertGreaterThanOrEqual(range.upperBound, offset + height, "offset \(offset)")
+      }
+    }
+  }
 }

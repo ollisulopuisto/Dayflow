@@ -75,6 +75,19 @@ enum TimelineCardWindow {
     Int((max(0, -layerMinY) / bucketSize).rounded(.down))
   }
 
+  /// Week grid scroll offset derived from two "TimelinePane"-space measurements: the cards
+  /// layer's top edge and the scroll viewport's top edge. At rest they coincide (offset 0);
+  /// scrolling down moves the layer's pane-space top up by the scrolled amount. Pane-space
+  /// frames are the geometry source that actually moves during scrolling on macOS: a
+  /// ScrollView's own named coordinate space does not deliver offset changes to geometry
+  /// readers in its content, which pinned the week card window to the top of the grid and
+  /// dropped every card below the initial band.
+  static func weekScrollOffset(cardsLayerTopInPane: CGFloat, viewportTopInPane: CGFloat)
+    -> CGFloat
+  {
+    max(0, viewportTopInPane - cardsLayerTopInPane)
+  }
+
   static func viewportHeight(windowContentHeight: CGFloat?) -> CGFloat {
     max(minimumViewportHeight, windowContentHeight ?? 0)
   }
