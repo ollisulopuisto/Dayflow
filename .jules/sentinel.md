@@ -1,3 +1,11 @@
+## 2026-11-11 - Exact Endpoint Path Matching and Query Parameter Pollution Prevention
+
+**Vulnerability:** In `dayflow-studio-queue`, `Handler.do_GET` routed queries using prefix string matching (`self.path.startswith("/v1/results")`), unintentionally matching arbitrary sub-paths or unauthorized suffixes. Additionally, query parameter extraction picked the first value (`.get("device_id", [""])[0]`) without asserting single-occurrence uniqueness, permitting HTTP Parameter Pollution (HPP) where duplicate conflicting client parameters bypassed ingress expectations.
+
+**Learning:** Prefix matching on raw request URI paths conflates endpoint routes with nested subpaths and ignores query string boundaries, while naive multi-value dictionary index access silently discards repeated query arguments that indicate parameter pollution attempts.
+
+**Prevention:** Parse the request URI using `urlparse().path` to perform strict exact-equality routing checks, and verify query parameters strictly contain exactly one value (`len(values) == 1`) before consuming client identifiers.
+
 ## 2026-11-10 - Schedule Window Format Type Validation Preventing Unhandled Request Crashes
 
 **Vulnerability:** In `dayflow-studio-queue`, `/v1/jobs` inspected schedule window fields (`window_start`, `window_end`) by attempting string splitting without asserting their primitive string type. Supplying non-string values (such as integers, nulls, booleans, arrays, or objects) resulted in an unhandled `AttributeError`, bypassing standard HTTP error handling and abruptly terminating request threads.
