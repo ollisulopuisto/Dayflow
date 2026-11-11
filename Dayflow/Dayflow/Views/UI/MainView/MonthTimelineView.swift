@@ -6,6 +6,8 @@ struct MonthDaySummary: Equatable {
   var totalSeconds: TimeInterval = 0
   /// Seconds per category filter key, plus the display name for colour lookup.
   var secondsByCategory: [String: TimeInterval] = [:]
+  var matchingSecondsByCategory: [String: TimeInterval] = [:]
+  var firstMatchingIDByCategory: [String: String] = [:]
 }
 
 enum MonthTimelineSummary {
@@ -25,11 +27,11 @@ enum MonthTimelineSummary {
     idleCategoryKeys: Set<String> = [],
     searchTerms: [String] = []
   ) -> [String: MonthDaySummary] {
-    var activityByDay: [String: [(start: Int, end: Int, key: String)]] = [:]
+    var activityByDay: [String: [(start: Int, end: Int, key: String, matches: Bool, id: String, originalStart: Date)]] = [:]
     for activity in activities {
       let key = categoryFilterKey(activity.category)
       if idleCategoryKeys.contains(key) || mutedCategoryKeys.contains(key) { continue }
-      if !TimelineSearch.matches(terms: searchTerms, activity: activity) { continue }
+      let matches = !searchTerms.isEmpty && TimelineSearch.matches(terms: searchTerms, activity: activity)
 
       var cursor = activity.startTime
       while cursor < activity.endTime {
@@ -39,7 +41,7 @@ enum MonthTimelineSummary {
         activityByDay[dayInfo.dayString, default: []].append((
           start: Int(cursor.timeIntervalSince(dayInfo.startOfDay)),
           end: Int(pieceEnd.timeIntervalSince(dayInfo.startOfDay)),
-          key: key
+          key: key, matches: matches, id: activity.id, originalStart: activity.startTime
         ))
         cursor = pieceEnd
       }
@@ -55,15 +57,22 @@ enum MonthTimelineSummary {
         if lhs.start != rhs.start {
           return lhs.start < rhs.start
         }
-        return lhs.key < rhs.key
+        if lhs.originalStart != rhs.originalStart { return lhs.originalStart < rhs.originalStart }
+        if lhs.key != rhs.key { return lhs.key < rhs.key }
+        return lhs.id < rhs.id
       }
       var covered: [(start: Int, end: Int)] = []
+      var assigned: [(start: Int, end: Int, key: String)] = []
       for item in clipped {
+        if item.matches, summary.firstMatchingIDByCategory[item.key] == nil {
+          summary.firstMatchingIDByCategory[item.key] = item.id
+        }
         var cursor = item.start
         var newlyAssigned = 0.0
         for interval in covered where interval.end > cursor {
           if interval.start > cursor {
             let seconds = Double(min(interval.start, item.end) - cursor)
+            assigned.append((cursor, min(interval.start, item.end), item.key))
             summary.secondsByCategory[item.key, default: 0] += seconds
             newlyAssigned += seconds
             cursor = min(interval.start, item.end)
@@ -73,6 +82,7 @@ enum MonthTimelineSummary {
         }
         if cursor < item.end {
           let seconds = Double(item.end - cursor)
+          assigned.append((cursor, item.end, item.key))
           summary.secondsByCategory[item.key, default: 0] += seconds
           newlyAssigned += seconds
         }
@@ -89,6 +99,20 @@ enum MonthTimelineSummary {
         }
         covered = merged
       }
+      // Intersect the unchanged category coverage with matching intervals. A
+      // later matching card may overlap an earlier nonmatch in the same category;
+      // it must still light up that coverage, without double-counting it.
+      for slice in assigned {
+        var cursor = slice.start
+        for match in clipped where match.matches && match.key == slice.key {
+          let start = max(cursor, match.start)
+          let end = min(slice.end, match.end)
+          if end > start {
+            summary.matchingSecondsByCategory[slice.key, default: 0] += Double(end - start)
+            cursor = end
+          }
+        }
+      }
       result[day] = summary
     }
     return result
@@ -100,13 +124,16 @@ struct MonthTimelineView: View {
   let refreshTrigger: Int
   @Binding var hasAnyActivities: Bool
   var mutedCategoryKeys: Set<String> = []
-  // Free-text search; only matching activities count towards the day totals.
+  // Search annotates the existing bars without changing their geometry or totals.
   var searchQuery: String = ""
   let onSelectDay: (Date) -> Void
+  var onSelectMatch: (Date, TimelineActivity) -> Void = { _, _ in }
 
   @EnvironmentObject private var categoryStore: CategoryStore
   @Environment(\.dayflowTheme) private var theme
   @State private var summaries: [String: MonthDaySummary] = [:]
+  @State private var activitiesByID: [String: TimelineActivity] = [:]
+  @State private var loadGeneration = 0
   @State private var loadTask: Task<Void, Never>?
 
   private static let calendar: Calendar = {
@@ -204,10 +231,7 @@ struct MonthTimelineView: View {
     let isSelected = key == DateFormatter.yyyyMMdd.string(from: selectedDate)
     let isFuture = MonthTimelineSummary.isFutureDay(date)
 
-    return Button {
-      onSelectDay(date)
-    } label: {
-      VStack(alignment: .leading, spacing: 4) {
+    return VStack(alignment: .leading, spacing: 4) {
         Text("\(number)")
           .font(.system(size: 13, weight: isSelected ? .bold : .medium))
           .foregroundColor(theme.textPrimary)
@@ -216,7 +240,7 @@ struct MonthTimelineView: View {
           Text(Self.durationText(summary.totalSeconds))
             .font(.system(size: 11))
             .foregroundColor(theme.textSecondary)
-          categoryBar(summary)
+          categoryBar(summary, date: date)
         }
       }
       .padding(8)
@@ -231,24 +255,20 @@ struct MonthTimelineView: View {
       )
       .contentShape(Rectangle())
       .opacity(isFuture ? 0.4 : 1)
-    }
-    .buttonStyle(.plain)
-    .disabled(isFuture)
+    .allowsHitTesting(!isFuture)
+    .onTapGesture { if !isFuture { onSelectDay(date) } }
+    .accessibilityElement(children: .contain)
+    .accessibilityAction { if !isFuture { onSelectDay(date) } }
   }
 
-  private func categoryBar(_ summary: MonthDaySummary) -> some View {
-    let parts = summary.secondsByCategory.sorted { $0.value > $1.value }
-    return GeometryReader { geo in
-      HStack(spacing: 0) {
-        ForEach(parts, id: \.key) { part in
-          Rectangle()
-            .fill(color(forCategoryKey: part.key))
-            .frame(width: geo.size.width * part.value / max(summary.totalSeconds, 1))
-        }
-      }
-      .clipShape(Capsule())
-    }
-    .frame(height: 4)
+  private func categoryBar(_ summary: MonthDaySummary, date: Date) -> some View {
+    MonthCategorySearchBar(
+      summary: summary, searchQuery: searchQuery, colorForKey: color(forCategoryKey:),
+      onSelectMatch: { id in
+        if let activity = activitiesByID[id] { onSelectMatch(date, activity) }
+      },
+      onSelectDay: { onSelectDay(date) }
+    )
   }
 
   private func color(forCategoryKey key: String) -> Color {
@@ -268,6 +288,8 @@ struct MonthTimelineView: View {
 
   private func load() {
     loadTask?.cancel()
+    loadGeneration += 1
+    let generation = loadGeneration
     let range = monthRange
     let muted = mutedCategoryKeys
     let idle = idleKeys
@@ -278,9 +300,74 @@ struct MonthTimelineView: View {
         activities, mutedCategoryKeys: muted, idleCategoryKeys: idle, searchTerms: searchTerms)
       guard !Task.isCancelled else { return }
       await MainActor.run {
+        guard generation == loadGeneration else { return }
+        activitiesByID = Dictionary(activities.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         summaries = result
         hasAnyActivities = !activities.isEmpty
       }
     }
   }
+}
+
+/// Uses the same totals and segment widths before and during search. Only opacity
+/// changes. Keeping the renderer separate also allows native pixel verification.
+struct MonthCategorySearchBar: View {
+  let summary: MonthDaySummary
+  let searchQuery: String
+  let colorForKey: (String) -> Color
+  let onSelectMatch: (String) -> Void
+  let onSelectDay: () -> Void
+
+  var body: some View {
+    let parts = summary.secondsByCategory.sorted {
+      $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value
+    }
+    return GeometryReader { geo in
+      HStack(spacing: 0) {
+        ForEach(parts, id: \.key) { part in
+          let matching = min(part.value, summary.matchingSecondsByCategory[part.key] ?? 0)
+          let searching = !TimelineSearch.terms(searchQuery).isEmpty
+          HStack(spacing: 0) {
+            if matching > 0 {
+              Rectangle()
+                .fill(colorForKey(part.key))
+                .frame(width: geo.size.width * matching / max(summary.totalSeconds, 1))
+            }
+            Rectangle()
+              .fill(colorForKey(part.key))
+              .opacity(searching ? 0.2 : 1)
+              .frame(width: geo.size.width * (part.value - matching) / max(summary.totalSeconds, 1))
+          }
+          .frame(height: 16)
+          .contentShape(Rectangle())
+          .highPriorityGesture(
+            TapGesture(count: 2).exclusively(before: TapGesture())
+              .onEnded { value in
+                switch value {
+                case .first:
+                  if let id = summary.firstMatchingIDByCategory[part.key] {
+                    onSelectMatch(id)
+                  } else {
+                    onSelectDay()
+                  }
+                case .second:
+                  onSelectDay()
+                }
+              }
+          )
+          .accessibilityLabel(part.key)
+          .accessibilityAction(named: Text("Open first search match")) {
+            if let id = summary.firstMatchingIDByCategory[part.key] {
+              onSelectMatch(id)
+            }
+          }
+        }
+      }
+      .frame(height: 4)
+      .clipShape(Capsule())
+      .frame(height: 16)
+    }
+    .frame(height: 16)
+  }
+
 }

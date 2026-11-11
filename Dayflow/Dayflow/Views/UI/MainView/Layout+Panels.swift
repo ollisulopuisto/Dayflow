@@ -209,6 +209,13 @@ extension MainView {
             onSelectDay: { day in
               setSelectedDate(day)
               setTimelineMode(.day)
+            },
+            onSelectMatch: { _, activity in
+              // A cross-4AM card can appear in two Month cells. Day storage
+              // indexes it under its start day, so open that day for the exact card.
+              setSelectedDate(activity.startTime.getDayInfoFor4AMBoundary().startOfDay)
+              setTimelineMode(.day)
+              pendingMonthSearchActivity = activity
             }
           )
           .transition(.opacity.combined(with: .scale(scale: 1.05, anchor: .center)))
@@ -271,7 +278,9 @@ extension MainView {
       cardPressedScale: TimelineCardLayout.pressedScale,
       mutedCategoryKeys: mutedCategoryKeys,
       searchQuery: timelineSearchText,
-      mergeSegments: mergeSegments
+      mergeSegments: mergeSegments,
+      searchJumpActivity: pendingMonthSearchActivity,
+      onSearchJumpHandled: { pendingMonthSearchActivity = nil }
     )
   }
 
@@ -418,6 +427,7 @@ extension MainView {
         activity: activity,
         maxHeight: geo.size.height,
         scrollSummary: true,
+        searchQuery: timelineSearchText,
         hasAnyActivities: hasAnyActivities,
         onCategoryChange: { category, activity in
           handleCategoryChange(to: category, for: activity)

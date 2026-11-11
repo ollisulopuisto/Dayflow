@@ -82,8 +82,11 @@ struct CanvasTimelineDataView: View {
   var searchQuery: String = ""
   // false shows the raw cards (Hour zoom) instead of ~10 minute blocks.
   var mergeSegments: Bool = true
+  var searchJumpActivity: TimelineActivity? = nil
+  var onSearchJumpHandled: () -> Void = {}
 
   @Environment(\.dayflowTheme) private var theme
+  @State private var searchJumpUnavailable = false
   @State private var selectedCardId: String? = nil
   @State private var positionedActivities: [CanvasPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
@@ -161,6 +164,23 @@ struct CanvasTimelineDataView: View {
     }
   }
 
+  /// The anchor is not a virtualized card: it exists even when the match is far
+  /// outside the viewport. Preserve the original activity, not its merged proxy.
+  private func revealSearchMatch(with proxy: ScrollViewProxy) {
+    guard let target = searchJumpActivity,
+      let card = positionedActivities.first(where: { $0.sourceActivityIDs.contains(target.id) })
+    else { return }
+    didInitialScrollInView = true
+    selectedCardId = card.id
+    selectedActivity = target
+    DispatchQueue.main.async {
+      guard searchJumpActivity?.id == target.id else { return }
+      proxy.scrollTo("search-match-anchor", anchor: UnitPoint(x: 0, y: 0.25))
+      revealInitialScroll()
+      onSearchJumpHandled()
+    }
+  }
+
   // `body` is split into two chained computed properties for the same reason
   // `MainView.mainLayout` is: the combined modifier chain + inline closures
   // was exceeding Swift's per-expression type-check budget. Closures with
@@ -170,6 +190,11 @@ struct CanvasTimelineDataView: View {
   var body: some View {
     dayTimelineScrollContainer
       .background(Color.clear)
+      .alert("Search match unavailable", isPresented: $searchJumpUnavailable) {
+        Button("OK", role: .cancel) {}
+      } message: {
+        Text("This activity may have changed. Search again to find its current location.")
+      }
       .onAppear(perform: performDayTimelineOnAppear)
       .onDisappear(perform: performDayTimelineOnDisappear)
       .onChange(of: selectedDate) { loadActivities() }
@@ -211,17 +236,27 @@ struct CanvasTimelineDataView: View {
       .onChange(of: scrollToNowTick) {
         scrollToNowCenteredHour(with: proxy)
       }
+      .onChange(of: positionedActivities.map(\.renderSignature)) {
+        revealSearchMatch(with: proxy)
+      }
+      .onChange(of: searchJumpActivity?.id) {
+        revealSearchMatch(with: proxy)
+      }
       .onChange(of: positionedActivities.count) {
-        guard !didInitialScrollInView, timelineIsToday(selectedDate) else { return }
+        guard searchJumpActivity == nil, !didInitialScrollInView, timelineIsToday(selectedDate) else { return }
         didInitialScrollInView = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+          guard searchJumpActivity == nil else { return }
           scrollToNowCenteredHour(with: proxy)
           revealInitialScroll()
         }
       }
       .onAppear {
+        revealSearchMatch(with: proxy)
+        if searchJumpActivity != nil { return }
         if timelineIsToday(selectedDate) {
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            guard searchJumpActivity == nil, !didInitialScrollInView else { return }
             scrollToNowCenteredHour(with: proxy)
             revealInitialScroll()
           }
@@ -233,9 +268,10 @@ struct CanvasTimelineDataView: View {
         }
       }
       .onChange(of: selectedDate) { _, newDate in
-        guard timelineIsToday(newDate) else { return }
+        guard searchJumpActivity == nil, timelineIsToday(newDate) else { return }
         didInitialScrollInView = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+          guard searchJumpActivity == nil, !didInitialScrollInView else { return }
           scrollToNowCenteredHour(with: proxy, animated: true)
         }
       }
@@ -286,6 +322,14 @@ struct CanvasTimelineDataView: View {
       // Invisible anchor positioned for "now" scroll target
       nowAnchorView()
         .zIndex(-1)  // Behind other content
+
+      if let target = searchJumpActivity {
+        VStack(spacing: 0) {
+          Color.clear.frame(height: min(timelineHeight - 1, calculateYPosition(for: target.startTime)))
+          Color.clear.frame(height: 1).id("search-match-anchor")
+        }
+        .allowsHitTesting(false)
+      }
 
       // Hour lines layer
       hourLines
@@ -803,10 +847,17 @@ struct CanvasTimelineDataView: View {
           self.cardEntranceProgress = [:]
         }
         self.positionedActivities = positioned
+        if let target = searchJumpActivity,
+          !positioned.contains(where: { $0.sourceActivityIDs.contains(target.id) })
+        {
+          onSearchJumpHandled()
+          searchJumpUnavailable = true
+          revealInitialScroll()
+        }
         self.recordingProjection = recordingProjection
         self.hasAnyActivities = !positioned.isEmpty
         if let selectedActivity,
-          !positioned.contains(where: { $0.activity.id == selectedActivity.id })
+          !positioned.contains(where: { $0.sourceActivityIDs.contains(selectedActivity.id) })
         {
           clearSelection()
         }

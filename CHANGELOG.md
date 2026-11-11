@@ -2,6 +2,10 @@
 
 ## [2.9.0] - 2026-11-11
 
+### Pending changes
+- Highlight search terms inside activity titles and descriptions while preserving markdown and text selection.
+- Keep Month bars at their full lengths during search and dim nonmatching portions. Double-click a matching category segment to open its first match in Day, selected and scrolled to its time.
+
 ### Changed
 - Sync upstream v2.9.0: local Privacy Shield, browser privacy categories and docket thread handoffs.
 - Keep the fork's first-send provider consent, disabled Flow/support chat, timeline search, idle capture and upstream updater restrictions.

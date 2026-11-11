@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import XCTest
 
 @testable import Dayflow
@@ -60,7 +62,81 @@ final class TimelineSearchTests: XCTestCase {
       CategoryFacetSelection.doubleClick(key: "work", allKeys: allKeys, mutedKeys: onlyWork), [])
   }
 
-  private func activity(id: String, start: Date, end: Date, title: String) -> TimelineActivity {
+  func testHighlightRangesUseOriginalUnicodeIndicesAndEveryOccurrence() {
+    let text = "CAFÉ Cafe\u{301} cafe 🙂 CAFÉ"
+    let ranges = TimelineSearch.highlightRanges(in: text, query: "cafe")
+    XCTAssertEqual(ranges.map { String(text[$0]) }, ["CAFÉ", "Cafe\u{301}", "cafe", "CAFÉ"])
+    XCTAssertTrue(TimelineSearch.highlightRanges(in: text, query: "   ").isEmpty)
+  }
+
+  func testHighlightingPreservesMarkdownAndOnlyMarksDisplayedText() throws {
+    let input = try AttributedString(markdown: "**Foxy Bear** uses [Café](https://example.com)")
+    let result = TimelineSearch.highlighted(input, query: "foxy cafe")
+    XCTAssertEqual(String(result.characters), String(input.characters))
+    XCTAssertEqual(result.runs.filter { $0.backgroundColor != nil }.count, 2)
+    var restored = result
+    restored.backgroundColor = nil
+    restored.foregroundColor = nil
+    XCTAssertEqual(restored, input, "Markdown links and emphasis must survive highlighting")
+    XCTAssertEqual(TimelineSearch.highlighted(input, query: " "), input)
+    XCTAssertTrue(TimelineSearch.highlighted(input, query: "example.com").runs.allSatisfy {
+      $0.backgroundColor == nil
+    })
+  }
+
+  func testHighlightRangesAllowOverlappingTermsAndSubstringMatches() {
+    let text = "Foxy Bear"
+    let ranges = TimelineSearch.highlightRanges(in: text, query: "fox foxy bear")
+    XCTAssertEqual(ranges.map { String(text[$0]) }, ["Fox", "Foxy", "Bear"])
+    XCTAssertEqual(TimelineSearch.highlightRanges(in: "🙂Straße", query: "strasse").count, 1)
+  }
+
+  /// Actual AppKit/SwiftUI pixels from the production inspector and month bar.
+  /// The fixture is synthetic and contains no user history. Existing test logs
+  /// carry the PNG, avoiding additional CI jobs, artifacts or retention.
+  @MainActor
+  func testNativeSearchRenderingCapture() throws {
+    let fixture = activity(id: "search-fixture", start: Date(timeIntervalSince1970: 1_800_000_000),
+      end: Date(timeIntervalSince1970: 1_800_001_800), title: "Planning with Foxy Bear",
+      summary: "Edited **Foxy Bear** notes at Café Regatta. Text stays selectable.",
+      detailedSummary: "Reviewed Foxy Bear recordings and prepared the next episode.")
+    let summary = MonthDaySummary(totalSeconds: 100,
+      secondsByCategory: ["work": 70, "personal": 30],
+      matchingSecondsByCategory: ["work": 25], firstMatchingIDByCategory: ["work": fixture.id])
+    let root = VStack(spacing: 16) {
+      ActivityCard(activity: fixture, searchQuery: "foxy cafe")
+        .environmentObject(AppState.shared)
+        .environmentObject(CategoryStore())
+        .environmentObject(RetryCoordinator())
+        .frame(height: 460)
+      MonthCategorySearchBar(summary: summary, searchQuery: "foxy",
+        colorForKey: { $0 == "work" ? .orange : .blue }, onSelectMatch: { _ in }, onSelectDay: {})
+        .frame(width: 360)
+    }
+    .padding(20)
+    .frame(width: 480, height: 540)
+    .background(Color(red: 0.11, green: 0.12, blue: 0.15))
+    .environment(\.dayflowTheme, .dark)
+    .environment(\.stylePreviewAfter, true)
+    let host = NSHostingView(rootView: root)
+    host.frame = NSRect(x: 0, y: 0, width: 480, height: 540)
+    let window = NSWindow(contentRect: host.frame, styleMask: [.borderless],
+      backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = host
+    host.layoutSubtreeIfNeeded()
+    host.displayIfNeeded()
+    let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+    XCTAssertGreaterThan(png.count, 1000)
+    print("DAYFLOW_SEARCH_NATIVE_PNG_BEGIN")
+    print(png.base64EncodedString())
+    print("DAYFLOW_SEARCH_NATIVE_PNG_END")
+    window.close()
+  }
+
+  private func activity(id: String, start: Date, end: Date, title: String, summary: String = "", detailedSummary: String = "") -> TimelineActivity {
     TimelineActivity(
       id: id,
       recordId: nil,
@@ -68,8 +144,8 @@ final class TimelineSearchTests: XCTestCase {
       startTime: start,
       endTime: end,
       title: title,
-      summary: "",
-      detailedSummary: "",
+      summary: summary,
+      detailedSummary: detailedSummary,
       category: "Work",
       subcategory: "",
       distractions: nil,

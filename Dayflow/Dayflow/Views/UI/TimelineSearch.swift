@@ -35,6 +35,37 @@ enum TimelineSearch {
     return Set(activities.filter { matches(terms: terms, activity: $0) }.map(\.id))
   }
 
+  /// Ranges in the original, displayed text. Never use folded-string offsets: accents
+  /// and composed characters can change length when folded.
+  static func highlightRanges(in text: String, query: String) -> [Range<String.Index>] {
+    var ranges: [Range<String.Index>] = []
+    for term in terms(query) {
+      var cursor = text.startIndex
+      while cursor < text.endIndex,
+        let range = text.range(of: term, options: [.caseInsensitive, .diacriticInsensitive],
+          range: cursor..<text.endIndex, locale: nil)
+      {
+        ranges.append(range)
+        cursor = range.upperBound
+      }
+    }
+    return ranges
+  }
+
+  static func highlighted(_ input: AttributedString, query: String) -> AttributedString {
+    var result = input
+    let text = String(input.characters)
+    for range in highlightRanges(in: text, query: query) {
+      if let lower = AttributedString.Index(range.lowerBound, within: result),
+        let upper = AttributedString.Index(range.upperBound, within: result)
+      {
+        result[lower..<upper].backgroundColor = Color(red: 1, green: 0.80, blue: 0.32)
+        result[lower..<upper].foregroundColor = Color.black
+      }
+    }
+    return result
+  }
+
   static func statistics(query: String, activities: [TimelineActivity]) -> TimelineSearchStats? {
     let searchTerms = terms(query)
     guard !searchTerms.isEmpty else { return nil }
