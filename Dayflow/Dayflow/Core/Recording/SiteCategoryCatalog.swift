@@ -143,7 +143,7 @@ enum SiteCategoryCatalog {
     let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !value.isEmpty,
       let components = URLComponents(string: value.contains("://") ? value : "https://" + value),
-      let rawHost = components.host
+      let rawHost = components.url?.host
     else { return nil }
     var host = rawHost.lowercased()
     while host.hasSuffix(".") { host.removeLast() }

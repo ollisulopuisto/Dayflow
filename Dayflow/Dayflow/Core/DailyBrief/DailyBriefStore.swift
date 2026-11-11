@@ -688,8 +688,17 @@ final class DailyBriefStore: ObservableObject {
     let pickedApp = item.newThreadApp.flatMap(DailyBriefAgent.init(appName:))
       .flatMap { $0.isInstalled ? $0 : nil }
     let agent = thread?.1 ?? pickedApp ?? docketAgent
-    // Desktop thread IDs are not guaranteed to be CLI session IDs. Continue
-    // through the app link rather than silently starting a fresh CLI thread.
+    // Desktop thread IDs are not guaranteed to be CLI session IDs. Never
+    // silently replace their context with a fresh CLI, web or Classic chat.
+    if let thread, (!agent.isInstalled || agent.threadLink(thread: thread.0, folder: nil) == nil) {
+      let alert = NSAlert()
+      alert.messageText = String(localized: "Thread continuation unavailable")
+      alert.informativeText = String(
+        localized: "Install the app that owns this thread to continue it. No prompt was sent and no background task was started.")
+      alert.addButton(withTitle: String(localized: "OK"))
+      alert.runModal()
+      return
+    }
     let method: DailyBriefHandoff.Method = thread == nil ? docketHandoffMethod : .paste
     let tool: ChatCLITool = agent == .claude ? .claude : .codex
     Task { @MainActor in

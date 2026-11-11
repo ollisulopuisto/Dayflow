@@ -309,6 +309,16 @@ final class UpstreamPrivacyRegressionTests: XCTestCase {
     }
   }
 
+  func testInternationalDomainsMatchTheirASCIIEncoding() {
+    XCTAssertEqual(SiteCategoryCatalog.normalizedCustomHost("https://bücher.de"), "xn--bcher-kva.de")
+    XCTAssertTrue(SiteCategoryCatalog.matchesAnyCustomDomain(
+      urlString: "https://xn--bcher-kva.de/page", customDomains: ["bücher.de"]))
+    XCTAssertTrue(SiteCategoryCatalog.matchesAnyCustomDomain(
+      urlString: "https://bücher.de/page", customDomains: ["xn--bcher-kva.de"]))
+    XCTAssertTrue(SiteCategoryCatalog.matchesAnyCustomDomain(
+      urlString: "https://shop.bücher.de", customDomains: ["bücher.de"]))
+  }
+
   func testSiteRulesApplyToPrivateAndUnknownWindows() {
     let settings = BrowserPrivacyPreferences.Settings(
       hidePrivateWindows: false, blockedCategories: [.bankingAndFinance],

@@ -144,3 +144,10 @@ actual runner behavior. No tag/build/merge; local synthetic tests pass.
   recorder's placeholder/drop path instead of returning any original secret pixels.
 - Added native regression coverage for custom-host scope, private/unknown site
   checks, and injected pixelation failure. Native tests await PR CI.
+
+### PR #115 second review pass
+- Do not send threaded tasks to a web/Classic fallback when the owning desktop
+  app or its thread deep link is unavailable. Explain the missing app and stop
+  before provider consent, handoff history or transmission.
+- Canonicalize custom internationalized domains through Foundation URL's IDNA
+  host form so Unicode and punycode rules match the same hostname. Added tests.
