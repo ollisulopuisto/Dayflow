@@ -151,3 +151,9 @@ actual runner behavior. No tag/build/merge; local synthetic tests pass.
   before provider consent, handoff history or transmission.
 - Canonicalize custom internationalized domains through Foundation URL's IDNA
   host form so Unicode and punycode rules match the same hostname. Added tests.
+
+### PR #115 native compilation follow-up
+- The app compiled on macOS; test compilation found an upstream/fork test-class
+  collision, both named BrowserPrivacyDecisionTests. Rename the upstream category
+  suite to BrowserCategoryPrivacyDecisionTests; keep both suites and all assertions.
+- Devin confirmed all six findings resolved on 829bffb1. No new findings at recheck.

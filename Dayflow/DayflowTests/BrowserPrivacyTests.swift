@@ -199,7 +199,7 @@ final class SiteCategoryCatalogTests: XCTestCase {
   }
 }
 
-final class BrowserPrivacyDecisionTests: XCTestCase {
+final class BrowserCategoryPrivacyDecisionTests: XCTestCase {
 
   private func settings(
     hidePrivate: Bool = false,
