@@ -82,8 +82,13 @@ struct CanvasTimelineDataView: View {
   var searchQuery: String = ""
   // false shows the raw cards (Hour zoom) instead of ~10 minute blocks.
   var mergeSegments: Bool = true
+  // A binding is intentional: detached reloads must read the current request,
+  // not a captured View value that may have been cancelled during the DB read.
+  @Binding var searchJumpActivity: TimelineActivity?
 
   @Environment(\.dayflowTheme) private var theme
+  @State private var searchJumpUnavailable = false
+  @State private var loadedDayString: String? = nil
   @State private var selectedCardId: String? = nil
   @State private var positionedActivities: [CanvasPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
@@ -161,6 +166,29 @@ struct CanvasTimelineDataView: View {
     }
   }
 
+  /// The anchor is not a virtualized card: it exists even when the match is far
+  /// outside the viewport. Preserve the original activity, not its merged proxy.
+  private func revealSearchMatch(with proxy: ScrollViewProxy) {
+    guard let target = searchJumpActivity else { return }
+    guard loadedDayString == DateFormatter.yyyyMMdd.string(from: selectedDate) else { return }
+    guard let card = positionedActivities.first(where: { $0.sourceActivityIDs.contains(target.id) })
+    else {
+      searchJumpActivity = nil
+      searchJumpUnavailable = true
+      revealInitialScroll()
+      return
+    }
+    didInitialScrollInView = true
+    selectedCardId = card.id
+    selectedActivity = target
+    DispatchQueue.main.async {
+      guard searchJumpActivity?.id == target.id else { return }
+      proxy.scrollTo("search-match-anchor", anchor: UnitPoint(x: 0, y: 0.25))
+      revealInitialScroll()
+      searchJumpActivity = nil
+    }
+  }
+
   // `body` is split into two chained computed properties for the same reason
   // `MainView.mainLayout` is: the combined modifier chain + inline closures
   // was exceeding Swift's per-expression type-check budget. Closures with
@@ -170,6 +198,11 @@ struct CanvasTimelineDataView: View {
   var body: some View {
     dayTimelineScrollContainer
       .background(Color.clear)
+      .alert("Search match unavailable", isPresented: $searchJumpUnavailable) {
+        Button("OK", role: .cancel) {}
+      } message: {
+        Text("This activity may have changed. Search again to find its current location.")
+      }
       .onAppear(perform: performDayTimelineOnAppear)
       .onDisappear(perform: performDayTimelineOnDisappear)
       .onChange(of: selectedDate) { loadActivities() }
@@ -211,17 +244,30 @@ struct CanvasTimelineDataView: View {
       .onChange(of: scrollToNowTick) {
         scrollToNowCenteredHour(with: proxy)
       }
+      .onChange(of: positionedActivities.map(\.renderSignature)) {
+        revealSearchMatch(with: proxy)
+      }
+      .onChange(of: searchJumpActivity?.id) {
+        revealSearchMatch(with: proxy)
+      }
+      .onChange(of: loadedDayString) {
+        revealSearchMatch(with: proxy)
+      }
       .onChange(of: positionedActivities.count) {
-        guard !didInitialScrollInView, timelineIsToday(selectedDate) else { return }
+        guard searchJumpActivity == nil, !didInitialScrollInView, timelineIsToday(selectedDate) else { return }
         didInitialScrollInView = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+          guard searchJumpActivity == nil else { return }
           scrollToNowCenteredHour(with: proxy)
           revealInitialScroll()
         }
       }
       .onAppear {
+        revealSearchMatch(with: proxy)
+        if searchJumpActivity != nil { return }
         if timelineIsToday(selectedDate) {
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            guard searchJumpActivity == nil, !didInitialScrollInView else { return }
             scrollToNowCenteredHour(with: proxy)
             revealInitialScroll()
           }
@@ -233,9 +279,10 @@ struct CanvasTimelineDataView: View {
         }
       }
       .onChange(of: selectedDate) { _, newDate in
-        guard timelineIsToday(newDate) else { return }
+        guard searchJumpActivity == nil, timelineIsToday(newDate) else { return }
         didInitialScrollInView = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+          guard searchJumpActivity == nil, !didInitialScrollInView else { return }
           scrollToNowCenteredHour(with: proxy, animated: true)
         }
       }
@@ -286,6 +333,14 @@ struct CanvasTimelineDataView: View {
       // Invisible anchor positioned for "now" scroll target
       nowAnchorView()
         .zIndex(-1)  // Behind other content
+
+      if let target = searchJumpActivity {
+        VStack(spacing: 0) {
+          Color.clear.frame(height: min(timelineHeight - 1, calculateYPosition(for: target.startTime)))
+          Color.clear.frame(height: 1).id("search-match-anchor")
+        }
+        .allowsHitTesting(false)
+      }
 
       // Hour lines layer
       hourLines
@@ -696,6 +751,7 @@ struct CanvasTimelineDataView: View {
   private func loadActivities(animate: Bool = true, deferWhileHovering: Bool = false) {
     // Cancel any in-flight database read to prevent query pileup
     loadTask?.cancel()
+    loadedDayString = nil
     lastLoadStart.date = Date()
 
     loadTask = Task.detached(priority: .userInitiated) {
@@ -788,14 +844,25 @@ struct CanvasTimelineDataView: View {
           return
         }
         self.cardsHover.pendingRefresh = false
+        loadedDayString = dayString
         self.recordingProjection = recordingProjection
+        if let target = searchJumpActivity,
+          !positioned.contains(where: { $0.sourceActivityIDs.contains(target.id) })
+        {
+          searchJumpActivity = nil
+          searchJumpUnavailable = true
+          revealInitialScroll()
+        }
         guard
           TimelineReloadGate.shouldCommit(
             animate: animate,
             old: self.positionedActivities.map(\.renderSignature),
             new: positioned.map(\.renderSignature))
         else {
-          // Nothing visible changed (the usual 60 s refresh): no re-render, no broadcast.
+          // Navigation is handled independently from render-signature equality.
+          // A new request can arrive while an unchanged day is already loaded.
+          // The ScrollViewReader observes request changes for present targets;
+          // the absent-target check above clears a stale request even here.
           return
         }
         if animate {
@@ -806,7 +873,7 @@ struct CanvasTimelineDataView: View {
         self.recordingProjection = recordingProjection
         self.hasAnyActivities = !positioned.isEmpty
         if let selectedActivity,
-          !positioned.contains(where: { $0.activity.id == selectedActivity.id })
+          !positioned.contains(where: { $0.sourceActivityIDs.contains(selectedActivity.id) })
         {
           clearSelection()
         }
@@ -1024,7 +1091,8 @@ extension CanvasTimelineDataView {
         cardCompactVerticalPadding: TimelineCardLayout.compactVerticalPadding,
         cardNormalVerticalPadding: TimelineCardLayout.normalVerticalPadding,
         cardHoverScale: TimelineCardLayout.hoverScale,
-        cardPressedScale: TimelineCardLayout.pressedScale
+        cardPressedScale: TimelineCardLayout.pressedScale,
+        searchJumpActivity: .constant(nil)
       )
       .frame(width: 800, height: 600)
       .environmentObject(CategoryStore())

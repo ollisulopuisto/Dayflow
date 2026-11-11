@@ -61,6 +61,11 @@ extension MainView {
         handleTabSelectionChange(newIcon)
       }
       .onChange(of: selectedDate) { _, newDate in
+        if let pending = pendingMonthSearchActivity,
+          pending.startTime.getDayInfoFor4AMBoundary().dayString != dayString(newDate)
+        {
+          pendingMonthSearchActivity = nil
+        }
         handleSelectedDateChange(newDate)
         refreshTimelineSearchStats()
       }
@@ -70,9 +75,11 @@ extension MainView {
         refreshTimelineSearchStats()
       }
       .onChange(of: timelineSearchText) {
+        pendingMonthSearchActivity = nil
         refreshTimelineSearchStats()
       }
       .onChange(of: timelineMode) {
+        if timelineMode != .day { pendingMonthSearchActivity = nil }
         refreshTimelineSearchStats()
       }
       .onChange(of: selectedActivity?.id) {

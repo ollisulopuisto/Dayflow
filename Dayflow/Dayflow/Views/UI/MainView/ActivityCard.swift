@@ -8,6 +8,7 @@ struct ActivityCard: View {
   let activity: TimelineActivity?
   var maxHeight: CGFloat? = nil
   var scrollSummary: Bool = false
+  var searchQuery: String = ""
   var hasAnyActivities: Bool = true
   var onCategoryChange: ((TimelineCategory, TimelineActivity) -> Void)? = nil
   var onTitleChange: ((String, TimelineActivity) -> Void)? = nil
@@ -330,7 +331,9 @@ struct ActivityCard: View {
         }
     } else {
       HStack(alignment: .center, spacing: 6) {
-        Text(isFailedCard(activity) ? String(localized: "Processing failed") : activity.title)
+        Text(TimelineSearch.highlighted(AttributedString(
+          isFailedCard(activity) ? String(localized: "Processing failed") : activity.title),
+          query: searchQuery))
           .font(
             Font.custom("Figtree", size: 16)
               .weight(.semibold)
@@ -429,9 +432,9 @@ struct ActivityCard: View {
       interpretedSyntax: .inlineOnlyPreservingWhitespace
     )
     if let parsed = try? AttributedString(markdown: content, options: options) {
-      return Text(parsed)
+      return Text(TimelineSearch.highlighted(parsed, query: searchQuery))
     }
-    return Text(content)
+    return Text(TimelineSearch.highlighted(AttributedString(content), query: searchQuery))
   }
 
   private func formattedDetailedSummary(_ content: String) -> String {

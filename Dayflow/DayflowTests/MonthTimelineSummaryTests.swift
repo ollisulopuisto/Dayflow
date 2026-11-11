@@ -74,4 +74,77 @@ final class MonthTimelineSummaryTests: XCTestCase {
     XCTAssertEqual(seconds, 12.5 * 3600, accuracy: 1)
     XCTAssertTrue(result.values.allSatisfy { $0.totalSeconds <= 24 * 3600 + 1 })
   }
+  func testSearchKeepsAllTotalsAndSplitsMatchedCoverage() {
+    let day = Calendar.current.startOfDay(for: Date()).addingTimeInterval(12 * 3600)
+    var first = makeActivity(start: day, end: day.addingTimeInterval(3600))
+    first = first.withTitle("Foxy Bear")
+    var second = makeActivity(start: day.addingTimeInterval(3600), end: day.addingTimeInterval(7200))
+    second = second.withTitle("Unrelated")
+    let all = MonthTimelineSummary.summarize([first, second])
+    let searched = MonthTimelineSummary.summarize([first, second], searchTerms: ["foxy"])
+    let key = dayKey(for: day)
+    XCTAssertEqual(searched[key]?.totalSeconds, all[key]?.totalSeconds)
+    XCTAssertEqual(searched[key]?.secondsByCategory, all[key]?.secondsByCategory)
+    XCTAssertEqual(searched[key]?.matchingSecondsByCategory[categoryFilterKey("Work")], 3600)
+    XCTAssertEqual(searched[key]?.firstMatchingIDByCategory[categoryFilterKey("Work")], first.id)
+    let noMatches = MonthTimelineSummary.summarize([first, second], searchTerms: ["missing"])
+    XCTAssertEqual(noMatches[key]?.secondsByCategory, all[key]?.secondsByCategory)
+    XCTAssertTrue(noMatches[key]?.firstMatchingIDByCategory.isEmpty == true)
+    XCTAssertTrue(all[key]?.matchingSecondsByCategory.isEmpty == true)
+  }
+
+  func testFirstMatchIsChronologicalRegardlessOfInputOrderAndCategory() {
+    let day = Calendar.current.startOfDay(for: Date()).addingTimeInterval(12 * 3600)
+    var early = makeActivity(start: day, end: day.addingTimeInterval(60))
+    early = early.withTitle("Foxy early")
+    var late = makeActivity(start: day.addingTimeInterval(120), end: day.addingTimeInterval(180))
+    late = late.withTitle("Foxy late")
+    var personal = makeActivity(start: day.addingTimeInterval(240), end: day.addingTimeInterval(300), category: "Personal")
+    personal = personal.withTitle("Foxy personal")
+    let result = MonthTimelineSummary.summarize([late, personal, early], searchTerms: ["foxy"])
+    XCTAssertEqual(result[dayKey(for: day)]?.firstMatchingIDByCategory[categoryFilterKey("Work")], early.id)
+    XCTAssertEqual(result[dayKey(for: day)]?.firstMatchingIDByCategory[categoryFilterKey("Personal")], personal.id)
+    let muted = MonthTimelineSummary.summarize([early], mutedCategoryKeys: [categoryFilterKey("Work")], searchTerms: ["foxy"])
+    XCTAssertTrue(muted.isEmpty)
+  }
+
+  func testCross4AMMatchRemainsNavigableOnBothDays() {
+    let midnight = Calendar.current.startOfDay(for: Date())
+    let start = Calendar.current.date(bySettingHour: 3, minute: 30, second: 0, of: midnight)!
+    let end = Calendar.current.date(bySettingHour: 4, minute: 30, second: 0, of: midnight)!
+    var crossDay = makeActivity(start: start, end: end)
+    crossDay = crossDay.withTitle("Foxy overnight")
+    let result = MonthTimelineSummary.summarize([crossDay], searchTerms: ["foxy"])
+    XCTAssertEqual(result.count, 2)
+    for summary in result.values {
+      XCTAssertEqual(summary.firstMatchingIDByCategory[categoryFilterKey("Work")], crossDay.id)
+      XCTAssertEqual(summary.matchingSecondsByCategory[categoryFilterKey("Work")], 1800)
+    }
+  }
+
+  func testOverlappingSameCategoryMatchIsBrightWithoutChangingCoverage() {
+    let day = Calendar.current.startOfDay(for: Date()).addingTimeInterval(12 * 3600)
+    let outer = makeActivity(start: day, end: day.addingTimeInterval(7200))
+    let match = makeActivity(start: day.addingTimeInterval(1800), end: day.addingTimeInterval(3600))
+      .withTitle("Foxy")
+    let result = MonthTimelineSummary.summarize([outer, match], searchTerms: ["foxy"])
+    let summary = result[dayKey(for: day)]
+    XCTAssertEqual(summary?.totalSeconds, 7200)
+    XCTAssertEqual(summary?.matchingSecondsByCategory[categoryFilterKey("Work")], 1800)
+  }
+
+  func testCross4AMCategoryTieKeepsOriginalCategoryPrecedence() {
+    let midnight = Calendar.current.startOfDay(for: Date())
+    let four = Calendar.current.date(bySettingHour: 4, minute: 0, second: 0, of: midnight)!
+    let carryover = makeActivity(start: four.addingTimeInterval(-1800),
+      end: four.addingTimeInterval(3600), category: "Zulu").withTitle("Foxy")
+    let fresh = makeActivity(start: four, end: four.addingTimeInterval(3600), category: "Alpha")
+    let key = dayKey(for: four)
+    for terms in [[], ["foxy"]] {
+      let summary = MonthTimelineSummary.summarize([carryover, fresh], searchTerms: terms)[key]
+      XCTAssertEqual(summary?.secondsByCategory[categoryFilterKey("Alpha")], 3600)
+      XCTAssertNil(summary?.secondsByCategory[categoryFilterKey("Zulu")])
+    }
+  }
+
 }
