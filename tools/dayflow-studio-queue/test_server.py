@@ -242,6 +242,13 @@ class ClockNormalisationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.server = load_server()
 
+    def test_standard_clock_fast_path(self) -> None:
+        # Standard Dayflow h:mm AM/PM clocks pass through fast path directly
+        self.assertEqual(self.server.normalize_clock("10:15 AM"), "10:15 AM")
+        self.assertEqual(self.server.normalize_clock("1:00 AM"), "1:00 AM")
+        self.assertEqual(self.server.normalize_clock("12:59 PM"), "12:59 PM")
+        self.assertEqual(self.server.normalize_clock("9:30 PM"), "9:30 PM")
+
     def test_seconds_and_whitespace_are_dropped(self) -> None:
         self.assertEqual(self.server.normalize_clock("1:23:29 AM"), "1:23 AM")
         self.assertEqual(self.server.normalize_clock(" 2:58:01 PM "), "2:58 PM")

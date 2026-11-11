@@ -161,11 +161,17 @@ def analyze(job: dict) -> list[dict]:
 
 # Pre-compiled regex patterns for fast payload inspection across batches
 CLOCK_RE = re.compile(r"\s*(\d{1,2})[:.](\d{2})(?::\d{2})?\s*([AaPp])?\s*[Mm]?\s*")
+# Fast path for canonical Dayflow clock format: 1-12, colon, 00-59, single space, AM or PM
+STANDARD_CLOCK_RE = re.compile(r"^(1[0-2]|[1-9]):([0-5][0-9]) (AM|PM)$")
 GPU_JOB_ID_RE = re.compile(rb'"gpu_job_id"\s*:\s*"([^"]+)"')
 
 
 def normalize_clock(value: str) -> Optional[str]:
-    # The model writes h:mm, h:mm:ss, 24-hour or dotted times. Dayflow stores h:mm AM/PM.
+    # Fast path: the model prompt requests "h:mm AM/PM". If already canonical, return directly
+    # to avoid regex group capture, integer conversions, branching, and string formatting overhead.
+    if STANDARD_CLOCK_RE.match(value):
+        return value
+    # Fallback: the model writes h:mm, h:mm:ss, 24-hour or dotted times. Dayflow stores h:mm AM/PM.
     match = CLOCK_RE.fullmatch(value)
     if not match:
         return None
