@@ -82,8 +82,9 @@ struct CanvasTimelineDataView: View {
   var searchQuery: String = ""
   // false shows the raw cards (Hour zoom) instead of ~10 minute blocks.
   var mergeSegments: Bool = true
-  var searchJumpActivity: TimelineActivity? = nil
-  var onSearchJumpHandled: () -> Void = {}
+  // A binding is intentional: detached reloads must read the current request,
+  // not a captured View value that may have been cancelled during the DB read.
+  @Binding var searchJumpActivity: TimelineActivity?
 
   @Environment(\.dayflowTheme) private var theme
   @State private var searchJumpUnavailable = false
@@ -177,7 +178,7 @@ struct CanvasTimelineDataView: View {
       guard searchJumpActivity?.id == target.id else { return }
       proxy.scrollTo("search-match-anchor", anchor: UnitPoint(x: 0, y: 0.25))
       revealInitialScroll()
-      onSearchJumpHandled()
+      searchJumpActivity = nil
     }
   }
 
@@ -833,13 +834,23 @@ struct CanvasTimelineDataView: View {
         }
         self.cardsHover.pendingRefresh = false
         self.recordingProjection = recordingProjection
+        if let target = searchJumpActivity,
+          !positioned.contains(where: { $0.sourceActivityIDs.contains(target.id) })
+        {
+          searchJumpActivity = nil
+          searchJumpUnavailable = true
+          revealInitialScroll()
+        }
         guard
           TimelineReloadGate.shouldCommit(
             animate: animate,
             old: self.positionedActivities.map(\.renderSignature),
             new: positioned.map(\.renderSignature))
         else {
-          // Nothing visible changed (the usual 60 s refresh): no re-render, no broadcast.
+          // Navigation is handled independently from render-signature equality.
+          // A new request can arrive while an unchanged day is already loaded.
+          // The ScrollViewReader observes request changes for present targets;
+          // the absent-target check above clears a stale request even here.
           return
         }
         if animate {
@@ -847,13 +858,6 @@ struct CanvasTimelineDataView: View {
           self.cardEntranceProgress = [:]
         }
         self.positionedActivities = positioned
-        if let target = searchJumpActivity,
-          !positioned.contains(where: { $0.sourceActivityIDs.contains(target.id) })
-        {
-          onSearchJumpHandled()
-          searchJumpUnavailable = true
-          revealInitialScroll()
-        }
         self.recordingProjection = recordingProjection
         self.hasAnyActivities = !positioned.isEmpty
         if let selectedActivity,
@@ -1075,7 +1079,8 @@ extension CanvasTimelineDataView {
         cardCompactVerticalPadding: TimelineCardLayout.compactVerticalPadding,
         cardNormalVerticalPadding: TimelineCardLayout.normalVerticalPadding,
         cardHoverScale: TimelineCardLayout.hoverScale,
-        cardPressedScale: TimelineCardLayout.pressedScale
+        cardPressedScale: TimelineCardLayout.pressedScale,
+        searchJumpActivity: .constant(nil)
       )
       .frame(width: 800, height: 600)
       .environmentObject(CategoryStore())

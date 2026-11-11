@@ -338,36 +338,45 @@ struct MonthCategorySearchBar: View {
               .opacity(searching ? 0.2 : 1)
               .frame(width: geo.size.width * (part.value - matching) / max(summary.totalSeconds, 1))
           }
-          .frame(height: 16)
-          .contentShape(Rectangle())
-          .highPriorityGesture(
-            TapGesture(count: 2).exclusively(before: TapGesture())
-              .onEnded { value in
-                switch value {
-                case .first:
-                  if let id = summary.firstMatchingIDByCategory[part.key] {
-                    onSelectMatch(id)
-                  } else {
-                    onSelectDay()
-                  }
-                case .second:
-                  onSelectDay()
-                }
-              }
-          )
-          .accessibilityLabel(part.key)
-          .accessibilityAction(named: Text("Open first search match")) {
-            if let id = summary.firstMatchingIDByCategory[part.key] {
-              onSelectMatch(id)
-            }
-          }
         }
       }
       .frame(height: 4)
       .clipShape(Capsule())
-      .frame(height: 16)
+      .allowsHitTesting(false)
+      .overlay {
+        // A separate interaction layer preserves both the original 4pt layout
+        // and capsule pixels without clipping the expanded 16pt hit targets.
+        HStack(spacing: 0) {
+          ForEach(parts, id: \.key) { part in
+            Color.clear
+              .frame(width: geo.size.width * part.value / max(summary.totalSeconds, 1), height: 16)
+              .contentShape(Rectangle())
+              .highPriorityGesture(
+                TapGesture(count: 2).exclusively(before: TapGesture())
+                  .onEnded { value in
+                    switch value {
+                    case .first:
+                      if let id = summary.firstMatchingIDByCategory[part.key] {
+                        onSelectMatch(id)
+                      } else {
+                        onSelectDay()
+                      }
+                    case .second:
+                      onSelectDay()
+                    }
+                  }
+              )
+              .accessibilityLabel(part.key)
+              .accessibilityAction(named: Text("Open first search match")) {
+                if let id = summary.firstMatchingIDByCategory[part.key] {
+                  onSelectMatch(id)
+                }
+              }
+          }
+        }
+        .frame(height: 16)
+      }
     }
-    .frame(height: 16)
+    .frame(height: 4)
   }
-
 }

@@ -279,8 +279,7 @@ extension MainView {
       mutedCategoryKeys: mutedCategoryKeys,
       searchQuery: timelineSearchText,
       mergeSegments: mergeSegments,
-      searchJumpActivity: pendingMonthSearchActivity,
-      onSearchJumpHandled: { pendingMonthSearchActivity = nil }
+      searchJumpActivity: $pendingMonthSearchActivity
     )
   }
 
