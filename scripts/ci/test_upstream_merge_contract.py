@@ -75,6 +75,7 @@ class UpstreamMergeContractTests(unittest.TestCase):
         self.assertLess(handoff.index('try await ProviderConsentGate.requireCLI(tool)'),
                         handoff.index('performHandOffDocket(item'))
         self.assertIn('threadID: thread?.0, briefPickedApp:', handoff)
+        self.assertIn('thread == nil ? docketHandoffMethod : .paste', handoff)
         self.assertIn('agent.threadLink(thread: threadID, folder: folder)', handoff)
 
     def test_no_unresolved_conflicts(self):

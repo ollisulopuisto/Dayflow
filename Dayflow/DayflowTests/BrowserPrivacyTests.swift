@@ -1,3 +1,4 @@
+import CoreGraphics
 import XCTest
 
 @testable import Dayflow
@@ -226,12 +227,12 @@ final class BrowserPrivacyDecisionTests: XCTestCase {
     XCTAssertEqual(decision, .hide(reason: .privateWindow))
   }
 
-  func testPrivateWindowRecordedWhenOnlyCategoriesAreOn() {
+  func testPrivateWindowStillHonorsBlockedCategories() {
     let decision = BrowserPrivacyPreferences.decision(
       privacy: .privateBrowsing,
       urlString: "https://chase.com",
       settings: settings(categories: [.bankingAndFinance]))
-    XCTAssertEqual(decision, .record)
+    XCTAssertEqual(decision, .hide(reason: .category(.bankingAndFinance)))
   }
 
   func testBlockedCategoryHidesOrdinaryWindow() {
@@ -290,5 +291,49 @@ final class BrowserPrivacyDecisionTests: XCTestCase {
       " https://WWW.Example.com/path ", "example.com", "notadomain", "",
     ])
     XCTAssertEqual(cleaned, ["example.com"])
+  }
+}
+
+final class UpstreamPrivacyRegressionTests: XCTestCase {
+  func testCustomHostPreservesSubdomainAndMatchesOnlyItsDescendants() {
+    XCTAssertEqual(BrowserPrivacyPreferences.normalizedDomains([
+      "https://PAYROLL.example.com/path", "payroll.example.com", "bad..example.com"
+    ]), ["payroll.example.com"])
+    for host in ["payroll.example.com", "app.payroll.example.com"] {
+      XCTAssertTrue(SiteCategoryCatalog.matchesAnyCustomDomain(
+        urlString: "https://" + host, customDomains: ["payroll.example.com"]))
+    }
+    for host in ["example.com", "shop.example.com", "notpayroll.example.com"] {
+      XCTAssertFalse(SiteCategoryCatalog.matchesAnyCustomDomain(
+        urlString: "https://" + host, customDomains: ["payroll.example.com"]))
+    }
+  }
+
+  func testSiteRulesApplyToPrivateAndUnknownWindows() {
+    let settings = BrowserPrivacyPreferences.Settings(
+      hidePrivateWindows: false, blockedCategories: [.bankingAndFinance],
+      customDomains: ["private.example.com"], unknownHandling: .record)
+    for privacy in [BrowserWindowPrivacy.privateBrowsing, .unknown] {
+      XCTAssertEqual(BrowserPrivacyPreferences.decision(
+        privacy: privacy, urlString: "https://private.example.com", settings: settings),
+        .hide(reason: .customSite))
+      XCTAssertEqual(BrowserPrivacyPreferences.decision(
+        privacy: privacy, urlString: "https://chase.com", settings: settings),
+        .hide(reason: .category(.bankingAndFinance)))
+      XCTAssertEqual(BrowserPrivacyPreferences.decision(
+        privacy: privacy, urlString: "https://example.com", settings: settings), .record)
+    }
+  }
+
+  func testFailedPixelationThrowsInsteadOfReturningSecrets() throws {
+    let context = try XCTUnwrap(CGContext(
+      data: nil, width: 16, height: 16, bitsPerComponent: 8, bytesPerRow: 0,
+      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue))
+    let image = try XCTUnwrap(context.makeImage())
+    XCTAssertThrowsError(try PrivacyShieldFrameMasker.redactedResult(
+      image, rects: [CGRect(x: 0, y: 0, width: 10, height: 10)], pixelate: { _, _ in nil }))
+    let noSecrets = try PrivacyShieldFrameMasker.redactedResult(
+      image, rects: [], pixelate: { _, _ in XCTFail("No regions require no renderer"); return nil })
+    XCTAssertEqual(noSecrets.maskedRegions, 0)
   }
 }

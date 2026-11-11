@@ -62,7 +62,7 @@ final class RecordingPrivacySettingsViewModel: ObservableObject {
   }
 
   var canAddCustomDomain: Bool {
-    guard let domain = SiteCategoryCatalog.registrableDomain(forHost: customDomainDraft),
+    guard let domain = SiteCategoryCatalog.normalizedCustomHost(customDomainDraft),
       domain.contains(".")
     else { return false }
     return !customDomains.contains(domain)
@@ -70,7 +70,7 @@ final class RecordingPrivacySettingsViewModel: ObservableObject {
 
   func addCustomDomain() {
     guard canAddCustomDomain,
-      let domain = SiteCategoryCatalog.registrableDomain(forHost: customDomainDraft)
+      let domain = SiteCategoryCatalog.normalizedCustomHost(customDomainDraft)
     else { return }
     customDomains = BrowserPrivacyPreferences.normalizedDomains(customDomains + [domain])
     BrowserPrivacyPreferences.setCustomBlockedDomains(customDomains)

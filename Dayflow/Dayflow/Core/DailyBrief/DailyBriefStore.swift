@@ -688,7 +688,9 @@ final class DailyBriefStore: ObservableObject {
     let pickedApp = item.newThreadApp.flatMap(DailyBriefAgent.init(appName:))
       .flatMap { $0.isInstalled ? $0 : nil }
     let agent = thread?.1 ?? pickedApp ?? docketAgent
-    let method = docketHandoffMethod
+    // Desktop thread IDs are not guaranteed to be CLI session IDs. Continue
+    // through the app link rather than silently starting a fresh CLI thread.
+    let method: DailyBriefHandoff.Method = thread == nil ? docketHandoffMethod : .paste
     let tool: ChatCLITool = agent == .claude ? .claude : .codex
     Task { @MainActor in
       do {

@@ -39,8 +39,22 @@ final class PrivacyShieldFrameMasker: @unchecked Sendable {
       lastFingerprint = fingerprint
       lastRects = rects
     }
+    return try Self.redactedResult(image, rects: rects, pixelate: Self.pixelate)
+  }
+
+  enum MaskError: Error {
+    case pixelationFailed
+  }
+
+  /// A failed renderer must reach the recorder's privacy placeholder path.
+  /// The renderer argument also permits testing failure without exhausting memory.
+  static func redactedResult(
+    _ image: CGImage, rects: [CGRect],
+    pixelate: (CGImage, [CGRect]) -> CGImage?
+  ) throws -> Result {
     guard !rects.isEmpty else { return Result(image: image, maskedRegions: 0) }
-    return Result(image: Self.pixelate(image, rects: rects) ?? image, maskedRegions: rects.count)
+    guard let redacted = pixelate(image, rects) else { throw MaskError.pixelationFailed }
+    return Result(image: redacted, maskedRegions: rects.count)
   }
 
   /// Loads Vision's text model and each Core ML model onto the Neural Engine before the first real frame.
@@ -189,7 +203,7 @@ final class PrivacyShieldFrameMasker: @unchecked Sendable {
 
     for rect in rects {
       let padded = rect.insetBy(dx: -3, dy: -3).integral.intersection(bounds)
-      guard !padded.isEmpty, let crop = image.cropping(to: padded) else { continue }
+      guard !padded.isEmpty, let crop = image.cropping(to: padded) else { return nil }
       // One row of blocks as tall as the padded text, so each block is wider than a character.
       let block = max(10, padded.height)
       let columns = max(1, Int((padded.width / block).rounded(.up)))
@@ -199,10 +213,10 @@ final class PrivacyShieldFrameMasker: @unchecked Sendable {
           data: nil, width: columns, height: rows, bitsPerComponent: 8, bytesPerRow: 0,
           space: CGColorSpaceCreateDeviceRGB(),
           bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue)
-      else { continue }
+      else { return nil }
       small.interpolationQuality = .medium
       small.draw(crop, in: CGRect(x: 0, y: 0, width: columns, height: rows))
-      guard let blocks = small.makeImage() else { continue }
+      guard let blocks = small.makeImage() else { return nil }
       // CGContext draws with a bottom-left origin; the rects are top-left.
       let target = CGRect(
         x: padded.minX, y: CGFloat(height) - padded.maxY, width: padded.width, height: padded.height

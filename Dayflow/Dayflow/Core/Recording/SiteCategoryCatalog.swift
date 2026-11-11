@@ -127,13 +127,33 @@ enum SiteCategoryCatalog {
     customDomains: [String]
   ) -> Bool {
     guard !customDomains.isEmpty,
-      let domain = registrableDomain(forURLString: urlString)
+      let domain = normalizedCustomHost(urlString)
     else { return false }
 
     return customDomains.contains { candidate in
-      guard let normalized = registrableDomain(forHost: candidate) else { return false }
-      return normalized == domain
+      guard let normalized = normalizedCustomHost(candidate) else { return false }
+      return domain == normalized || domain.hasSuffix("." + normalized)
     }
+  }
+
+  /// Custom rules cover this host and its descendants, not sibling hosts.
+  /// Category rules deliberately keep their separate registrable-domain lookup.
+  static func normalizedCustomHost(_ input: String?) -> String? {
+    guard let input else { return nil }
+    let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !value.isEmpty,
+      let components = URLComponents(string: value.contains("://") ? value : "https://" + value),
+      let rawHost = components.host
+    else { return nil }
+    var host = rawHost.lowercased()
+    while host.hasSuffix(".") { host.removeLast() }
+    if host.hasPrefix("www.") { host.removeFirst(4) }
+    let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+    guard labels.count >= 2,
+      labels.allSatisfy({ !$0.isEmpty && $0.first != "-" && $0.last != "-"
+        && $0.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }) })
+    else { return nil }
+    return host
   }
 
   static func registrableDomain(forURLString urlString: String?) -> String? {

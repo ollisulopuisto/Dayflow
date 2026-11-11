@@ -133,3 +133,14 @@ actual runner behavior. No tag/build/merge; local synthetic tests pass.
   XCTest and actual UI rendering are not available locally; await public macOS PR
   CI. UI acceptance remains unverified, including the combined privacy settings
   and footer. No merge, tag, release or Actions storage upload.
+
+### PR #115 review follow-up
+- Address Devin's four findings: continuing desktop threads use the app handoff,
+  rather than a CLI invocation that cannot resume their desktop session IDs.
+- Custom site rules preserve full hostnames and match only that host and its
+  descendants; category matching still uses registrable domains.
+- Private/unknown windows still check site rules when whole-window hiding is off.
+- Pixelation errors (including individual crop/buffer failures) throw into the
+  recorder's placeholder/drop path instead of returning any original secret pixels.
+- Added native regression coverage for custom-host scope, private/unknown site
+  checks, and injected pixelation failure. Native tests await PR CI.

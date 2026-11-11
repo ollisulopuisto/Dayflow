@@ -76,7 +76,7 @@ enum BrowserPrivacyPreferences {
   static func normalizedDomains(_ domains: [String]) -> [String] {
     var seen = Set<String>()
     return domains.compactMap { value in
-      guard let domain = SiteCategoryCatalog.registrableDomain(forHost: value),
+      guard let domain = SiteCategoryCatalog.normalizedCustomHost(value),
         domain.contains(".")
       else { return nil }
       return seen.insert(domain).inserted ? domain : nil
@@ -135,13 +135,12 @@ enum BrowserPrivacyPreferences {
   ) -> BrowserPrivacyDecision {
     if settings.isInactive { return .record }
 
-    if privacy == .privateBrowsing {
-      return settings.hidePrivateWindows ? .hide(reason: .privateWindow) : .record
+    if privacy == .privateBrowsing && settings.hidePrivateWindows {
+      return .hide(reason: .privateWindow)
     }
 
-    if privacy == .unknown {
-      return settings.unknownHandling == .hideBrowser
-        ? .hide(reason: .unclassifiedWindow) : .record
+    if privacy == .unknown && settings.unknownHandling == .hideBrowser {
+      return .hide(reason: .unclassifiedWindow)
     }
 
     if SiteCategoryCatalog.matchesAnyCustomDomain(
