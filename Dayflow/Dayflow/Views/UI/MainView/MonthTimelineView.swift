@@ -57,8 +57,8 @@ enum MonthTimelineSummary {
         if lhs.start != rhs.start {
           return lhs.start < rhs.start
         }
-        if lhs.originalStart != rhs.originalStart { return lhs.originalStart < rhs.originalStart }
         if lhs.key != rhs.key { return lhs.key < rhs.key }
+        if lhs.originalStart != rhs.originalStart { return lhs.originalStart < rhs.originalStart }
         return lhs.id < rhs.id
       }
       var covered: [(start: Int, end: Int)] = []
@@ -231,7 +231,10 @@ struct MonthTimelineView: View {
     let isSelected = key == DateFormatter.yyyyMMdd.string(from: selectedDate)
     let isFuture = MonthTimelineSummary.isFutureDay(date)
 
-    return VStack(alignment: .leading, spacing: 4) {
+    return Button {
+      onSelectDay(date)
+    } label: {
+      VStack(alignment: .leading, spacing: 4) {
         Text("\(number)")
           .font(.system(size: 13, weight: isSelected ? .bold : .medium))
           .foregroundColor(theme.textPrimary)
@@ -240,7 +243,7 @@ struct MonthTimelineView: View {
           Text(Self.durationText(summary.totalSeconds))
             .font(.system(size: 11))
             .foregroundColor(theme.textSecondary)
-          categoryBar(summary, date: date)
+          categoryBar(summary, date: date).allowsHitTesting(false)
         }
       }
       .padding(8)
@@ -255,10 +258,19 @@ struct MonthTimelineView: View {
       )
       .contentShape(Rectangle())
       .opacity(isFuture ? 0.4 : 1)
+    }
+    .buttonStyle(.plain)
+    .overlay(alignment: .bottom) {
+      if let summary, summary.totalSeconds > 0 {
+        // Keep pointer search interaction outside the Button's label, so a
+        // segment's first click cannot activate the day button prematurely.
+        categoryBar(summary, date: date)
+          .padding(.horizontal, 8)
+          .padding(.bottom, 8)
+      }
+    }
+    .disabled(isFuture)
     .allowsHitTesting(!isFuture)
-    .onTapGesture { if !isFuture { onSelectDay(date) } }
-    .accessibilityElement(children: .contain)
-    .accessibilityAction { if !isFuture { onSelectDay(date) } }
   }
 
   private func categoryBar(_ summary: MonthDaySummary, date: Date) -> some View {

@@ -133,4 +133,18 @@ final class MonthTimelineSummaryTests: XCTestCase {
     XCTAssertEqual(summary?.matchingSecondsByCategory[categoryFilterKey("Work")], 1800)
   }
 
+  func testCross4AMCategoryTieKeepsOriginalCategoryPrecedence() {
+    let midnight = Calendar.current.startOfDay(for: Date())
+    let four = Calendar.current.date(bySettingHour: 4, minute: 0, second: 0, of: midnight)!
+    let carryover = makeActivity(start: four.addingTimeInterval(-1800),
+      end: four.addingTimeInterval(3600), category: "Zulu").withTitle("Foxy")
+    let fresh = makeActivity(start: four, end: four.addingTimeInterval(3600), category: "Alpha")
+    let key = dayKey(for: four)
+    for terms in [[], ["foxy"]] {
+      let summary = MonthTimelineSummary.summarize([carryover, fresh], searchTerms: terms)[key]
+      XCTAssertEqual(summary?.secondsByCategory[categoryFilterKey("Alpha")], 3600)
+      XCTAssertNil(summary?.secondsByCategory[categoryFilterKey("Zulu")])
+    }
+  }
+
 }
