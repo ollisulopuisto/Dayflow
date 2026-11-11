@@ -65,7 +65,7 @@ class UpstreamMergeContractTests(unittest.TestCase):
         self.assertIn('try await maskSecrets(in: image, using: masker)', recorder)
         self.assertNotIn('return placeholder ?? image', recorder)
         self.assertEqual(recorder.count('guard _captureGeneration == generation'), 2)
-        self.assertNotRegex(recorder, r'idleSecondsAtCapture: idleSecondsAtCapture\)')
+        self.assertIn('placeholder, capturedAt: captureTime, idleSecondsAtCapture: idleSecondsAtCapture,\n          generation: generation)', recorder)
 
     def test_docket_consent_captures_selected_thread_before_handoff(self):
         source = (ROOT / 'Dayflow/Dayflow/Core/DailyBrief/DailyBriefStore.swift').read_text()
