@@ -169,7 +169,9 @@ GPU_JOB_ID_RE = re.compile(rb'"gpu_job_id"\s*:\s*"([^"]+)"')
 def normalize_clock(value: str) -> Optional[str]:
     # Fast path: the model prompt requests "h:mm AM/PM". If already canonical, return directly
     # to avoid regex group capture, integer conversions, branching, and string formatting overhead.
-    if STANDARD_CLOCK_RE.match(value):
+    # fullmatch: $ alone accepts a trailing newline, which would pass a
+    # noncanonical time through to completed results and card imports.
+    if STANDARD_CLOCK_RE.fullmatch(value):
         return value
     # Fallback: the model writes h:mm, h:mm:ss, 24-hour or dotted times. Dayflow stores h:mm AM/PM.
     match = CLOCK_RE.fullmatch(value)
