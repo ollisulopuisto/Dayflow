@@ -122,3 +122,53 @@ closed on stderr even if the interpreter exits zero, and add a real native
 negative smoke check (unlock nonexistent keychain must raise with output withheld).
 One-command security -i status is retained in Apple's source; native CI verifies
 actual runner behavior. No tag/build/merge; local synthetic tests pass.
+
+## 2026-11-11 - Repair upstream v2.9.0 sync
+
+- Reproduced run 42964667287: ten merge-conflicted files, not a token failure.
+- Merge upstream 33517b1c into fork main 5fedfc15 on a review branch; preserve
+  provider consent, disabled Flow/support startup, Studio queue, capture-generation
+  locks, idle throttling, timeline windowing/search and disabled upstream updater.
+- Keep the direct sample-buffer path when Privacy Shield is off. When it is on,
+  convert the frame for local masking before storage and fail closed if masking
+  and placeholder creation fail. Preserve capture-generation checks after awaits.
+- Capture the selected docket provider and thread before awaiting consent, then
+  pass those choices to the handoff instead of reading changed settings later.
+- Adopt upstream browser categories alongside the existing fail-closed browser
+  controls. Keep both sets of preferences; neither silently resets the other.
+- Version 2.9.0, fork build 176 (do not regress to upstream build 141).
+- Local Python contract, credential and queue tests pass. Native macOS compilation,
+  XCTest and actual UI rendering are not available locally; await public macOS PR
+  CI. UI acceptance remains unverified, including the combined privacy settings
+  and footer. No merge, tag, release or Actions storage upload.
+
+### PR #115 review follow-up
+- Address Devin's four findings: continuing desktop threads use the app handoff,
+  rather than a CLI invocation that cannot resume their desktop session IDs.
+- Custom site rules preserve full hostnames and match only that host and its
+  descendants; category matching still uses registrable domains.
+- Private/unknown windows still check site rules when whole-window hiding is off.
+- Pixelation errors (including individual crop/buffer failures) throw into the
+  recorder's placeholder/drop path instead of returning any original secret pixels.
+- Added native regression coverage for custom-host scope, private/unknown site
+  checks, and injected pixelation failure. Native tests await PR CI.
+
+### PR #115 second review pass
+- Do not send threaded tasks to a web/Classic fallback when the owning desktop
+  app or its thread deep link is unavailable. Explain the missing app and stop
+  before provider consent, handoff history or transmission.
+- Canonicalize custom internationalized domains through Foundation URL's IDNA
+  host form so Unicode and punycode rules match the same hostname. Added tests.
+
+### PR #115 native compilation follow-up
+- The app compiled on macOS; test compilation found an upstream/fork test-class
+  collision, both named BrowserPrivacyDecisionTests. Rename the upstream category
+  suite to BrowserCategoryPrivacyDecisionTests; keep both suites and all assertions.
+- Devin confirmed all six findings resolved on 829bffb1. No new findings at recheck.
+
+### PR #115 native test follow-up
+- Native compile and the new privacy regressions pass, including Unicode/punycode
+  matching and injected pixelation failure. One existing exact sidebar-order test
+  rejects the added Permissions tab. Keep Storage first/default and Account
+  second-to-last, place Permissions after Privacy, and extend that exact assertion
+  to include the new upstream tab without weakening the established ordering.

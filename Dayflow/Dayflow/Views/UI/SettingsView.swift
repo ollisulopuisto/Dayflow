@@ -13,6 +13,7 @@ struct SettingsView: View {
     case storage
     case network
     case privacy
+    case permissions
     case providers
     case aiTools
     case data
@@ -26,6 +27,7 @@ struct SettingsView: View {
     var title: String {
       switch self {
       case .account: return String(localized: "Account")
+      case .permissions: return String(localized: "Permissions")
       case .storage: return String(localized: "Storage")
       case .network: return String(localized: "Network")
       case .privacy: return String(localized: "Privacy")
@@ -153,28 +155,24 @@ struct SettingsView: View {
 
   @ViewBuilder
   private var settingsContent: some View {
-    if selectedTab == .privacy {
+    // The privacy tab holds a browser section above an app picker, so it
+    // scrolls like every other tab — it just gets a wider column for the
+    // app grid.
+    ScrollView(.vertical, showsIndicators: false) {
       VStack(alignment: .leading, spacing: 24) {
         tabContent
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.top, 24)
       .padding(.trailing, 16)
       .padding(.bottom, 24)
-      .frame(maxWidth: 760, maxHeight: .infinity, alignment: .topLeading)
-    } else {
-      ScrollView(.vertical, showsIndicators: false) {
-        VStack(alignment: .leading, spacing: 24) {
-          tabContent
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 24)
-        .padding(.trailing, 16)
-        .padding(.bottom, 24)
-        .frame(maxWidth: .infinity, minHeight: 0, alignment: .topLeading)
-      }
-      .frame(maxWidth: 600, maxHeight: .infinity, alignment: .topLeading)
+      .frame(maxWidth: .infinity, minHeight: 0, alignment: .topLeading)
     }
+    .frame(
+      maxWidth: selectedTab == .privacy ? 760 : 600,
+      maxHeight: .infinity,
+      alignment: .topLeading
+    )
   }
 
   private var sidebar: some View {
@@ -261,6 +259,8 @@ struct SettingsView: View {
       switch selectedTab {
       case .account:
         SettingsAccountSection()
+      case .permissions:
+        SettingsPermissionsTabView()
       case .storage:
         SettingsStorageTabView(viewModel: storageViewModel)
       case .network:
