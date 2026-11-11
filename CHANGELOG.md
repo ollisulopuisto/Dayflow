@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.8.4] - 2026-11-11
+
+### Fixed
+- Week view shows the whole day again while scrolling: the visible-card window now tracks the scroll position through timeline-pane geometry, so afternoon and evening cards appear instead of the grid stopping in the early afternoon.
+
 ## [2.8.3] - 2026-11-10
 
 ### Fixed

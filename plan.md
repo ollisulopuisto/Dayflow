@@ -6,6 +6,13 @@ No local Xcode: CI (`.github/workflows/build-macos.yml`) builds and runs Dayflow
 and is the only compiler and test runner. Last green run on this tree: 319 unit tests passed.
 
 ## Done
+- Week view missing afternoon/evening cards (reported 2026-11-11): the lazy-card band was
+  driven by geometry in the ScrollView's own coordinate space, which never updates while
+  scrolling on macOS, so the band stayed pinned to the top of the grid (4 AM to early
+  afternoon). Fixed by deriving the scroll offset from two "TimelinePane"-space measurements
+  (cards layer top vs scroll viewport top), the same geometry source the day timeline's card
+  window already uses. Regression tests on the offset math; interactive scroll verification
+  still needs a real Mac. Version 2.8.4 / 176.
 - App Nap: `AppNapGuard` holds a `.userInitiatedAllowingIdleSystemSleep` `ProcessInfo`
   activity while the recorder is starting/capturing (released on pause/stop), so
   capture work is not deferred while idle system sleep remains allowed.
@@ -36,8 +43,9 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Timeline scroll time-column change: not measured on a device; label height is estimated.
 - Timeline scroll, card edge glow now vector strokes (`CardEdgeGlow`): a visual approximation, check it by eye
   in light and dark themes. Merged, CI green.
-- Lazy cards (merged, CI green, not tried in the app): cards outside the viewport band are not built.
-  Check for cards popping in at the edges when scrolling fast, and after the initial scroll to "now".
+- Lazy cards: root cause of the week-view miss found and fixed 2026-11-11 (see Done). Still to
+  check in the app: cards popping in at the edges when scrolling fast, and after the initial
+  scroll to "now".
 - `fork/ui-refresh-dark-mode` (3 commits, Sept): not merged. It conflicts in 43 files,
   about 150 hunks, and the redesign overlaps with main's newer UI work. Decide
   whether to port it deliberately or drop it. Tip `13f491ee`.

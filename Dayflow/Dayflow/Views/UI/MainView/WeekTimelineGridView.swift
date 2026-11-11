@@ -65,16 +65,24 @@ private struct WeekCardsLayerFramePreferenceKey: PreferenceKey {
   }
 }
 
-/// Measured in the scroll viewport, independently of the pane-space frame used by the footer.
-private struct WeekCardsLayerScrollOffsetPreferenceKey: PreferenceKey {
-  static var defaultValue: CGFloat = 0
-  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-    value = nextValue()
+/// Top edge of the week grid's scroll viewport in the "TimelinePane" coordinate space.
+/// Combined with the cards layer's pane-space frame to derive the scroll offset. Pane-space
+/// frames move during scrolling on macOS (the day timeline's card window already relies on
+/// them); a coordinate space declared on the ScrollView itself never reports scroll movement
+/// to geometry readers in its content, so measuring there pinned the card window to the top
+/// of the grid and hid every card below the initial band.
+private struct WeekScrollViewportTopPreferenceKey: PreferenceKey {
+  static var defaultValue: CGFloat? = nil
+  static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
+    if let next = nextValue() {
+      value = next
+    }
   }
 }
 
 private final class WeekScrollPosition {
-  var minY: CGFloat = 0
+  var cardsLayerTopInPane: CGFloat?
+  var viewportTopInPane: CGFloat?
   var updateScheduled = false
 }
 
@@ -196,8 +204,16 @@ struct WeekTimelineGridView: View {
           ScrollView(.vertical, showsIndicators: false) {
             timelineContent(dayWidth: dayWidth, gridWidth: gridWidth, viewportHeight: viewportHeight)
           }
-          .coordinateSpace(name: "WeekTimelineViewport")
-          .background(Color.clear)
+          // Publishes the scroll viewport's top edge in pane space; paired with the cards
+          // layer's pane-space frame this yields the scroll offset (see the preference key).
+          .background(
+            GeometryReader { proxy in
+              Color.clear.preference(
+                key: WeekScrollViewportTopPreferenceKey.self,
+                value: proxy.frame(in: .named("TimelinePane")).minY
+              )
+            }
+          )
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
           // Hidden until the first auto-scroll lands. The ScrollView is still
           // laid out and scrollable under the hood — opacity 0 just keeps
@@ -279,22 +295,44 @@ struct WeekTimelineGridView: View {
     .onPreferenceChange(WeekCardsLayerFramePreferenceKey.self) { frame in
       cardsLayerFrameBox.frame = frame
       updateWeeklyHoursIntersection()
+      scrollPosition.cardsLayerTopInPane = frame.minY
+      scheduleScrollBucketUpdate()
     }
-    .onPreferenceChange(WeekCardsLayerScrollOffsetPreferenceKey.self) { minY in
-      scrollPosition.minY = minY
-      let bucket = TimelineCardWindow.bucket(layerMinY: minY)
-      guard bucket != scrollBucket, !scrollPosition.updateScheduled else { return }
-      // Deferred: preference callbacks run mid-layout, where a state write can trip AttributeGraph.
-      // Coalesce callbacks and read the latest offset in case scrolling reverses before this runs.
-      scrollPosition.updateScheduled = true
-      DispatchQueue.main.async {
-        scrollPosition.updateScheduled = false
-        let latestBucket = TimelineCardWindow.bucket(layerMinY: scrollPosition.minY)
-        if latestBucket != scrollBucket { scrollBucket = latestBucket }
-      }
+    .onPreferenceChange(WeekScrollViewportTopPreferenceKey.self) { top in
+      scrollPosition.viewportTopInPane = top
+      scheduleScrollBucketUpdate()
     }
     .onChange(of: weeklyHoursFrame) {
       updateWeeklyHoursIntersection()
+    }
+  }
+
+  /// Quantizes the scroll offset into `TimelineCardWindow` buckets so the card ForEach only
+  /// rebuilds when the visible band moves a bucket, not on every scroll frame. The offset comes
+  /// from pane-space geometry (see WeekScrollViewportTopPreferenceKey). Deferred one turn:
+  /// preference callbacks run mid-layout, where a state write can trip AttributeGraph. Coalesced,
+  /// re-reading the latest geometry in case scrolling reverses before the deferred block runs.
+  private func scheduleScrollBucketUpdate() {
+    guard !scrollPosition.updateScheduled else { return }
+    guard
+      let cardsLayerTop = scrollPosition.cardsLayerTopInPane,
+      let viewportTop = scrollPosition.viewportTopInPane
+    else { return }
+    let offset = TimelineCardWindow.weekScrollOffset(
+      cardsLayerTopInPane: cardsLayerTop, viewportTopInPane: viewportTop)
+    let bucket = TimelineCardWindow.bucket(layerMinY: -offset)
+    guard bucket != scrollBucket else { return }
+    scrollPosition.updateScheduled = true
+    DispatchQueue.main.async {
+      scrollPosition.updateScheduled = false
+      guard
+        let latestCardsLayerTop = scrollPosition.cardsLayerTopInPane,
+        let latestViewportTop = scrollPosition.viewportTopInPane
+      else { return }
+      let latestOffset = TimelineCardWindow.weekScrollOffset(
+        cardsLayerTopInPane: latestCardsLayerTop, viewportTopInPane: latestViewportTop)
+      let latestBucket = TimelineCardWindow.bucket(layerMinY: -latestOffset)
+      if latestBucket != scrollBucket { scrollBucket = latestBucket }
     }
   }
 
@@ -514,10 +552,6 @@ struct WeekTimelineGridView: View {
         Color.clear.preference(
           key: WeekCardsLayerFramePreferenceKey.self,
           value: proxy.frame(in: .named("TimelinePane"))
-        )
-        .preference(
-          key: WeekCardsLayerScrollOffsetPreferenceKey.self,
-          value: proxy.frame(in: .named("WeekTimelineViewport")).minY
         )
       }
     )
