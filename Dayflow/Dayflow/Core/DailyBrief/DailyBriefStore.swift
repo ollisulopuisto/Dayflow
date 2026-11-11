@@ -662,8 +662,9 @@ final class DailyBriefStore: ObservableObject {
       let encoded = path.replacingOccurrences(of: "/", with: "-")
         .replacingOccurrences(of: ".", with: "-")
       let folder = sessions.appendingPathComponent(encoded)
-      guard let date = (try? folder.resourceValues(forKeys: [.contentModificationDateKey]))?
-        .contentModificationDate
+      guard
+        let date = (try? folder.resourceValues(forKeys: [.contentModificationDateKey]))?
+          .contentModificationDate
       else { return nil }
       return (path, date)
     }
@@ -680,8 +681,25 @@ final class DailyBriefStore: ObservableObject {
     // for that provider applies here too. Capture the agent and method now: a
     // settings change during the consent wait must not swap the provider the
     // user just consented to.
-    let agent = docketAgent
-    let method = docketHandoffMethod
+    // A task that continues an earlier thread goes to that thread's app, whichever agent
+    // the gear menu has picked. A new thread goes to the app the brief picked for it, when
+    // that app is installed, and otherwise to the gear menu's agent.
+    let thread = item.thread.flatMap { id in DailyBriefAgent(threadID: id).map { (id, $0) } }
+    let pickedApp = item.newThreadApp.flatMap(DailyBriefAgent.init(appName:))
+      .flatMap { $0.isInstalled ? $0 : nil }
+    let agent = thread?.1 ?? pickedApp ?? docketAgent
+    // Desktop thread IDs are not guaranteed to be CLI session IDs. Never
+    // silently replace their context with a fresh CLI, web or Classic chat.
+    if let thread, (!agent.isInstalled || agent.threadLink(thread: thread.0, folder: nil) == nil) {
+      let alert = NSAlert()
+      alert.messageText = String(localized: "Thread continuation unavailable")
+      alert.informativeText = String(
+        localized: "Install the app that owns this thread to continue it. No prompt was sent and no background task was started.")
+      alert.addButton(withTitle: String(localized: "OK"))
+      alert.runModal()
+      return
+    }
+    let method: DailyBriefHandoff.Method = thread == nil ? docketHandoffMethod : .paste
     let tool: ChatCLITool = agent == .claude ? .claude : .codex
     Task { @MainActor in
       do {
@@ -689,13 +707,15 @@ final class DailyBriefStore: ObservableObject {
       } catch {
         return  // declined: nothing is sent and no handoff is recorded
       }
-      performHandOffDocket(item, card: card, agent: agent, method: method)
+      performHandOffDocket(item, card: card, agent: agent, method: method,
+        threadID: thread?.0, briefPickedApp: thread == nil && pickedApp != nil)
     }
   }
 
   private func performHandOffDocket(
     _ item: DailyBriefDocketItem, card: DocketLiftedCard?,
-    agent: DailyBriefAgent, method: DailyBriefHandoff.Method
+    agent: DailyBriefAgent, method: DailyBriefHandoff.Method,
+    threadID: String?, briefPickedApp: Bool
   ) {
     guard brief != nil else { return }
     let prompt = docketPrompt(for: item)
@@ -705,7 +725,8 @@ final class DailyBriefStore: ObservableObject {
 
     switch method {
     case .paste:
-      DocketHandoffDirector.paste(prompt: prompt, agent: agent, card: card)
+      let link = agent.threadLink(thread: threadID, folder: folder)
+      DocketHandoffDirector.paste(prompt: prompt, agent: agent, link: link, card: card)
     case .run:
       let file = "handoffs/\(Self.fileSafe(item.title))-\(Int(Date().timeIntervalSince1970)).txt"
       entry.outputFile = file
@@ -724,7 +745,10 @@ final class DailyBriefStore: ObservableObject {
     recordFeedback(.docket, item.title, .opened)
     AnalyticsService.shared.capture(
       "daily_brief_docket_handoff",
-      ["agent": agent.rawValue, "method": method.rawValue, "has_folder": folder != nil])
+      [
+        "agent": agent.rawValue, "method": method.rawValue, "has_folder": folder != nil,
+        "continues_thread": threadID != nil, "brief_picked_app": briefPickedApp,
+      ])
   }
 
   private func finishDocketRun(day: String, title: String, exitCode: Int32) {

@@ -4,35 +4,49 @@ import UniformTypeIdentifiers
 
 struct SettingsRecordingPrivacyTabView: View {
   @ObservedObject var viewModel: RecordingPrivacySettingsViewModel
+  @StateObject private var permissions = SystemPermissionsMonitor()
   @State private var isBlockedTrayTargeted = false
   @AppStorage(BrowserPrivacy.hideIncognitoKey) private var hidesIncognitoWindows = true
   @AppStorage(BrowserPrivacy.excludedDomainsKey) private var excludedDomainsText = ""
+
+  /// Tall enough for a couple of rows of apps without pushing the browser
+  /// controls off the top of the tab.
+  private static let appGridHeight: CGFloat = 300
 
   private let gridColumns = [
     GridItem(.adaptive(minimum: 82, maximum: 96), spacing: 12, alignment: .top)
   ]
 
   var body: some View {
-    VStack(alignment: .leading, spacing: SettingsStyle.sectionSpacing) {
+    VStack(alignment: .leading, spacing: 28) {
       idleCaptureSection
+      browserPrivacySection
 
       SettingsSection(
         title: String(localized: "Recording privacy"),
-        subtitle: String(localized: "Choose apps Dayflow should hide from screenshots.")
+        subtitle: String(
+          localized: "Choose what Dayflow should hide from screenshots.")
+      ) {
+        SettingsBrowserPrivacySection(viewModel: viewModel, permissions: permissions)
+      }
+
+      SettingsSection(
+        title: String(localized: "Apps"),
+        subtitle: String(localized: "Apps Dayflow should hide whenever they're in front.")
       ) {
         VStack(alignment: .leading, spacing: 18) {
-          browserPrivacySection
           searchField
           installedAppsGrid
-            .frame(maxHeight: .infinity, alignment: .top)
           blockedAppsTray
         }
-        .frame(maxHeight: .infinity, alignment: .topLeading)
       }
     }
-    .frame(maxHeight: .infinity, alignment: .topLeading)
     .onAppear {
       viewModel.handleOnAppear()
+      permissions.start()
+    }
+    .onDisappear {
+      permissions.stop()
     }
   }
 
@@ -160,7 +174,7 @@ struct SettingsRecordingPrivacyTabView: View {
           }
           .padding(8)
         }
-        .frame(maxHeight: .infinity)
+        .frame(height: Self.appGridHeight)
         .background(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(Color.black.opacity(0.025))
@@ -171,7 +185,6 @@ struct SettingsRecordingPrivacyTabView: View {
         )
       }
     }
-    .frame(maxHeight: .infinity, alignment: .top)
   }
 
   private var blockedAppsTray: some View {
