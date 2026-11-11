@@ -88,6 +88,7 @@ struct CanvasTimelineDataView: View {
 
   @Environment(\.dayflowTheme) private var theme
   @State private var searchJumpUnavailable = false
+  @State private var loadedDayString: String? = nil
   @State private var selectedCardId: String? = nil
   @State private var positionedActivities: [CanvasPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
@@ -168,9 +169,15 @@ struct CanvasTimelineDataView: View {
   /// The anchor is not a virtualized card: it exists even when the match is far
   /// outside the viewport. Preserve the original activity, not its merged proxy.
   private func revealSearchMatch(with proxy: ScrollViewProxy) {
-    guard let target = searchJumpActivity,
-      let card = positionedActivities.first(where: { $0.sourceActivityIDs.contains(target.id) })
-    else { return }
+    guard let target = searchJumpActivity else { return }
+    guard loadedDayString == DateFormatter.yyyyMMdd.string(from: selectedDate) else { return }
+    guard let card = positionedActivities.first(where: { $0.sourceActivityIDs.contains(target.id) })
+    else {
+      searchJumpActivity = nil
+      searchJumpUnavailable = true
+      revealInitialScroll()
+      return
+    }
     didInitialScrollInView = true
     selectedCardId = card.id
     selectedActivity = target
@@ -241,6 +248,9 @@ struct CanvasTimelineDataView: View {
         revealSearchMatch(with: proxy)
       }
       .onChange(of: searchJumpActivity?.id) {
+        revealSearchMatch(with: proxy)
+      }
+      .onChange(of: loadedDayString) {
         revealSearchMatch(with: proxy)
       }
       .onChange(of: positionedActivities.count) {
@@ -741,6 +751,7 @@ struct CanvasTimelineDataView: View {
   private func loadActivities(animate: Bool = true, deferWhileHovering: Bool = false) {
     // Cancel any in-flight database read to prevent query pileup
     loadTask?.cancel()
+    loadedDayString = nil
     lastLoadStart.date = Date()
 
     loadTask = Task.detached(priority: .userInitiated) {
@@ -833,6 +844,7 @@ struct CanvasTimelineDataView: View {
           return
         }
         self.cardsHover.pendingRefresh = false
+        loadedDayString = dayString
         self.recordingProjection = recordingProjection
         if let target = searchJumpActivity,
           !positioned.contains(where: { $0.sourceActivityIDs.contains(target.id) })
