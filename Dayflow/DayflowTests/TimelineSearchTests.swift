@@ -130,9 +130,7 @@ final class TimelineSearchTests: XCTestCase {
     host.cacheDisplay(in: host.bounds, to: bitmap)
     let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
     XCTAssertGreaterThan(png.count, 1000)
-    print("DAYFLOW_SEARCH_NATIVE_PNG_BEGIN")
-    print(png.base64EncodedString())
-    print("DAYFLOW_SEARCH_NATIVE_PNG_END")
+    try png.write(to: URL(fileURLWithPath: "/tmp/dayflow-search-native.png"), options: .atomic)
     window.close()
   }
 

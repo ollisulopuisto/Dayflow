@@ -63,6 +63,10 @@ jobs:
               test_args+=("-only-testing:DayflowTests/$suite")
             done
           fi
+          # The synthetic native fixture is written by XCTest; parallel test
+          # execution suppresses its stdout, so expose pixels from this same
+          # existing job after the test finishes. Never retain a stale capture.
+          rm -f /tmp/dayflow-search-native.png
           xcodebuild \
             -project Dayflow/Dayflow.xcodeproj \
             -scheme Dayflow \
@@ -71,6 +75,12 @@ jobs:
             -skip-testing:DayflowUITests \
             "${test_args[@]}" \
             test
+          if [[ -f /tmp/dayflow-search-native.png ]]; then
+            echo DAYFLOW_SEARCH_NATIVE_PNG_BEGIN
+            base64 -i /tmp/dayflow-search-native.png | tr -d '\n'
+            printf '\nDAYFLOW_SEARCH_NATIVE_PNG_END\n'
+            rm -f /tmp/dayflow-search-native.png
+          fi
       - name: Skip unit tests for urgent build
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
         run: echo 'Unit tests skipped by explicit workflow_dispatch input; artifact build continues.'
