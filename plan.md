@@ -157,3 +157,10 @@ actual runner behavior. No tag/build/merge; local synthetic tests pass.
   collision, both named BrowserPrivacyDecisionTests. Rename the upstream category
   suite to BrowserCategoryPrivacyDecisionTests; keep both suites and all assertions.
 - Devin confirmed all six findings resolved on 829bffb1. No new findings at recheck.
+
+### PR #115 native test follow-up
+- Native compile and the new privacy regressions pass, including Unicode/punycode
+  matching and injected pixelation failure. One existing exact sidebar-order test
+  rejects the added Permissions tab. Keep Storage first/default and Account
+  second-to-last, place Permissions after Privacy, and extend that exact assertion
+  to include the new upstream tab without weakening the established ordering.

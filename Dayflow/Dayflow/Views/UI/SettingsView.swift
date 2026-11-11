@@ -10,10 +10,10 @@ import SwiftUI
 
 struct SettingsView: View {
   enum SettingsTab: String, CaseIterable, Identifiable {
-    case permissions
     case storage
     case network
     case privacy
+    case permissions
     case providers
     case aiTools
     case data
