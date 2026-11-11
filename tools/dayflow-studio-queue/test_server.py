@@ -242,6 +242,19 @@ class ClockNormalisationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.server = load_server()
 
+    def test_standard_clock_fast_path(self) -> None:
+        # Standard Dayflow h:mm AM/PM clocks pass through fast path directly
+        self.assertEqual(self.server.normalize_clock("10:15 AM"), "10:15 AM")
+        self.assertEqual(self.server.normalize_clock("1:00 AM"), "1:00 AM")
+        self.assertEqual(self.server.normalize_clock("12:59 PM"), "12:59 PM")
+        self.assertEqual(self.server.normalize_clock("9:30 PM"), "9:30 PM")
+
+    def test_trailing_newline_is_not_passed_through(self) -> None:
+        # Devin: STANDARD_CLOCK_RE.match accepts "9:30 AM\n" ($ matches before
+        # the newline), leaking a noncanonical time into completed results.
+        self.assertEqual(self.server.normalize_clock("9:30 AM\n"), "9:30 AM")
+        self.assertEqual(self.server.normalize_clock("10:15 AM\r\n"), "10:15 AM")
+
     def test_seconds_and_whitespace_are_dropped(self) -> None:
         self.assertEqual(self.server.normalize_clock("1:23:29 AM"), "1:23 AM")
         self.assertEqual(self.server.normalize_clock(" 2:58:01 PM "), "2:58 PM")
