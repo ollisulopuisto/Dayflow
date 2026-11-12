@@ -383,6 +383,56 @@ class EndpointValidationTests(unittest.TestCase):
             urllib.request.urlopen(req)
         self.assertEqual(ctx.exception.code, 400)
 
+    def test_post_endpoints_require_a_json_content_type(self) -> None:
+        import http.client
+        import urllib.error
+        import urllib.request
+
+        # Non-JSON media types get 415 before any field validation runs.
+        for content_type in ("text/plain", "application/x-www-form-urlencoded", "text/json"):
+            req = urllib.request.Request(
+                f"{self.url}/v1/jobs",
+                data=json.dumps(make_job("ct-rejected-job")).encode(),
+                headers={"Content-Type": content_type},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 415, content_type)
+        self.assertFalse((self.server.PENDING / "ct-rejected-job.json").exists())
+
+        # No Content-Type header at all is also a 415 (urllib always sends one, so use http.client,
+        # which does not add one on its own).
+        conn = http.client.HTTPConnection("127.0.0.1", self.httpd.server_address[1], timeout=5)
+        conn.request("POST", "/v1/jobs", body=json.dumps(make_job("ct-rejected-job")))
+        resp = conn.getresponse()
+        resp.read()
+        self.assertEqual(resp.status, 415)
+        conn.close()
+        self.assertFalse((self.server.PENDING / "ct-rejected-job.json").exists())
+
+        # Media types are case-insensitive and may carry parameters such as a charset.
+        req = urllib.request.Request(
+            f"{self.url}/v1/jobs",
+            data=json.dumps(make_job("ct-charset-job")).encode(),
+            headers={"Content-Type": "Application/JSON; charset=UTF-8"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 202)
+        self.assertTrue((self.server.PENDING / "ct-charset-job.json").exists())
+
+        # /v1/ack enforces the same rule.
+        req = urllib.request.Request(
+            f"{self.url}/v1/ack",
+            data=json.dumps({"job_id": "job-1", "device_id": "mac"}).encode(),
+            headers={"Content-Type": "text/plain"},
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req)
+        self.assertEqual(ctx.exception.code, 415)
+
     def test_results_endpoint_rejects_subpaths_and_parameter_pollution(self) -> None:
         import urllib.error
         import urllib.request
