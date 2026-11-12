@@ -11,7 +11,7 @@ final class PrivacyShieldRulesTests: XCTestCase {
   /// One label per code point per line, with no model input at all.
   private func labels(for lines: [String]) -> [[Int]] {
     let ocr = lines.map { PIIOCRLine(text: $0, box: .zero) }
-    rules.apply(
+    return rules.apply(
       lines: ocr,
       sensitive: lines.map { [Float](repeating: 0, count: $0.unicodeScalars.count) },
       best: lines.map { [Int](repeating: 0, count: $0.unicodeScalars.count) })
