@@ -302,8 +302,11 @@ extension MainView {
 
         Spacer()
 
-        PrivacyShieldFooterItem()
-          .opacity(contentOpacity)
+        // Hidden by default in this fork (like the dropped Flow UI); see PrivacyShield.uiVisible.
+        if PrivacyShield.shared.uiVisible {
+          PrivacyShieldFooterItem()
+            .opacity(contentOpacity)
+        }
       }
       .padding(.horizontal, 24)
 

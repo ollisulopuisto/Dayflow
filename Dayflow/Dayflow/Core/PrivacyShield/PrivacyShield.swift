@@ -41,6 +41,10 @@ final class PrivacyShield: ObservableObject {
 
   private static let enabledKey = "privacyShieldEnabled"
   private static let calloutDismissedKey = "privacyShieldCalloutDismissed"
+  /// Off by default: the footer toggle stays hidden, the same way the fork dropped the Flow UI.
+  /// `defaults write teleportlabs.com.Dayflow privacyShieldUIEnabled -bool true` and a relaunch
+  /// brings the toggle back. Read once per render on purpose - flipping it needs a relaunch.
+  private static let uiEnabledKey = "privacyShieldUIEnabled"
 
   @Published private(set) var isEnabled: Bool
   @Published private(set) var status: Status = .off
@@ -53,6 +57,12 @@ final class PrivacyShield: ObservableObject {
   private init() {
     isEnabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
     calloutDismissed = UserDefaults.standard.bool(forKey: Self.calloutDismissedKey)
+  }
+
+  /// Whether the footer toggle is surfaced at all. Hidden by default; while hidden the shield
+  /// stays off too (`refresh` refuses to arm), so hiding the switch never masks silently.
+  var uiVisible: Bool {
+    UserDefaults.standard.bool(forKey: Self.uiEnabledKey)
   }
 
   /// What the footer switch shows: on whenever the shield is on or getting ready, never just because it was asked for.
@@ -84,9 +94,10 @@ final class PrivacyShield: ObservableObject {
     UserDefaults.standard.set(true, forKey: Self.calloutDismissedKey)
   }
 
-  /// Brings the masker in line with the switch.
+  /// Brings the masker in line with the switch. A hidden switch means off: even a stored
+  /// "enabled" from before the UI was hidden does not arm the masker until the UI is back.
   private func refresh() {
-    guard isEnabled else {
+    guard isEnabled, uiVisible else {
       cancelPrepare()
       PrivacyShieldMaskerBox.shared.set(nil)
       status = .off
