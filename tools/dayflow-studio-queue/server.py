@@ -526,7 +526,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if not authorized(self):
             return self.respond(401, {"error": "unauthorized"})
+        # Routing comes first: an unknown path is 404 whatever the request looks like.
         request_path = urlparse(self.path).path
+        if request_path not in ("/v1/jobs", "/v1/ack"):
+            return self.respond(404, {"error": "not found"})
+        # Security: POST bodies are parsed as JSON, so require a JSON media type up front.
+        # Parameters such as "; charset=utf-8" are fine and media types are case-insensitive.
+        media_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        if media_type != "application/json":
+            return self.respond(415, {"error": "unsupported media type"})
         try:
             length = int(self.headers.get("Content-Length", "0"))
             if length <= 0 or length > 100_000_000:
