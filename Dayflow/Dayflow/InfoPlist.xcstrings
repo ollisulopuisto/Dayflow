@@ -80,18 +80,6 @@
       },
       "shouldTranslate" : false
     },
-    "NSMicrophoneUsageDescription" : {
-      "comment" : "Privacy - Microphone Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Dayflow listens while you talk to Flow about your plan. Audio is only used for that conversation."
-          }
-        }
-      }
-    },
     "NSScreenCaptureUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {
