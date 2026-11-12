@@ -200,6 +200,9 @@ jobs:
             --sign "$SIGN_ID" "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
           spctl -a -vvv --type execute "$APP_PATH" || true
+          # Guard: every Info.plist usage string needs its hardened-runtime entitlement.
+          python3 scripts/ci/test_verify_entitlements.py
+          python3 scripts/ci/verify_entitlements.py "$APP_PATH"
 
       #-----------------------------------------------------------------------------
       # Create the DMG with create-dmg.
