@@ -17,16 +17,18 @@ final class PrivacyShieldRulesTests: XCTestCase {
       best: lines.map { [Int](repeating: 0, count: $0.unicodeScalars.count) })
   }
 
-  /// The masked (nonzero-label) character runs of one line's predictions.
+  /// The hidden character runs of one line's predictions. Counts only labels in `PIILabel.masked`,
+  /// the exact filter the frame masker applies before pixelating - a label that never renders
+  /// (e.g. a oneTimeCode hint) must not count as hidden here.
   private func maskedRuns(_ line: String, _ pred: [Int]) -> [String] {
     let scalars = Array(line.unicodeScalars)
     XCTAssertEqual(scalars.count, pred.count)
     var runs: [String] = []
     var i = 0
     while i < pred.count {
-      guard pred[i] != 0 else { i += 1; continue }
+      guard PIILabel.masked.contains(pred[i]) else { i += 1; continue }
       var j = i
-      while j < pred.count && pred[j] == pred[i] { j += 1 }
+      while j < pred.count && PIILabel.masked.contains(pred[j]) { j += 1 }
       runs.append(String(String.UnicodeScalarView(scalars[i..<j])))
       i = j
     }
@@ -49,8 +51,9 @@ final class PrivacyShieldRulesTests: XCTestCase {
   private func assertNothingMasked(in lines: [String], file: StaticString = #filePath, line: UInt = #line) {
     let preds = labels(for: lines)
     for (index, pred) in preds.enumerated() {
-      XCTAssertEqual(
-        Set(pred), [0], "unexpected mask on \"\(lines[index])\"", file: file, line: line)
+      XCTAssertTrue(
+        maskedRuns(lines[index], pred).isEmpty,
+        "unexpected mask on \"\(lines[index])\"", file: file, line: line)
     }
   }
 
@@ -75,6 +78,18 @@ final class PrivacyShieldRulesTests: XCTestCase {
 
   func testLabeledPasswordIsMasked() {
     assertMasked("Tr0ub4dor!3", in: ["Password: Tr0ub4dor!3"])
+  }
+
+  func testLabeledWeakPasswordIsMasked() {
+    // With no model scores the "Password:" line is the only evidence; a word with a short number
+    // on the end is still a password there (the model used to catch these).
+    assertMasked("hunter2", in: ["Password: hunter2"])
+    assertMasked("hunter22", in: ["Wi-Fi password: hunter22"])
+  }
+
+  func testLabeledLineWithoutPasswordShapeIsNotMasked() {
+    // The same line keeps the other passwordLike guards: no digit or symbol, so a plain word stays.
+    assertNothingMasked(in: ["Password: Forgot"])
   }
 
   func testCLIPasswordFlagIsMasked() {

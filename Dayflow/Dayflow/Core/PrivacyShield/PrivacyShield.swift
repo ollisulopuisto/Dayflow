@@ -45,6 +45,7 @@ final class PrivacyShield: ObservableObject {
   /// `defaults write teleportlabs.com.Dayflow privacyShieldUIEnabled -bool true` and a relaunch
   /// brings the toggle back. Read once per render on purpose - flipping it needs a relaunch.
   private static let uiEnabledKey = "privacyShieldUIEnabled"
+  private static let legacyModelRemovedKey = "privacyShieldLegacyModelRemoved"
 
   @Published private(set) var isEnabled: Bool
   @Published private(set) var status: Status = .off
@@ -70,9 +71,30 @@ final class PrivacyShield: ObservableObject {
     isEnabled && status != .off
   }
 
-  /// Call once at launch: re-arms the shield when it was on at quit.
+  /// Call once at launch: clears the old model store, then re-arms the shield when it was on at quit.
   func start() {
+    removeLegacyModelStore()
     refresh()
+  }
+
+  /// One-time cleanup: builds that still had upstream's paid shield could download its compiled
+  /// Core ML models into `Application Support/Dayflow/privacy-model/`; the local shield never reads
+  /// them, so the folder is deleted. Recorded in defaults and retried on every launch until it works.
+  private func removeLegacyModelStore() {
+    guard !UserDefaults.standard.bool(forKey: Self.legacyModelRemovedKey) else { return }
+    let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+      .appendingPathComponent("Dayflow/privacy-model", isDirectory: true)
+    guard FileManager.default.fileExists(atPath: directory.path) else {
+      UserDefaults.standard.set(true, forKey: Self.legacyModelRemovedKey)
+      return
+    }
+    do {
+      try FileManager.default.removeItem(at: directory)
+      UserDefaults.standard.set(true, forKey: Self.legacyModelRemovedKey)
+    } catch {
+      // Flag left unset: retried on the next launch.
+      AnalyticsService.shared.capture("privacy_shield_legacy_model_cleanup_failed")
+    }
   }
 
   /// The footer toggle: turns the local masker on or off. There is no plan to sell here.

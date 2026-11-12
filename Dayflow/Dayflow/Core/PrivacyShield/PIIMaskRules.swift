@@ -212,12 +212,14 @@ struct PIIMaskRules {
   private static let edgePunctuation = ".,;:|()[]-_…'\""
 
   /// One 6-40 character token with a letter and a digit or symbol, that isn't an email, link, file, shortcut,
-  /// sentence end or a word with a short number on the end.
-  private func passwordLike(_ value: String) -> Bool {
+  /// sentence end or a word with a short number on the end. `allowWordNumber` drops that last exclusion:
+  /// upstream tuned it for a pipeline whose model still caught "hunter2"; with no model scores, a line
+  /// that starts with "Password:" is decisive on its own, so its last word counts even then.
+  private func passwordLike(_ value: String, allowWordNumber: Bool = false) -> Bool {
     let core = PIIPython.strip(value, Self.edgePunctuation)
     let length = PIIPython.scalarCount(core)
     if !(6...40).contains(length) || core.contains(" ") || Self.notAPassword.search(core)
-      || Self.wordAndNumber.fullMatch(core)
+      || (!allowWordNumber && Self.wordAndNumber.fullMatch(core))
     {
       return false
     }
@@ -396,7 +398,7 @@ struct PIIMaskRules {
         let last = PIIPython.strip(lastWord, Self.edgePunctuation)
         // The zxcvbn alternative is left out (see the type comment).
         if PIIPython.scalarCount(last) >= 6 && !Self.passwordLine.matchesStart(last)
-          && passwordLike(last),
+          && passwordLike(last, allowWordNumber: true),
           let start = PIIPython.lastIndex(of: last, in: text.string)
         {
           let end = start + PIIPython.scalarCount(last)
