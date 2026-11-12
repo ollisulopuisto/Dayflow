@@ -100,17 +100,20 @@ final class PrivacyShieldRulesTests: XCTestCase {
     assertMasked("JBSW Y3DP EHPK 3PXP", in: ["JBSW Y3DP EHPK 3PXP"])
   }
 
+  // The card tests use 4242 0242 4242 424x, not the classic 4242 4242 4242 424x: a 4x4 group of
+  // nothing but digits 2-7 also matches the TOTP setup-key rule (base32 allows 2-7), which would
+  // mask it as SECRET and leave the card pass itself untested. The 0s keep the setup-key rule out.
   func testGroupedCardNumberWithValidLuhnIsMasked() {
-    assertMasked("4242 4242 4242 4242", in: ["4242 4242 4242 4242"])
+    assertMasked("4242 0242 4242 4240", in: ["4242 0242 4242 4240"])
   }
 
   func testUngroupedCardNumberNeedsContext() {
-    assertMasked("4242424242424242", in: ["Card number: 4242424242424242"])
-    assertNothingMasked(in: ["tracking 4242424242424242 done"])
+    assertMasked("4242024242424240", in: ["Card number: 4242024242424240"])
+    assertNothingMasked(in: ["tracking 4242024242424240 done"])
   }
 
   func testCardWithBrokenLuhnIsNotMasked() {
-    assertNothingMasked(in: ["4242 4242 4242 4243"])
+    assertNothingMasked(in: ["4242 0242 4242 4241"])
   }
 
   func testValidIBANIsMasked() {
