@@ -433,6 +433,23 @@ class EndpointValidationTests(unittest.TestCase):
             urllib.request.urlopen(req)
         self.assertEqual(ctx.exception.code, 415)
 
+    def test_unknown_post_route_is_404_regardless_of_content_type(self) -> None:
+        import urllib.error
+        import urllib.request
+
+        # Routing wins over media-type validation: an unknown route is 404 even when the
+        # Content-Type would otherwise be rejected as 415.
+        for content_type in ("text/plain", "application/json"):
+            req = urllib.request.Request(
+                f"{self.url}/v1/missing",
+                data=json.dumps({}).encode(),
+                headers={"Content-Type": content_type},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 404, content_type)
+
     def test_results_endpoint_rejects_subpaths_and_parameter_pollution(self) -> None:
         import urllib.error
         import urllib.request
