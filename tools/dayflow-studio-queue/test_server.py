@@ -585,6 +585,38 @@ class EndpointValidationTests(unittest.TestCase):
         self.assertEqual(self.post_ack(expected_status=403), {"error": "job belongs to another device"})
         self.assertTrue(result.exists())
 
+    def test_ack_uses_resolved_path_not_raw_name(self) -> None:
+        # Security: os.open / os.unlink must be called on the resolved path inside
+        # COMPLETE, never on the raw job_id-derived name with dir_fd (path injection).
+        from unittest.mock import patch
+        real_open = os.open
+        real_unlink = os.unlink
+        result = self.server.COMPLETE / "job-1.json"
+        result.write_text(json.dumps({"device_id": "mac"}))
+        expected_path = str(result.resolve())
+        captured = {}
+
+        def fake_open(path, flags, *args, **kwargs):
+            captured["open_path"] = str(path)
+            captured["open_dir_fd"] = kwargs.get("dir_fd")
+            return real_open(path, flags, *args, **kwargs)
+
+        def fake_unlink(path, *args, **kwargs):
+            captured["unlink_path"] = str(path)
+            captured["unlink_dir_fd"] = kwargs.get("dir_fd")
+            return real_unlink(path, *args, **kwargs)
+
+        with patch.object(os, "open", side_effect=fake_open), patch.object(os, "unlink", side_effect=fake_unlink):
+            self.assertEqual(self.post_ack(), {"acknowledged": True})
+
+        self.assertIsNone(captured.get("open_dir_fd"), "os.open must not use dir_fd")
+        self.assertIsNone(captured.get("unlink_dir_fd"), "os.unlink must not use dir_fd")
+        self.assertEqual(captured.get("open_path"), expected_path, "os.open must use resolved path inside COMPLETE")
+        self.assertEqual(captured.get("unlink_path"), expected_path, "os.unlink must use resolved path inside COMPLETE")
+        self.assertTrue(captured.get("open_path", "").startswith(str(self.server.COMPLETE.resolve())))
+        self.assertTrue(captured.get("unlink_path", "").startswith(str(self.server.COMPLETE.resolve())))
+        self.assertFalse(result.exists())
+
     def test_oversized_identifiers_rejected(self) -> None:
         import urllib.request
         import urllib.error

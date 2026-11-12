@@ -615,13 +615,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid device id"})
             # job_id passed is_valid_identifier ([A-Za-z0-9-]{1,128}), so f"{job_id}.json" is a
             # single path component: it cannot contain "/", "\\", or "..". The explicit allowlist
-            # below is the sanitizer boundary: only after it passes may result_name be used in a
-            # path expression (os.open / os.unlink with dir_fd=COMPLETE).
+            # below is the sanitizer boundary: only after it passes may result_name be used to
+            # build the resolved path inside COMPLETE.
             result_name = f"{job_id}.json"
             if not re.fullmatch(r"[A-Za-z0-9-]+\.json", result_name):
                 # Defensive: never let a job id escape the result directory.
                 return self.respond(400, {"error": "invalid job id"})
-            complete_fd = None
             try:
                 # Resolve inside the error handler: loops and permission errors
                 # must return JSON rather than dropping the client's connection.
@@ -630,24 +629,22 @@ class Handler(BaseHTTPRequestHandler):
                     result_path.relative_to(COMPLETE.resolve())
                 except ValueError:
                     return self.respond(400, {"error": "invalid job id"})
-                # Open and unlink relative to COMPLETE's directory fd, rejecting symlinks
-                # (O_NOFOLLOW). result_name is a single safe path component, so it cannot
-                # escape COMPLETE.
-                complete_fd = os.open(COMPLETE, os.O_RDONLY | os.O_DIRECTORY)
-                result_fd = os.open(result_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=complete_fd)
+                # Open and unlink on the resolved path, rejecting symlinks (O_NOFOLLOW).
+                # result_name passed the allowlist above ([A-Za-z0-9-]+\.json), so the
+                # resolved path is guaranteed to be a single component inside COMPLETE.
+                # Using the resolved absolute path (instead of the raw name with dir_fd)
+                # keeps tainted user input out of the path expression entirely.
+                result_fd = os.open(str(result_path), os.O_RDONLY | os.O_NOFOLLOW)
                 with os.fdopen(result_fd, "rb") as f:
                     result_device_id = completed_result_device_id(f)
                 if result_device_id != device_id:
                     return self.respond(403, {"error": "job belongs to another device"})
-                os.unlink(result_name, dir_fd=complete_fd)
+                os.unlink(str(result_path))
             except FileNotFoundError:
                 # Missing directory, missing result, or a concurrent ack all mean it's gone.
                 pass
             except (OSError, RuntimeError, json.JSONDecodeError, UnicodeDecodeError):
                 return self.respond(500, {"error": "could not acknowledge job"})
-            finally:
-                if complete_fd is not None:
-                    os.close(complete_fd)
             return self.respond(200, {"acknowledged": True})
         self.respond(404, {"error": "not found"})
 
