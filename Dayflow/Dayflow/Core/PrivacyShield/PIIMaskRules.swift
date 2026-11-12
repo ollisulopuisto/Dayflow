@@ -22,16 +22,20 @@ enum PIILabel {
   static let masked: Set<Int> = [secret, privateKey, password, card, bank, govID]
 }
 
-/// Turns the model's per-character scores into masks: threshold, whole-token fill, edge trimming, then the
+/// Turns per-character scores into masks: threshold, whole-token fill, edge trimming, then the
 /// rule passes, in the order and with the settings r38 was scored with on the golden set (`fa_score.POST`
 /// plus plain_guesses at threshold 0.5 in the Python lab). Each rule is a direct port of the function of the
 /// same name in `train_lib.py`; read that for the reasoning behind each pattern.
+///
+/// This fork removed the paid model: callers pass zero scores, so only the self-seeding passes below
+/// (setup keys, vault and labeled passwords, key blocks, seed phrases, checked numbers, key prefixes)
+/// ever mask anything. The unmask passes still run, keeping those seeds as conservative as the model's.
 ///
 /// Two Python checks are left out: zxcvbn password strength (in passphrase_like and the "Password" line rule).
 /// On all 7,995 golden and planted frames it never changed a mask.
 struct PIIMaskRules {
   let threshold: Float
-  /// The 2,048-word BIP39 English list, for seed phrases. Ships with the model download.
+  /// The 2,048-word BIP39 English list, for seed phrases. Upstream delivered it with the model download; this fork bundles it (`BIP39Wordlist`).
   let bip39Words: [String]
   private let bip39Set: Set<String>
   private let bip39Positions: [String: Int]
@@ -70,6 +74,7 @@ struct PIIMaskRules {
     unmaskPlainURLs(texts, &preds)
     maskSeedPhrases(texts, &preds)
     maskRecoveryCodes(texts, &preds)
+    maskCheckedNumbers(texts, &preds)
     maskKeyPrefixes(texts, &preds)
     return preds
   }
@@ -658,6 +663,77 @@ struct PIIMaskRules {
         separator: " ")
       if Self.recoveryContext.search(nearby) {
         preds[index] = preds[index].map { $0 == PIILabel.oneTimeCode ? PIILabel.secret : $0 }
+      }
+    }
+  }
+
+  // MARK: - Cards and IBANs
+
+  private static let cardCandidate = PIIRegex(#"\b\d(?:[ -]?\d){12,18}\b"#)
+  private static let cardContext = PIIRegex(
+    #"card|visa|master ?card|amex|cvv|cvc|expir|kortti|maksu|tilinumero"#, caseInsensitive: true)
+  private static let ibanCandidate = PIIRegex(#"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,3})?\b"#)
+
+  /// Luhn check over the digit characters of `value`.
+  private func luhnOK(_ value: String) -> Bool {
+    let digits = value.unicodeScalars.compactMap { $0.properties.numericValue }.map(Int.init)
+    guard (13...19).contains(digits.count) else { return false }
+    var sum = 0
+    for (index, digit) in digits.reversed().enumerated() {
+      var d = digit
+      if index % 2 == 1 {
+        d *= 2
+        if d > 9 { d -= 9 }
+      }
+      sum += d
+    }
+    return sum % 10 == 0
+  }
+
+  /// The ISO 13616 mod-97 check over an IBAN with its separators removed.
+  private func ibanOK(_ value: String) -> Bool {
+    let compact = value.replacingOccurrences(of: " ", with: "")
+    guard (15...34).contains(compact.count) else { return false }
+    let rearranged = String(compact.dropFirst(4)) + String(compact.prefix(4))
+    var remainder = 0
+    for scalar in rearranged.unicodeScalars {
+      let digits: String
+      if (48...57).contains(scalar.value) {
+        digits = String(scalar)
+      } else if (65...90).contains(scalar.value) {
+        digits = String(scalar.value - 55)
+      } else {
+        return false
+      }
+      for digitScalar in digits.unicodeScalars {
+        remainder = (remainder * 10 + Int(digitScalar.value - 48)) % 97
+      }
+    }
+    return remainder == 1
+  }
+
+  /// Masks payment card numbers and IBANs, which upstream's model caught but its pattern rules did not.
+  /// Both carry their own checksum, so a match is nearly never a coincidence. A card number still needs
+  /// either separators ("4242 4242 4242 4242") or a card word nearby; an IBAN needs a passing checksum.
+  private func maskCheckedNumbers(_ texts: [PIILineText], _ preds: inout [[Int]]) {
+    for n in texts.indices {
+      let text = texts[n]
+      let nearby = texts[max(0, n - 2)...n].map(\.string).joined(separator: " ")
+      let hasCardContext = Self.cardContext.search(nearby)
+      for match in Self.cardCandidate.matches(in: text) {
+        let value = text.slice(match.start, match.end)
+        guard luhnOK(value), value.contains(where: { $0 == " " || $0 == "-" }) || hasCardContext
+        else { continue }
+        for k in match.range where preds[n][k] == 0 {
+          preds[n][k] = PIILabel.card
+        }
+      }
+      for match in Self.ibanCandidate.matches(in: text) {
+        let value = text.slice(match.start, match.end)
+        guard ibanOK(value) else { continue }
+        for k in match.range where preds[n][k] == 0 {
+          preds[n][k] = PIILabel.bank
+        }
       }
     }
   }
