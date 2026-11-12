@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The "Privacy shield" pill in the timeline footer (Figma: Dayflow - minor adjustments, node 2:1508).
-/// Without Dayflow Pro or Plus, tapping it opens the upgrade modal instead of turning it on.
+/// Tapping it turns the fork's local, on-device masking on or off; upstream's paid gate is gone.
 struct PrivacyShieldToggle: View {
   @Environment(\.dayflowTheme) private var theme
   @ObservedObject private var shield = PrivacyShield.shared
@@ -43,11 +43,6 @@ struct PrivacyShieldToggle: View {
       ProgressView()
         .scaleEffect(0.4)
         .frame(width: 12, height: 12)
-    case .failed:
-      Image(systemName: "exclamationmark.triangle.fill")
-        .resizable()
-        .scaledToFit()
-        .foregroundColor(theme.accent)
     case .on, .off:
       // Stand-in for the Figma shield icon (node 2:1510), which couldn't be exported.
       Image(systemName: "shield.lefthalf.filled")
@@ -62,9 +57,6 @@ struct PrivacyShieldToggle: View {
     case .preparing:
       return String(
         localized: "Getting Privacy Shield ready. Screenshots are saved as usual until it's done.")
-    case .failed:
-      return String(
-        localized: "Privacy Shield couldn't get its model. Turn it off and on again to retry.")
     case .on:
       return String(
         localized: "Hiding passwords, API keys, cards and bank details in your screenshots.")
@@ -152,20 +144,5 @@ struct PrivacyShieldFooterItem: View {
         }
       }
       .animation(.spring(response: 0.3, dampingFraction: 0.85), value: shield.calloutDismissed)
-  }
-}
-
-/// Puts the upgrade modal over the main window while `PrivacyShield.showUpgrade` is set.
-struct PrivacyShieldUpgradeHost: View {
-  @ObservedObject private var shield = PrivacyShield.shared
-
-  var body: some View {
-    ZStack {
-      if shield.showUpgrade {
-        PrivacyShieldUpgradeModal()
-          .transition(.opacity)
-      }
-    }
-    .animation(.easeOut(duration: 0.2), value: shield.showUpgrade)
   }
 }

@@ -3,8 +3,10 @@ import CryptoKit
 import Foundation
 import Vision
 
-/// Hides secrets in one captured frame: reads its text with Apple Vision, runs the privacy model and its rules,
-/// and pixelates every masked character range before the frame is stored. Everything stays on this Mac.
+/// Hides secrets in one captured frame: reads its text with Apple Vision, applies the privacy rules
+/// (passwords, API keys, private keys, setup keys, seed phrases, cards and IBANs), and pixelates every
+/// masked character range before the frame is stored. Everything stays on this Mac; this fork dropped
+/// upstream's downloadable model, so the pattern rules alone decide what is masked.
 ///
 /// The text reading matches `ocr_vision.py` in the Python lab (the same Vision settings as the rest of the app,
 /// boxes in pixels from the top-left, lines sorted top to bottom then left to right), because that is how the
@@ -15,7 +17,6 @@ final class PrivacyShieldFrameMasker: @unchecked Sendable {
     let maskedRegions: Int
   }
 
-  private let runner: PIIModelRunner
   private let rules: PIIMaskRules
 
   /// The last frame's fingerprint and the boxes masked on it. About half of all captures are pixel-identical
@@ -23,8 +24,7 @@ final class PrivacyShieldFrameMasker: @unchecked Sendable {
   private var lastFingerprint: Data?
   private var lastRects: [CGRect] = []
 
-  init(runner: PIIModelRunner, rules: PIIMaskRules) {
-    self.runner = runner
+  init(rules: PIIMaskRules) {
     self.rules = rules
   }
 
@@ -57,10 +57,9 @@ final class PrivacyShieldFrameMasker: @unchecked Sendable {
     return Result(image: redacted, maskedRegions: rects.count)
   }
 
-  /// Loads Vision's text model and each Core ML model onto the Neural Engine before the first real frame.
-  /// Both are slow the first time in a process (tens of seconds on a Mac short on disk space), and that
-  /// cost belongs to setup, not to a capture.
-  /// Never throws: a failure here only means the first real frame pays the cost (or retries) itself.
+  /// Loads Vision's text model onto the Neural Engine before the first real frame: slow the first time
+  /// in a process (tens of seconds on a Mac short on disk space), and that cost belongs to setup, not
+  /// to a capture. Never throws: a failure here only means the first real frame pays the cost itself.
   func warmUp() {
     if let blank = CGContext(
       data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
@@ -68,13 +67,6 @@ final class PrivacyShieldFrameMasker: @unchecked Sendable {
     )?.makeImage() {
       _ = try? recognizeLines(in: blank)
     }
-    // One line per model size: short, medium and a full 192-character window.
-    let lines = [24, 160, 192].enumerated().map { index, length in
-      PIIOCRLine(
-        text: String(repeating: "a", count: length),
-        box: CGRect(x: 0, y: CGFloat(index) * 20, width: 400, height: 12))
-    }
-    _ = try? runner.scores(lines: lines, page: PIIEncoder.page(lines))
   }
 
   // MARK: - Finding what to mask
@@ -89,8 +81,11 @@ final class PrivacyShieldFrameMasker: @unchecked Sendable {
     let recognized = try recognizeLines(in: image)
     guard !recognized.isEmpty else { return [] }
     let lines = recognized.map(\.line)
-    let page = PIIEncoder.page(lines)
-    let scores = try runner.scores(lines: lines, page: page)
+    // No model scores in this fork: zero scores leave the pattern rules to seed every mask.
+    let scores = (
+      sensitive: lines.map { [Float](repeating: 0, count: $0.text.unicodeScalars.count) },
+      best: lines.map { [Int](repeating: 0, count: $0.text.unicodeScalars.count) }
+    )
     let preds = rules.apply(lines: lines, sensitive: scores.sensitive, best: scores.best)
 
     let width = CGFloat(image.width)

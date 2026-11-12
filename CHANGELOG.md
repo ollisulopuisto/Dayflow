@@ -8,6 +8,8 @@
 
 ### Changed
 - Sync upstream v2.9.0: local Privacy Shield, browser privacy categories and docket thread handoffs.
+- Replace the paid, backend-downloaded Privacy Shield with a local rules-only shield: no account, plan or network; pattern rules hide passwords, API keys, private keys, setup keys, seed phrases, cards and IBANs in screenshots.
+- Hide the Privacy Shield footer toggle by default, like the dropped Flow UI: `defaults write teleportlabs.com.Dayflow privacyShieldUIEnabled -bool true` and a relaunch brings it back. While the toggle is hidden the shield stays off. Launch also removes any privacy model downloaded by earlier builds from Application Support.
 - Keep the fork's first-send provider consent, disabled Flow/support chat, timeline search, idle capture and upstream updater restrictions.
 
 ### Fixed
