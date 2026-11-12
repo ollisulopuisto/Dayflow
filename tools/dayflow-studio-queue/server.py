@@ -81,9 +81,12 @@ def authorized(handler: BaseHTTPRequestHandler) -> bool:
 
 
 def is_valid_identifier(val: object) -> bool:
-    # Security: bound identifier length to prevent unhandled filesystem errors (e.g. filename too long DoS)
-    # Identifiers (device_id, job_id) must be non-empty strings of alphanumeric and dash characters up to 128 chars.
-    return isinstance(val, str) and 1 <= len(val) <= 128 and val.replace("-", "").isalnum()
+    # Security: bound identifier length to prevent unhandled filesystem errors (e.g. filename too long DoS).
+    # Identifiers (device_id, job_id) must be non-empty ASCII strings of alphanumeric and dash
+    # characters up to 128 chars. The anchored allowlist rejects path separators ("/", "\\"),
+    # dots ("..") and shell metacharacters, so a validated identifier is a single safe path
+    # component and cannot traverse out of its directory.
+    return isinstance(val, str) and IDENTIFIER_RE.fullmatch(val) is not None
 
 
 def in_window(zone_name: str = TIMEZONE, start_text: str = WINDOW_START,
@@ -165,6 +168,11 @@ CLOCK_RE = re.compile(r"\s*(\d{1,2})[:.](\d{2})(?::\d{2})?\s*([AaPp])?\s*[Mm]?\s
 # Fast path for canonical Dayflow clock format: 1-12, colon, 00-59, single space, AM or PM
 STANDARD_CLOCK_RE = re.compile(r"^(1[0-2]|[1-9]):([0-5][0-9]) (AM|PM)$")
 GPU_JOB_ID_RE = re.compile(rb'"gpu_job_id"\s*:\s*"([^"]+)"')
+# Sallittujen merkkien allowlist job_id-/device_id-tunnisteille: vain ASCII-vainainumerot
+# ja väliviiva, 1-128 merkkiä. Polun erotimet ("/", "\\"), pisteet ("..") ja shellin
+# erikoismerkit eivät mahdu läpi, joten validoitu tunniste on yksittäinen turvallinen
+# polkuosa (esim. f"{job_id}.json" ei voi karata hakemistostaan).
+IDENTIFIER_RE = re.compile(r"[A-Za-z0-9-]{1,128}")
 
 
 def normalize_clock(value: str) -> Optional[str]:

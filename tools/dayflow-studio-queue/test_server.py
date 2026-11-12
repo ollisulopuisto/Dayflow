@@ -525,6 +525,27 @@ class EndpointValidationTests(unittest.TestCase):
             self.assertEqual(ctx.exception.code, 400)
             self.assertFalse((self.server.COMPLETE / f"{bad_job_id}.json").exists())
 
+    def test_ack_path_injection_is_blocked(self) -> None:
+        import urllib.error
+        import urllib.request
+        # Polku-injektio: epäilyttävä job_id tulee hylätä 400:lla eikä se saa
+        # koskettaa laillista tulosta tai luoda tiedostoja COMPLETEn ulkopuolelle.
+        result = self.server.COMPLETE / "job-1.json"
+        result.write_text(json.dumps({"device_id": "mac"}))
+        outside = self.server.ROOT / "outside.json"
+        for bad_job_id in ("../job-1", "../../etc/passwd", "/etc/passwd", "a/b/c", "..", "."):
+            req = urllib.request.Request(
+                f"{self.url}/v1/ack",
+                data=json.dumps({"job_id": bad_job_id, "device_id": "mac"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 400, bad_job_id)
+        self.assertTrue(result.exists())
+        self.assertFalse(outside.exists())
+
     def post_ack(self, job_id: str = "job-1", expected_status: int = 200) -> dict:
         import urllib.error
         import urllib.request
