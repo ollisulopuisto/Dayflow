@@ -542,6 +542,13 @@ class EndpointValidationTests(unittest.TestCase):
             self.assertEqual(response.code, expected_status)
             return json.load(response)
 
+    def test_ack_accepts_unicode_job_ids_the_validator_allows(self) -> None:
+        # is_valid_identifier accepts Unicode alphanumerics, so ack must delete their results too.
+        result = self.server.COMPLETE / "café-1.json"
+        result.write_text("{}")
+        self.post_ack(job_id="café-1")
+        self.assertFalse(result.exists())
+
     def test_ack_cyclic_result_link_returns_json_error(self) -> None:
         result = self.server.COMPLETE / "job-1.json"
         result.symlink_to(result.name)

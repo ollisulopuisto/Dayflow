@@ -615,10 +615,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid device id"})
             # job_id passed is_valid_identifier ([A-Za-z0-9-]{1,128}), so f"{job_id}.json" is a
             # single path component: it cannot contain "/", "\\", or "..". The explicit allowlist
-            # below is the sanitizer boundary: only after it passes may result_name be used in a
+            # below (a flat character class, so no backtracking) is the sanitizer boundary: only
+            # after it passes may result_name be used in a
             # path expression (os.open / os.unlink with dir_fd=COMPLETE).
             result_name = f"{job_id}.json"
-            if not re.fullmatch(r"(?:[^\W_]|-)+\.json", result_name):
+            if not re.fullmatch(r"[\w-]+\.json", result_name):
                 # Defensive: never let a job id escape the result directory.
                 return self.respond(400, {"error": "invalid job id"})
             complete_fd = None
