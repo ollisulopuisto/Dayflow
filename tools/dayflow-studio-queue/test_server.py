@@ -559,6 +559,7 @@ class EndpointValidationTests(unittest.TestCase):
         from unittest.mock import patch
         original_resolve = Path.resolve
         result = self.server.COMPLETE / "job-1.json"
+        result.write_text(json.dumps({"device_id": "mac"}))  # ack only resolves a result that exists
         for target in (result, self.server.COMPLETE):
             for error in (PermissionError("denied"), RuntimeError("symlink loop")):
                 with self.subTest(target=target.name, error=type(error).__name__):
