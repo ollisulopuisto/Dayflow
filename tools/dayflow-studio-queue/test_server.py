@@ -542,6 +542,25 @@ class EndpointValidationTests(unittest.TestCase):
             self.assertEqual(response.code, expected_status)
             return json.load(response)
 
+    def test_ack_accepts_unicode_job_ids_the_validator_allows(self) -> None:
+        # is_valid_identifier accepts Unicode alphanumerics, so ack must delete their results too.
+        result = self.server.COMPLETE / "café-1.json"
+        result.write_text(json.dumps({"device_id": "mac"}))
+        self.post_ack(job_id="café-1")
+        self.assertFalse(result.exists())
+
+    def test_ack_looks_the_result_up_by_name_not_by_directory_listing(self) -> None:
+        # On HFS+ a directory listing returns decomposed (NFD) names while clients send the
+        # composed (NFC) id; a listing comparison would never match and leave the result behind.
+        # Opening by name lets the filesystem normalise, so ack must not depend on listdir.
+        from unittest.mock import patch
+        job_id = "caf\u00e9-2"  # composed e-acute
+        result = self.server.COMPLETE / f"{job_id}.json"
+        result.write_text(json.dumps({"device_id": "mac"}))
+        with patch.object(os, "listdir", side_effect=AssertionError("ack must not list the directory")):
+            self.post_ack(job_id=job_id)
+        self.assertFalse(result.exists())
+
     def test_ack_cyclic_result_link_returns_json_error(self) -> None:
         result = self.server.COMPLETE / "job-1.json"
         result.symlink_to(result.name)
@@ -552,6 +571,7 @@ class EndpointValidationTests(unittest.TestCase):
         from unittest.mock import patch
         original_resolve = Path.resolve
         result = self.server.COMPLETE / "job-1.json"
+        result.write_text(json.dumps({"device_id": "mac"}))  # ack only resolves a result that exists
         for target in (result, self.server.COMPLETE):
             for error in (PermissionError("denied"), RuntimeError("symlink loop")):
                 with self.subTest(target=target.name, error=type(error).__name__):
