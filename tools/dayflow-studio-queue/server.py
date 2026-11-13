@@ -618,7 +618,7 @@ class Handler(BaseHTTPRequestHandler):
             # below is the sanitizer boundary: only after it passes may result_name be used in a
             # path expression (os.open / os.unlink with dir_fd=COMPLETE).
             result_name = f"{job_id}.json"
-            if not re.fullmatch(r"[A-Za-z0-9-]+\.json", result_name):
+            if not re.fullmatch(r"(?:[^\W_]|-)+\.json", result_name):
                 # Defensive: never let a job id escape the result directory.
                 return self.respond(400, {"error": "invalid job id"})
             complete_fd = None
