@@ -549,6 +549,18 @@ class EndpointValidationTests(unittest.TestCase):
         self.post_ack(job_id="café-1")
         self.assertFalse(result.exists())
 
+    def test_ack_looks_the_result_up_by_name_not_by_directory_listing(self) -> None:
+        # On HFS+ a directory listing returns decomposed (NFD) names while clients send the
+        # composed (NFC) id; a listing comparison would never match and leave the result behind.
+        # Opening by name lets the filesystem normalise, so ack must not depend on listdir.
+        from unittest.mock import patch
+        job_id = "caf\u00e9-2"  # composed e-acute
+        result = self.server.COMPLETE / f"{job_id}.json"
+        result.write_text(json.dumps({"device_id": "mac"}))
+        with patch.object(os, "listdir", side_effect=AssertionError("ack must not list the directory")):
+            self.post_ack(job_id=job_id)
+        self.assertFalse(result.exists())
+
     def test_ack_cyclic_result_link_returns_json_error(self) -> None:
         result = self.server.COMPLETE / "job-1.json"
         result.symlink_to(result.name)

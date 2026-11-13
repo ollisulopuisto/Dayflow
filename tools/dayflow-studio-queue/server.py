@@ -613,19 +613,19 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(400, {"error": "invalid job id"})
             if not is_valid_identifier(device_id):
                 return self.respond(400, {"error": "invalid device id"})
-            # job_id passed is_valid_identifier (alphanumerics and "-", 1-128 chars), so it is a single
-            # path component. Rather than trust that string in a path expression, ack only a file
-            # name that the directory itself lists: result_name below is taken from the listing, not
-            # from the request, so it cannot escape COMPLETE.
-            wanted_name = f"{job_id}.json"
+            # job_id passed is_valid_identifier (Unicode alphanumerics and "-", 1-128 chars). The
+            # bounded allowlist below is the sanitizer boundary: only a job id made of word
+            # characters and "-" reaches a path expression, so the name is one path component.
+            # The name is used as given: the filesystem does its own Unicode normalisation, so
+            # this also finds results on HFS+ where a directory listing returns decomposed names.
+            if not re.fullmatch(r"[\w\-]{1,128}", job_id):
+                return self.respond(400, {"error": "invalid job id"})
+            result_name = f"{job_id}.json"
             complete_fd = None
             try:
                 # Resolve inside the error handler: loops and permission errors
                 # must return JSON rather than dropping the client's connection.
                 complete_fd = os.open(COMPLETE, os.O_RDONLY | os.O_DIRECTORY)
-                result_name = next((n for n in os.listdir(complete_fd) if n == wanted_name), None)
-                if result_name is None:
-                    raise FileNotFoundError(wanted_name)
                 result_path = (COMPLETE / result_name).resolve()
                 try:
                     result_path.relative_to(COMPLETE.resolve())
