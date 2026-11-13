@@ -545,7 +545,7 @@ class EndpointValidationTests(unittest.TestCase):
     def test_ack_accepts_unicode_job_ids_the_validator_allows(self) -> None:
         # is_valid_identifier accepts Unicode alphanumerics, so ack must delete their results too.
         result = self.server.COMPLETE / "café-1.json"
-        result.write_text("{}")
+        result.write_text(json.dumps({"device_id": "mac"}))
         self.post_ack(job_id="café-1")
         self.assertFalse(result.exists())
 
