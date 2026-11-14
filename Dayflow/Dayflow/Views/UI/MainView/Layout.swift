@@ -31,7 +31,9 @@ extension MainView {
       .overlay(alignment: .bottomTrailing) { screenRecordingPermissionNoticeOverlayContent }
       .overlay { categoryEditorOverlay }
       .overlay { dailyBriefOverlayContent }
-      .animation(.easeOut(duration: 0.22), value: dailyBrief.isPresented)
+      .animation(
+        DailyBriefMotion.overlay(isPresented: dailyBrief.isPresented), value: dailyBrief.isPresented
+      )
   }
 
   // Layer 2: sheet + lifecycle + notifications + state-change reactions.
@@ -244,6 +246,10 @@ extension MainView {
   }
 
   private func performMainLayoutOnDisappear() {
+    // Closing the window leaves the brief marked as open, which would make
+    // tomorrow's brief count as already seen: no menu bar card, no auto-present.
+    if dailyBrief.isPresented { dailyBrief.dismiss() }
+
     // Safety: stop timer if view disappears
     stopDayChangeTimer()
     reviewCountTask?.cancel()
@@ -446,11 +452,17 @@ extension MainView {
   private var dailyBriefOverlayContent: some View {
     if dailyBrief.isPresented, goalFlowPresentation == nil {
       DailyBriefOverlay()
+        // Measured so closing can shrink the brief into the sun button.
+        .onGeometryChange(for: CGRect.self) { proxy in
+          proxy.frame(in: .global)
+        } action: { frame in
+          dailyBrief.setOverlayFrame(frame)
+        }
         .padding(.leading, 80)
         .padding([.top, .trailing, .bottom], 15)
         // Match the main panel, which also ignores the title bar inset.
         .ignoresSafeArea()
-        .transition(.opacity)
+        .transition(.dailyBriefOverlay)
         .zIndex(20)
     }
   }

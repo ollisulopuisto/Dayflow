@@ -427,8 +427,15 @@ final class AnalyticsService {
   }
 
   func featureFlagVariant(_ key: String) -> String? {
-    guard isStarted, isOptedIn else { return nil }
-    return PostHogSDK.shared.getFeatureFlag(key) as? String
+    // This fork takes no remote flags (no network in or out), so there is never a variant.
+    return nil
+  }
+
+  /// The raw flag value: Bool for boolean flags, String for multivariate ones,
+  /// nil when unknown or analytics is off.
+  func featureFlagValue(_ key: String) -> Any? {
+    // This fork takes no remote flags (no network in or out): callers get their local default.
+    return nil
   }
 
   func screen(_ name: String, _ props: [String: Any] = [:]) {
