@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import OSLog
 
 /// Hides screenshots taken while a browser shows a private window or an excluded site.
 ///
@@ -13,6 +14,47 @@ enum BrowserPrivacy {
     case excludedSite
     case privacyCheckUnavailable
   }
+
+  /// Why the browser could not be inspected. It is logged and shown on the placeholder, so a
+  /// redacted frame says what to fix (for example a missing Automation permission).
+  enum CheckFailure: Equatable {
+    case notAuthorized
+    case timedOut
+    case browserNotRunning
+    case noWindow
+    case unexpectedOutput
+    case scriptUnavailable
+    case windowTitleUnavailable
+    case privateStateUnverifiable
+    case appleScriptError(Int)
+
+    /// Maps an AppleScript error number (`NSAppleScriptErrorNumber`).
+    init(appleScriptError number: Int) {
+      switch number {
+      case -1743: self = .notAuthorized  // errAEEventNotPermitted
+      case -1712: self = .timedOut  // errAETimeout
+      case -600, -609: self = .browserNotRunning  // procNotFound, connectionInvalid
+      default: self = .appleScriptError(number)
+      }
+    }
+
+    /// Short text for the placeholder and the log. No URL or page content.
+    var summary: String {
+      switch self {
+      case .notAuthorized: return "Automation not allowed"
+      case .timedOut: return "browser did not answer"
+      case .browserNotRunning: return "browser not running"
+      case .noWindow: return "no browser window"
+      case .unexpectedOutput: return "unexpected answer"
+      case .scriptUnavailable: return "script did not compile"
+      case .windowTitleUnavailable: return "window title unavailable"
+      case .privateStateUnverifiable: return "this browser cannot report private windows"
+      case .appleScriptError(let number): return "AppleScript error \(number)"
+      }
+    }
+  }
+
+  private static let logger = Logger(subsystem: "com.dayflow.app", category: "browser_privacy")
 
   struct State: Equatable {
     let isIncognito: Bool
@@ -74,6 +116,11 @@ enum BrowserPrivacy {
     return nil
   }
 
+  /// The placeholder text for a browser that could not be inspected, with the cause.
+  static func unavailableLabel(cause: CheckFailure) -> String {
+    String(localized: "Browser hidden (privacy check unavailable)") + ": " + cause.summary
+  }
+
   static func label(for redaction: Redaction) -> String {
     switch redaction {
     case .privateWindow: return String(localized: "Private browsing")
@@ -88,14 +135,28 @@ enum BrowserPrivacy {
   /// The browser is asked on `AppleScriptQueue`, so a slow or hung browser never blocks the main thread.
   static func redactionLabel() async -> String? {
     guard let target = await MainActor.run(body: { frontmostTarget() }) else { return nil }
-    guard let state = await AppleScriptQueue.perform({ state(of: target) }) else {
+    // One retry: a browser that is busy or starting can fail a single check.
+    var result = await AppleScriptQueue.perform({ state(of: target) })
+    if case .failure(let first) = result, first != .notAuthorized, first != .scriptUnavailable,
+      first != .privateStateUnverifiable
+    {
+      result = await AppleScriptQueue.perform({ state(of: target) })
+    }
+    let browserState: State
+    switch result {
+    case .success(let checked):
+      browserState = checked
+    case .failure(let cause):
       // A browser we could not inspect is not safe to capture: it may be showing
       // private content, and the screenshot would otherwise be uploaded for analysis.
-      return label(for: .privacyCheckUnavailable)
+      logger.error(
+        "Browser privacy check failed for \(target.bundleID, privacy: .public): \(cause.summary, privacy: .public)"
+      )
+      return unavailableLabel(cause: cause)
     }
     guard let redaction = redactionReason(
-      isIncognito: state.isIncognito,
-      url: state.url,
+      isIncognito: browserState.isIncognito,
+      url: browserState.url,
       hidesIncognito: hidesIncognito,
       excludedDomains: excludedDomains
     ) else { return nil }
@@ -171,20 +232,23 @@ enum BrowserPrivacy {
   /// The state of the frontmost window when it belongs to a supported browser, otherwise nil.
   static func frontmostBrowserState() async -> State? {
     guard let target = await MainActor.run(body: { frontmostTarget() }) else { return nil }
-    return await AppleScriptQueue.perform { state(of: target) }
+    return await AppleScriptQueue.perform { try? state(of: target).get() }
   }
 
-  private static func state(of target: Target) -> State? {
+  private static func state(of target: Target) -> Result<State, CheckFailure> {
     switch target.kind {
     case .chromium:
       return scriptedState(bundleID: target.bundleID, chromium: true)
     case .safari:
-      guard !hidesIncognito else { return nil }
+      // Safari does not say whether a window is private, so it cannot be verified.
+      guard !hidesIncognito else { return .failure(.privateStateUnverifiable) }
       return scriptedState(bundleID: target.bundleID, chromium: false)
     case .firefox:
-      guard let title = frontWindowTitle(pid: target.pid), !title.isEmpty else { return nil }
-      return State(
-        isIncognito: title.localizedCaseInsensitiveContains("Private Browsing"), url: nil)
+      guard let title = frontWindowTitle(pid: target.pid), !title.isEmpty else {
+        return .failure(.windowTitleUnavailable)
+      }
+      return .success(
+        State(isIncognito: title.localizedCaseInsensitiveContains("Private Browsing"), url: nil))
     }
   }
 
@@ -214,19 +278,26 @@ enum BrowserPrivacy {
     return script
   }
 
-  private static func scriptedState(bundleID: String, chromium: Bool) -> State? {
-    guard let script = compiledScript(bundleID: bundleID, chromium: chromium) else { return nil }
+  private static func scriptedState(bundleID: String, chromium: Bool) -> Result<State, CheckFailure> {
+    guard let script = compiledScript(bundleID: bundleID, chromium: chromium) else {
+      return .failure(.scriptUnavailable)
+    }
     var error: NSDictionary?
     let result = script.executeAndReturnError(&error)
-    guard error == nil, let text = result.stringValue, !text.isEmpty else { return nil }
+    if let error {
+      let number = (error[NSAppleScript.errorNumber] as? NSNumber)?.intValue ?? 0
+      return .failure(CheckFailure(appleScriptError: number))
+    }
+    guard let text = result.stringValue else { return .failure(.unexpectedOutput) }
+    guard !text.isEmpty else { return .failure(.noWindow) }
 
     let lines = text.components(separatedBy: "\n")
     let mode = lines.first ?? ""
     guard chromium ? ["normal", "incognito"].contains(mode) : mode == "normal" else {
-      return nil
+      return .failure(.unexpectedOutput)
     }
     let url = lines.count > 1 ? lines[1] : nil
-    return State(isIncognito: mode == "incognito", url: url)
+    return .success(State(isIncognito: mode == "incognito", url: url))
   }
 
   private static func frontWindowTitle(pid: pid_t) -> String? {

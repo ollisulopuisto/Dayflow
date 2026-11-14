@@ -358,6 +358,21 @@ final class BrowserPrivacyDecisionTests: XCTestCase {
         isIncognito: false, url: "https://news.org/x", hidesIncognito: true,
         excludedDomains: ["example.com"]))
   }
+
+  func testAppleScriptErrorNumbersMapToACause() {
+    XCTAssertEqual(BrowserPrivacy.CheckFailure(appleScriptError: -1743), .notAuthorized)
+    XCTAssertEqual(BrowserPrivacy.CheckFailure(appleScriptError: -1712), .timedOut)
+    XCTAssertEqual(BrowserPrivacy.CheckFailure(appleScriptError: -600), .browserNotRunning)
+    XCTAssertEqual(BrowserPrivacy.CheckFailure(appleScriptError: -50), .appleScriptError(-50))
+  }
+
+  func testUnavailableLabelNamesTheCauseAndNothingElse() {
+    let label = BrowserPrivacy.unavailableLabel(cause: .notAuthorized)
+    XCTAssertTrue(label.contains("Automation not allowed"))
+    XCTAssertTrue(label.contains("privacy check unavailable"))
+    XCTAssertTrue(
+      BrowserPrivacy.unavailableLabel(cause: .appleScriptError(-50)).contains("AppleScript error -50"))
+  }
 }
 
 final class TimelineModeSwitchLayoutTests: XCTestCase {
