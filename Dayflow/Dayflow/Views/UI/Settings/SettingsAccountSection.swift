@@ -440,11 +440,8 @@ struct SettingsAccountSection: View {
 
   // MARK: - Actions
 
-  /// Where the person came from, for analytics: "privacy_shield" after the Privacy Shield upgrade
-  /// button sent them here (until the plan arrives), otherwise "settings".
-  private var analyticsSource: String {
-    PrivacyShield.shared.isUpgradeInProgress ? "privacy_shield" : "settings"
-  }
+  /// Where the person came from, for analytics. The Privacy Shield upgrade button is gone in this fork.
+  private var analyticsSource: String { "settings" }
 
   /// `button` says which one: "plus_card", "pro_card" or "header".
   private func signIn(from button: String) {
