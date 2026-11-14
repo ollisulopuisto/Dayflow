@@ -43,8 +43,6 @@ struct MainView: View {
   @ObservedObject var inactivity = InactivityMonitor.shared
   @ObservedObject var pauseManager = PauseManager.shared
   @ObservedObject var dailyBrief = DailyBriefStore.shared
-  /// Blurs the main window while the Privacy Shield upgrade modal is up.
-  @ObservedObject var privacyShield = PrivacyShield.shared
 
   // Animation states for orchestrated entrance - Emil Kowalski principles
   @State var logoScale: CGFloat = 0.8
