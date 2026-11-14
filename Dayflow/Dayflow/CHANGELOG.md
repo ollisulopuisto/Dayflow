@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- A browser the privacy check cannot inspect is still hidden, but the placeholder now says why (for example "Automation not allowed"), the cause is logged without any URL, and the check is retried once first. Helium needs Automation allowed for Dayflow in System Settings > Privacy & Security > Automation.
+
 ## [2.9.0] - 2026-11-11
 
 ### Pending changes
