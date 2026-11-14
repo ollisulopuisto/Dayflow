@@ -244,3 +244,10 @@ final class DailyBriefLinkImagesTests: XCTestCase {
     XCTAssertNil(AnalyticsService.shared.featureFlagVariant("daily-brief-reading-first"))
   }
 }
+
+/// The summary card must be tall enough for its rating stars (label at y=380, 32pt buttons).
+final class DocketSummaryCardLayoutTests: XCTestCase {
+  func testSummaryCardIsTallEnoughForRatingStars() {
+    XCTAssertGreaterThanOrEqual(DocketSummaryCard.height, 380 + 40 + 32)
+  }
+}

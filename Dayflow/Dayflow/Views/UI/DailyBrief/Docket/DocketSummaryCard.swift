@@ -10,7 +10,7 @@
 import SwiftUI
 
 struct DocketSummaryCard: View {
-  static let height: CGFloat = 400
+  static let height: CGFloat = 470
 
   let count: Int
 
