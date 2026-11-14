@@ -209,3 +209,38 @@ final class ChatCLIProcessRunnerTests: XCTestCase {
     return url
   }
 }
+
+/// Daily brief link pictures are off in this fork, and never reach local services.
+final class DailyBriefLinkImagesTests: XCTestCase {
+  func testLinkPicturesAreOffAndSaveFetchesNothing() {
+    XCTAssertFalse(DailyBriefLinkImages.isEnabled)
+    let links = [DailyBriefLinkImages.Link(pageURL: "http://127.0.0.1:1/x", hintImageURL: nil)]
+    let saved = DailyBriefLinkImages.save(links, into: FileManager.default.temporaryDirectory)
+    XCTAssertTrue(saved.isEmpty)
+  }
+
+  func testLoopbackPrivateAndLocalHostsAreRefused() {
+    let refused = [
+      "http://localhost/a.png", "http://foo.local/a.png", "http://127.0.0.1:8080/a.png",
+      "http://10.0.0.5/a.png", "http://172.16.0.1/a.png", "http://172.31.255.1/a.png",
+      "http://192.168.1.1/a.png", "http://169.254.169.254/a.png", "http://[::1]/a.png",
+      "http://[fd00::1]/a.png", "http://[fe80::1]/a.png", "file:///etc/passwd", "ftp://example.com/a",
+    ]
+    for string in refused {
+      XCTAssertFalse(
+        DailyBriefLinkImages.isPublicDestination(URL(string: string)!), "\(string) must be refused")
+    }
+  }
+
+  func testPublicHostsAreAllowed() {
+    for string in ["https://example.com/a.png", "http://8.8.8.8/a.png", "https://172.32.0.1/a.png"] {
+      XCTAssertTrue(
+        DailyBriefLinkImages.isPublicDestination(URL(string: string)!), "\(string) must be allowed")
+    }
+  }
+
+  func testRemoteFlagsAreNeverAvailable() {
+    XCTAssertNil(AnalyticsService.shared.featureFlagValue("daily-brief-enabled"))
+    XCTAssertNil(AnalyticsService.shared.featureFlagVariant("daily-brief-reading-first"))
+  }
+}

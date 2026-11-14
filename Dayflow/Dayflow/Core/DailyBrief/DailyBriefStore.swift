@@ -100,8 +100,9 @@ final class DailyBriefStore: ObservableObject {
       return true
     }
     guard (try? LLMProviderRoutingStore.load())?.primary == .claude else { return false }
-    let killSwitch = AnalyticsService.shared.featureFlagValue(Self.killSwitchFlagKey) as? Bool
-    return killSwitch != false
+    // Upstream gates this on a remote kill switch. This fork takes no remote flags, so the
+    // Settings toggle and the Claude provider are the only conditions.
+    return true
   }
 
   /// The "Daily brief" toggle in Settings. On by default.

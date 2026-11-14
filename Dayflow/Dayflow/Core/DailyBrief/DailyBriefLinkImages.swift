@@ -28,6 +28,9 @@ enum DailyBriefLinkImages {
     let hintImageURL: String?
   }
 
+  /// Whether link pictures are fetched at all. No opt-in exists yet, so this stays false.
+  static let isEnabled = false
+
   private static let pageTimeout: TimeInterval = 12
   private static let maxPageBytes = 3_000_000
   private static let maxImageBytes = 12_000_000
@@ -54,6 +57,9 @@ enum DailyBriefLinkImages {
   /// Saves one picture per link into `directory` and returns page URL → saved picture.
   /// Links with no usable picture are left out. All links are fetched at once.
   static func save(_ links: [Link], into directory: URL) -> [String: SavedPicture] {
+    // Off in this fork: fetching article pages and their pictures is network traffic out
+    // that the user never asked for. Set to true only after an explicit opt-in exists.
+    guard isEnabled else { return [:] }
     var pictures: [String: SavedPicture] = [:]
     let lock = NSLock()
     DispatchQueue.concurrentPerform(iterations: links.count) { index in
@@ -139,6 +145,7 @@ enum DailyBriefLinkImages {
 
   /// A plain GET that waits for the answer. nil on any error, a non-200 status, or too many bytes.
   private static func fetch(_ url: URL, maxBytes: Int) -> Data? {
+    guard isPublicDestination(url) else { return nil }
     var request = URLRequest(url: url, timeoutInterval: pageTimeout)
     request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
     request.setValue("text/html,image/*;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
@@ -157,6 +164,43 @@ enum DailyBriefLinkImages {
       return nil
     }
     return response.data
+  }
+
+  /// False for loopback, link-local, private-network and local-name hosts, so a page can't
+  /// point `og:image` at a service on this Mac or the LAN. A public name that resolves to a
+  /// private address is not caught here.
+  static func isPublicDestination(_ url: URL) -> Bool {
+    guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
+      let rawHost = url.host?.lowercased(), !rawHost.isEmpty
+    else { return false }
+    let host = rawHost.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+    if host == "localhost" || host.hasSuffix(".localhost") || host.hasSuffix(".local")
+      || host.hasSuffix(".internal") || host.hasSuffix(".lan") || host.hasSuffix(".home.arpa")
+    {
+      return false
+    }
+    if host.contains(":") {
+      // IPv6 literal: loopback, unspecified, unique-local (fc00::/7), link-local (fe80::/10).
+      if host == "::1" || host == "::" { return false }
+      if host.hasPrefix("fc") || host.hasPrefix("fd") || host.hasPrefix("fe8")
+        || host.hasPrefix("fe9") || host.hasPrefix("fea") || host.hasPrefix("feb")
+        || host.hasPrefix("::ffff:")
+      {
+        return false
+      }
+      return true
+    }
+    let octets = host.split(separator: ".", omittingEmptySubsequences: false)
+    if octets.count == 4, let a = Int(octets[0]), let b = Int(octets[1]),
+      octets.allSatisfy({ Int($0) != nil })
+    {
+      if a == 0 || a == 10 || a == 127 || a >= 224 { return false }
+      if a == 169 && b == 254 { return false }
+      if a == 172 && (16...31).contains(b) { return false }
+      if a == 192 && b == 168 { return false }
+      if a == 100 && (64...127).contains(b) { return false }
+    }
+    return true
   }
 
   /// Carries the answer out of the request's callback. It's written once, before the

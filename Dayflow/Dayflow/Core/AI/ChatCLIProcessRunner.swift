@@ -700,12 +700,13 @@ struct ChatCLIProcessRunner {
       cmdParts.append(LoginShellRunner.shellEscape(prompt))
 
     case .claude:
-      cmdParts = buildClaudeStreamingCommandParts(
-        prompt: prompt,
-        model: model,
-        reasoningEffort: reasoningEffort,
-        sessionId: sessionId
-      )
+      cmdParts = Self.removingUnsupportedClaudeFlags(
+        buildClaudeStreamingCommandParts(
+          prompt: prompt,
+          model: model,
+          reasoningEffort: reasoningEffort,
+          sessionId: sessionId
+        ))
     case .agy:
       // Plan mode asks agy to plan rather than edit; `agy` is resolved from the login shell PATH.
       cmdParts.append(contentsOf: [
@@ -1620,16 +1621,17 @@ struct ChatCLIProcessRunner {
       cmdParts.append("--")
       cmdParts.append(LoginShellRunner.shellEscape(prompt))
     case .claude:
-      cmdParts = buildClaudeCommandParts(
-        prompt: prompt,
-        imagePaths: imagePaths,
-        model: model,
-        reasoningEffort: reasoningEffort,
-        disableTools: disableTools,
-        profile: claudeProfile,
-        sessionMode: claudeSessionMode,
-        usesInlineImages: !claudeInlineImages.isEmpty
-      )
+      cmdParts = Self.removingUnsupportedClaudeFlags(
+        buildClaudeCommandParts(
+          prompt: prompt,
+          imagePaths: imagePaths,
+          model: model,
+          reasoningEffort: reasoningEffort,
+          disableTools: disableTools,
+          profile: claudeProfile,
+          sessionMode: claudeSessionMode,
+          usesInlineImages: !claudeInlineImages.isEmpty
+        ))
     case .agy:
       cmdParts.append(contentsOf: [
         "-p", LoginShellRunner.shellEscape(prompt),

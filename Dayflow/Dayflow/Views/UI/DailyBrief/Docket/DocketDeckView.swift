@@ -121,12 +121,14 @@ struct DocketDeckView: View {
       } else {
         cardArea
           .frame(
-            width: Self.width, height: showsSummary ? 400 : Self.height, alignment: .topLeading
+            width: Self.width, height: showsSummary ? DocketSummaryCard.height : Self.height,
+            alignment: .topLeading
           )
           .background(
             DocketEventMonitor(
-              onWheel: handleWheel, onArrow: handleArrow, isWheelEnabled: !showsSummary,
-              wheel: wheel)
+              onWheel: handleWheel, onArrow: handleArrow,
+              isWheelEnabled: !showsSummary && !store.showsIntro,
+              isKeyEnabled: !store.showsIntro, wheel: wheel)
           )
           .offset(y: isOpen ? openLift : 0)
       }
@@ -149,7 +151,7 @@ struct DocketDeckView: View {
     ZStack(alignment: .topLeading) {
       if showsSummary {
         DocketSummaryCard(count: reviewedCount)
-          .frame(width: Self.width, height: 400)
+          .frame(width: Self.width, height: DocketSummaryCard.height)
           .transition(
             .asymmetric(
               insertion: .modifier(
@@ -885,6 +887,8 @@ private struct DocketEventMonitor: NSViewRepresentable {
   let onWheel: @MainActor (_ dx: CGFloat, _ dy: CGFloat, _ phase: DocketWheelPhase) -> Bool
   let onArrow: @MainActor (_ step: Int) -> Bool
   let isWheelEnabled: Bool
+  /// False while the intro walkthrough is up: it owns the arrow keys then.
+  let isKeyEnabled: Bool
   let wheel: DocketWheelState
 
   func makeCoordinator() -> Coordinator { Coordinator() }
@@ -948,7 +952,8 @@ private struct DocketEventMonitor: NSViewRepresentable {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
-      guard let parent, let window = hostView?.window, event.window === window,
+      guard let parent, parent.isKeyEnabled, let window = hostView?.window,
+        event.window === window,
         event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,
         !(window.firstResponder is NSTextView)
       else { return false }
