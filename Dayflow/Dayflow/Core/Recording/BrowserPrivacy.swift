@@ -17,7 +17,7 @@ enum BrowserPrivacy {
 
   /// Why the browser could not be inspected. It is logged and shown on the placeholder, so a
   /// redacted frame says what to fix (for example a missing Automation permission).
-  enum CheckFailure: Equatable {
+  enum CheckFailure: Error, Equatable, Sendable {
     case notAuthorized
     case timedOut
     case browserNotRunning
