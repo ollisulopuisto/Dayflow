@@ -135,12 +135,34 @@ enum BrowserPrivacy {
   /// The browser is asked on `AppleScriptQueue`, so a slow or hung browser never blocks the main thread.
   static func redactionLabel() async -> String? {
     guard let target = await MainActor.run(body: { frontmostTarget() }) else { return nil }
+    return await redactionLabel(
+      hidesIncognito: hidesIncognito,
+      excludedDomains: excludedDomains,
+      bundleID: target.bundleID
+    ) {
+      await AppleScriptQueue.perform({ state(of: target) })
+    }
+  }
+
+  /// Failures that a second attempt cannot change: a missing permission or a browser that cannot
+  /// report the state at all. Anything else (busy, starting, slow) gets one retry.
+  static func isRetryable(_ failure: CheckFailure) -> Bool {
+    failure != .notAuthorized && failure != .scriptUnavailable
+      && failure != .privateStateUnverifiable
+  }
+
+  /// The decision with the browser check injected, so the retry and redaction rules are testable
+  /// without a live browser. `check` is called once, and a second time only after a retryable failure.
+  static func redactionLabel(
+    hidesIncognito: Bool,
+    excludedDomains: [String],
+    bundleID: String,
+    check: @Sendable () async -> Result<State, CheckFailure>
+  ) async -> String? {
     // One retry: a browser that is busy or starting can fail a single check.
-    var result = await AppleScriptQueue.perform({ state(of: target) })
-    if case .failure(let first) = result, first != .notAuthorized, first != .scriptUnavailable,
-      first != .privateStateUnverifiable
-    {
-      result = await AppleScriptQueue.perform({ state(of: target) })
+    var result = await check()
+    if case .failure(let first) = result, isRetryable(first) {
+      result = await check()
     }
     let browserState: State
     switch result {
@@ -150,7 +172,7 @@ enum BrowserPrivacy {
       // A browser we could not inspect is not safe to capture: it may be showing
       // private content, and the screenshot would otherwise be uploaded for analysis.
       logger.error(
-        "Browser privacy check failed for \(target.bundleID, privacy: .public): \(cause.summary, privacy: .public)"
+        "Browser privacy check failed for \(bundleID, privacy: .public): \(cause.summary, privacy: .public)"
       )
       return unavailableLabel(cause: cause)
     }
