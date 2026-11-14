@@ -38,6 +38,23 @@ final class RecordingPrivacySettingsViewModel: ObservableObject {
     }
   }
 
+  // MARK: Browser privacy
+  //
+  // Every value here is a boolean, a category name or a domain the user typed
+  // in themselves. No URL Dayflow reads off a browser is ever stored.
+
+  @Published var hidePrivateWindows: Bool {
+    didSet {
+      guard hidePrivateWindows != oldValue else { return }
+      BrowserPrivacyPreferences.setHidePrivateWindows(hidePrivateWindows)
+      reportBrowserPrivacyChange()
+    }
+  }
+
+  @Published private(set) var blockedCategories: Set<SiteCategory>
+  @Published private(set) var customDomains: [String]
+  @Published var customDomainDraft = ""
+
   init() {
     blockedIdentifiers = RecordingPrivacyPreferences.blockedApplicationIdentifiers()
     idleCaptureThrottleEnabled = IdleCapturePreferences.enabled

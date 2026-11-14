@@ -31,6 +31,20 @@ enum TimelineFailureKind: String {
   case transient = "transient"
   case modelFlaky = "model_flaky"
   case unknown = "unknown"
+
+  /// True when the provider's account or setup is the problem, so any other request to the same
+  /// provider fails the same way, whichever model or step it's for.
+  var failsEveryRequestToProvider: Bool {
+    switch self {
+    case .dayflowProRequired, .providerLoginExpired, .cliNotInstalled, .cliOutdated,
+      .localEngineOffline, .apiKeyProblem, .usageLimitHit, .outOfCredits, .geoBlocked,
+      .accountBlocked, .notConfigured:
+      return true
+    // A missing or unsupported model can work with the other step's model.
+    case .modelMisconfigured, .localModelMissing, .transient, .modelFlaky, .unknown:
+      return false
+    }
+  }
 }
 
 enum TimelineFailureToastDestination: String {
@@ -423,6 +437,8 @@ enum TimelineFailureClassifier {
       [
         "hit your usage limit", "hit your limit", "usage limit", "session limit",
         "weekly limit", "spend limit", "accountquotaexceeded", "usage quota",
+        // Claude names the window: "You've hit your 5-hour limit", "...weekly limit".
+        "you've hit your", "you’ve hit your",
       ]
     ),
     (

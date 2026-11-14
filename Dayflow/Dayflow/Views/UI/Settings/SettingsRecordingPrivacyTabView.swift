@@ -13,6 +13,10 @@ struct SettingsRecordingPrivacyTabView: View {
   /// controls off the top of the tab.
   private static let appGridHeight: CGFloat = 300
 
+  /// Tall enough for a couple of rows of apps without pushing the browser
+  /// controls off the top of the tab.
+  private static let appGridHeight: CGFloat = 300
+
   private let gridColumns = [
     GridItem(.adaptive(minimum: 82, maximum: 96), spacing: 12, alignment: .top)
   ]

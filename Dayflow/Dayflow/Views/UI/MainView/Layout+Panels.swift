@@ -308,7 +308,9 @@ extension MainView {
             .opacity(contentOpacity)
         }
       }
-      .padding(.horizontal, 24)
+      .padding(.leading, 24)
+      // Lines the toggle's right edge up with the timeline cards: 5pt column padding plus the cards' 5pt inset.
+      .padding(.trailing, 10)
 
       if timelineMode == .day || timelineMode == .hour, reviewPromptCount > 0 {
         CardsToReviewButton(count: reviewPromptCount) {
