@@ -104,15 +104,20 @@ struct DailyBriefPageView: View {
     }
   }
 
-  /// The window's peach-to-blue light under a pale, see-through panel.
+  /// The window's peach-to-blue light under a pale, see-through panel. The
+  /// base and wash follow the appearance so the dark gradient stays deep.
   private var pageBackground: some View {
     GeometryReader { geometry in
       DocketColors.pageBackground
         .frame(width: 1150, height: 1270)
         .position(x: geometry.size.width * 0.5917, y: geometry.size.height)
     }
-    .background(Color(hex: "DAEAFC"))
-    .overlay(Color(red: 251 / 255, green: 251 / 255, blue: 251 / 255).opacity(0.55))
+    .background(Color.dayflowAdaptive(
+      light: NSColor(hex: "DAEAFC") ?? .white,
+      dark: NSColor(hex: "262840") ?? .black))
+    .overlay(Color.dayflowAdaptive(
+      light: NSColor(red: 251 / 255, green: 251 / 255, blue: 251 / 255, alpha: 0.55),
+      dark: (NSColor(hex: "1F2233") ?? .black).withAlphaComponent(0.35)))
     .clipped()
   }
 

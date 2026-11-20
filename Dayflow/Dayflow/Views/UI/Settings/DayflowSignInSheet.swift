@@ -48,7 +48,8 @@ struct DayflowSignInSheet: View {
       }
     }
     .padding(26)
-    .background(Color.white)
+    .background(Color.dayflowAdaptive(
+      light: .white, dark: NSColor(hex: "2E3040") ?? .darkGray))
     .onAppear {
       emailAddress = authManager.signedInEmail ?? emailAddress
       focusedField = step == .email ? .email : .code
@@ -122,7 +123,7 @@ struct DayflowSignInSheet: View {
         .padding(.horizontal, 12)
         .background(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(Color.black.opacity(0.04))
+            .fill(SettingsStyle.subtleFill)
         )
         .overlay(
           RoundedRectangle(cornerRadius: 8, style: .continuous)

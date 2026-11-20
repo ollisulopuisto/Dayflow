@@ -39,6 +39,58 @@ let cachedReviewTimeFormatter: DateFormatter = {
   return formatter
 }()
 
+// MARK: - Adaptive palette
+
+/// Timeline review surfaces and text resolve per appearance; the rating,
+/// category and brand colors they frame stay constant. Dark values mirror the
+/// shared dark card and panel family (see DocketColors / DayflowTheme.dark).
+enum TimelineReviewPalette {
+  private static func adaptive(_ light: String, _ dark: String) -> Color {
+    Color.dayflowAdaptive(
+      light: NSColor(hex: light) ?? .black, dark: NSColor(hex: dark) ?? .white)
+  }
+
+  private static func adaptive(_ light: NSColor, _ dark: NSColor) -> Color {
+    Color.dayflowAdaptive(light: light, dark: dark)
+  }
+
+  /// The full-screen wash behind the cards.
+  static let backdrop = adaptive(
+    (NSColor(hex: "FBE9E0") ?? .white).withAlphaComponent(0.92),
+    (NSColor(hex: "23252F") ?? .black).withAlphaComponent(0.94))
+
+  /// Headings and primary text on the wash and on the cards.
+  static let ink = adaptive("333333", "F2F2F2")
+  /// Secondary text ("Come back after…", progress).
+  static let subtext = adaptive("707070", "B4B4B4")
+  /// The warm taupe used by the swipe hint, Undo and rating labels.
+  static let taupe = adaptive("98806D", "C79C8E")
+
+  /// The review card itself.
+  static let cardFill = adaptive(.white, NSColor(hex: "3A3A4C") ?? .darkGray)
+
+  /// Close button in the top corner.
+  static let closeFill = adaptive(
+    .white.withAlphaComponent(0.7),
+    (NSColor(hex: "3A3A4C") ?? .darkGray).withAlphaComponent(0.9))
+  static let closeStroke = adaptive("DABCA4", "6A6E84")
+
+  /// Time-range pill on the card.
+  static let pillText = adaptive("656565", "C9C9C9")
+  static let pillFill = adaptive(
+    (NSColor(hex: "F5F0E9") ?? .white).withAlphaComponent(0.9),
+    (NSColor(hex: "3A3A4C") ?? .darkGray).withAlphaComponent(0.9))
+  static let pillStroke = adaptive("E4E4E4", "6A6E84")
+
+  /// The summary "Close" capsule.
+  static let capsuleTop = adaptive(
+    (NSColor(hex: "FFF9F1") ?? .white).withAlphaComponent(0.9),
+    (NSColor(hex: "3A3A4C") ?? .darkGray).withAlphaComponent(0.95))
+  static let capsuleBottom = adaptive(
+    (NSColor(hex: "FDE8D1") ?? .white).withAlphaComponent(0.9),
+    (NSColor(hex: "2E3044") ?? .darkGray).withAlphaComponent(0.95))
+}
+
 // MARK: - Enums
 
 enum TimelineReviewRating: String, CaseIterable, Identifiable {
@@ -103,7 +155,7 @@ enum TimelineReviewRating: String, CaseIterable, Identifiable {
     }
   }
 
-  var labelColor: Color { Color(hex: "707070") }
+  var labelColor: Color { TimelineReviewPalette.subtext }
 
   var iconTint: Color {
     switch self {

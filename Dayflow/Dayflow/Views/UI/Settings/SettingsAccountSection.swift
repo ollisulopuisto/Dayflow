@@ -871,19 +871,41 @@ private struct ReferralProgramCard: View {
 
 // MARK: - Account page pieces (Figma "Dayflow - minor adjustments")
 
-/// Fixed colors from the design. The plan cards stay light in dark mode, like printed cards.
+/// Colors from the design, resolved per appearance: the plan cards follow the
+/// window's dark mode like every other surface. Dark values mirror the shared
+/// dark card and panel family (see DayflowTheme.dark).
 private enum AccountColors {
+  private static func adaptive(_ light: String, _ dark: String) -> Color {
+    Color.dayflowAdaptive(
+      light: NSColor(hex: light) ?? .black, dark: NSColor(hex: dark) ?? .white)
+  }
+
   static let orange = Color(hex: "FF882D")
-  static let darkButton = Color(hex: "3A2410")
-  static let signOutFill = Color(hex: "DFD9D6")
-  static let signOutText = Color(hex: "231C17")
-  static let cardText = Color(hex: "3C3531")
-  static let cardBorder = Color(hex: "EEE7E2")
-  static let cardFill = Color(red: 242 / 255, green: 238 / 255, blue: 237 / 255).opacity(0.7)
-  static let priceNote = Color(hex: "767676")
-  static let billedNote = Color(hex: "626262")
-  static let badgeFill = Color(hex: "FFE3D4")
-  static let badgeText = Color(hex: "F5720D")
+  static let darkButton = adaptive("3A2410", "E2A079")
+  static let darkButtonText = Color.dayflowAdaptive(light: .white, dark: NSColor(hex: "3A2410") ?? .black)
+  static let signOutFill = adaptive("DFD9D6", "3A3A4C")
+  static let signOutText = adaptive("231C17", "F2F2F2")
+  static let cardText = adaptive("3C3531", "EAE6E1")
+  static let cardBorder = adaptive("EEE7E2", "565A70")
+  static let cardFill = Color.dayflowAdaptive(
+    light: NSColor(red: 242 / 255, green: 238 / 255, blue: 237 / 255, alpha: 0.7),
+    dark: NSColor(red: 46 / 255, green: 48 / 255, blue: 64 / 255, alpha: 0.9))
+  static let priceNote = adaptive("767676", "B4B4B4")
+  static let billedNote = adaptive("626262", "C0C0C0")
+  static let badgeFill = Color.dayflowAdaptive(
+    light: NSColor(hex: "FFE3D4") ?? .white,
+    dark: (NSColor(hex: "E08858") ?? .orange).withAlphaComponent(0.25))
+  static let badgeText = adaptive("F5720D", "FFA56B")
+  /// The soft color image under the wash keeps its hues; the wash itself
+  /// brightens it in light and deepens it in dark.
+  static func cardWash(top: Double, bottom: Double) -> [Color] {
+    [Color.dayflowAdaptive(
+      light: .white.withAlphaComponent(top),
+      dark: .black.withAlphaComponent(0.55)),
+     Color.dayflowAdaptive(
+      light: .white.withAlphaComponent(bottom),
+      dark: .black.withAlphaComponent(0.7))]
+  }
 }
 
 /// One line of a plan's feature list: a green check, or a red cross for something it doesn't include.
@@ -980,8 +1002,12 @@ private struct AccountIntervalPicker: View {
     }
     .padding(1)
     .frame(width: 140, height: 30)
-    .background(Capsule().fill(Color(hex: "E7E6E5")))
-    .overlay(Capsule().stroke(Color(hex: "D5D5D5"), lineWidth: 0.75))
+    .background(Capsule().fill(Color.dayflowAdaptive(
+      light: NSColor(hex: "E7E6E5") ?? .lightGray,
+      dark: NSColor(hex: "2E3040") ?? .darkGray)))
+    .overlay(Capsule().stroke(Color.dayflowAdaptive(
+      light: NSColor(hex: "D5D5D5") ?? .gray,
+      dark: NSColor(hex: "565A70") ?? .gray), lineWidth: 0.75))
   }
 
   private func segment(_ title: String, _ interval: DayflowBillingInterval) -> some View {
@@ -992,13 +1018,19 @@ private struct AccountIntervalPicker: View {
       Text(title)
         .font(.custom("Figtree", size: 12))
         .fontWeight(.medium)
-        .foregroundColor(Color(hex: isSelected ? "606060" : "727272"))
+        .foregroundColor(Color.dayflowAdaptive(
+          light: NSColor(hex: isSelected ? "606060" : "727272") ?? .black,
+          dark: NSColor(hex: isSelected ? "FFFFFF" : "B4B4B4") ?? .white))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
           if isSelected {
             Capsule()
-              .fill(Color(hex: "FFD2B9"))
-              .overlay(Capsule().stroke(Color(hex: "EAD5CD"), lineWidth: 0.5))
+              .fill(Color.dayflowAdaptive(
+                light: NSColor(hex: "FFD2B9") ?? .white,
+                dark: (NSColor(hex: "E2A079") ?? .orange).withAlphaComponent(0.35)))
+              .overlay(Capsule().stroke(Color.dayflowAdaptive(
+                light: NSColor(hex: "EAD5CD") ?? .white,
+                dark: (NSColor(hex: "E2A079") ?? .orange).withAlphaComponent(0.5)), lineWidth: 0.5))
               .shadow(color: Color(hex: "FFECE6"), radius: 1.5)
           }
         }
@@ -1032,7 +1064,7 @@ private struct AccountDarkButton: View {
           .font(.custom("Figtree", size: style == .compact ? 11 : 12))
           .fontWeight(style == .compact ? .semibold : .medium)
       }
-      .foregroundColor(.white)
+      .foregroundColor(AccountColors.darkButtonText)
       .padding(.horizontal, style == .compact ? 15 : 24)
       .frame(height: style == .compact ? 28 : 36)
       .background(
@@ -1143,7 +1175,7 @@ private struct AccountCardBackground: ViewModifier {
             .resizable()
             .scaledToFill()
           LinearGradient(
-            colors: [Color.white.opacity(wash.top), Color.white.opacity(wash.bottom)],
+            colors: AccountColors.cardWash(top: wash.top, bottom: wash.bottom),
             startPoint: .top, endPoint: .bottom)
         }
         // The fill image spills past the card. Clipping hides that but doesn't stop it catching clicks,
@@ -1172,7 +1204,7 @@ private struct AccountCurrentPlanCard: View {
       HStack(alignment: .center) {
         Text(title)
           .font(.custom("InstrumentSerif-Regular", size: 24))
-          .foregroundColor(.black)
+          .foregroundColor(AccountColors.cardText)
         Spacer(minLength: 16)
         if let date {
           HStack(spacing: 8) {
@@ -1180,15 +1212,21 @@ private struct AccountCurrentPlanCard: View {
               .font(.custom("Figtree", size: 12))
               .fontWeight(.semibold)
               .kerning(0.6)
-              .foregroundColor(Color(hex: "C0906B"))
+              .foregroundColor(Color.dayflowAdaptive(
+                light: NSColor(hex: "C0906B") ?? .brown,
+                dark: NSColor(hex: "E2A079") ?? .orange))
             Text(date)
               .font(.custom("Figtree", size: 14))
               .fontWeight(.semibold)
-              .foregroundColor(Color(hex: "58524D"))
+              .foregroundColor(Color.dayflowAdaptive(
+                light: NSColor(hex: "58524D") ?? .black,
+                dark: NSColor(hex: "E6E0DB") ?? .white))
           }
           .padding(8)
           .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color(hex: "FFE5D7")))
+            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.dayflowAdaptive(
+              light: NSColor(hex: "FFE5D7") ?? .white,
+              dark: (NSColor(hex: "E08858") ?? .orange).withAlphaComponent(0.22))))
         }
       }
       AccountFeatureList(features: features)
@@ -1218,7 +1256,7 @@ private struct AccountWidePlanCard: View {
       VStack(alignment: .leading, spacing: 20) {
         Text(title)
           .font(.custom("InstrumentSerif-Regular", size: 24))
-          .foregroundColor(.black)
+          .foregroundColor(AccountColors.cardText)
         AccountFeatureList(features: features)
           .frame(maxWidth: 441, alignment: .leading)
       }
@@ -1230,7 +1268,7 @@ private struct AccountWidePlanCard: View {
             HStack(alignment: .lastTextBaseline, spacing: 8) {
               Text(price)
                 .font(.custom("InstrumentSerif-Regular", size: 32))
-                .foregroundColor(.black)
+                .foregroundColor(AccountColors.cardText)
               Text("/ month")
                 .font(.custom("Figtree", size: 14))
                 .foregroundColor(AccountColors.priceNote)
@@ -1275,7 +1313,7 @@ private struct AccountTallPlanCard: View {
       HStack(alignment: .top) {
         Text(title)
           .font(.custom("InstrumentSerif-Regular", size: 24))
-          .foregroundColor(.black)
+          .foregroundColor(AccountColors.cardText)
         Spacer(minLength: 8)
         if interval == .yearly, let freeMonths {
           AccountFreeMonthsBadge(months: freeMonths)
@@ -1290,7 +1328,7 @@ private struct AccountTallPlanCard: View {
       HStack(alignment: .lastTextBaseline, spacing: 8) {
         Text(price)
           .font(.custom("InstrumentSerif-Regular", size: 40))
-          .foregroundColor(.black)
+          .foregroundColor(AccountColors.cardText)
         Text(interval == .yearly ? "/ month, billed annually" : "/ month")
           .font(.custom("Figtree", size: 14))
           .foregroundColor(AccountColors.priceNote)
@@ -1304,7 +1342,7 @@ private struct AccountTallPlanCard: View {
       .padding(.top, 20)
 
       Rectangle()
-        .fill(Color.black.opacity(0.08))
+        .fill(SettingsStyle.divider)
         .frame(height: 1)
         .padding(.vertical, 16)
 
@@ -1312,7 +1350,7 @@ private struct AccountTallPlanCard: View {
         Text(featuresTitle)
           .font(.custom("Figtree", size: 14))
           .fontWeight(.medium)
-          .foregroundColor(.black)
+          .foregroundColor(AccountColors.cardText)
         AccountFeatureList(features: features, spacing: 4, iconSpacing: 5)
       }
 

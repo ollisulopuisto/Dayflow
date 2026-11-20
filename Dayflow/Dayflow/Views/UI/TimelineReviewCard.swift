@@ -51,7 +51,7 @@ struct TimelineReviewCard: View {
   var body: some View {
     ZStack(alignment: .top) {
       RoundedRectangle(cornerRadius: 8)
-        .fill(Color.white)
+        .fill(TimelineReviewPalette.cardFill)
         .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 8)
 
       VStack(spacing: 0) {
@@ -115,7 +115,7 @@ struct TimelineReviewCard: View {
           ScrollView(.vertical, showsIndicators: true) {
             Text(summaryText)
               .font(.custom("Figtree", size: 14).weight(.medium))
-              .foregroundColor(Color(hex: "333333"))
+              .foregroundColor(TimelineReviewPalette.ink)
               .lineSpacing(3)
               .frame(maxWidth: .infinity, alignment: .leading)
               .padding(.trailing, 4)
