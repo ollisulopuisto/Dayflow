@@ -86,12 +86,12 @@ struct DayflowProOnboardingSignInPanel: View {
           Text("Sign up / Sign in to Dayflow")
             .font(.custom("Figtree", size: scaledText(20)))
             .fontWeight(.semibold)
-            .foregroundColor(Color(hex: "492304"))
+            .foregroundColor(OnboardingPalette.title)
 
           if let subtitle = dayflowProSubtitle {
             Text(subtitle)
               .font(.custom("Figtree", size: scaledText(13)))
-              .foregroundColor(Color(hex: "89380E").opacity(0.75))
+              .foregroundColor(OnboardingPalette.subtitle.opacity(0.75))
               .fixedSize(horizontal: false, vertical: true)
           }
         }
@@ -104,12 +104,12 @@ struct DayflowProOnboardingSignInPanel: View {
           Text("Back")
             .font(.custom("Figtree", size: scaledText(13)))
             .fontWeight(.semibold)
-            .foregroundColor(Color(hex: "492304"))
+            .foregroundColor(OnboardingPalette.title)
             .padding(.horizontal, scaled(14))
             .padding(.vertical, scaled(8))
-            .background(Color.white.opacity(0.45))
+            .background(OnboardingPalette.glass(0.45, 0.09))
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color(hex: "E4D3C2"), lineWidth: 1))
+            .overlay(Capsule().stroke(OnboardingPalette.fieldBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .pointingHandCursor()
@@ -133,20 +133,20 @@ struct DayflowProOnboardingSignInPanel: View {
       if let statusMessage = dayflowProStatusMessage {
         Text(statusMessage.text)
           .font(.custom("Figtree", size: scaledText(13)))
-          .foregroundColor(statusMessage.isError ? Color(hex: "B42318") : Color(hex: "89380E"))
+          .foregroundColor(statusMessage.isError ? OnboardingPalette.signInError : OnboardingPalette.subtitle)
           .fixedSize(horizontal: false, vertical: true)
       }
     }
     .padding(.horizontal, scaled(28))
     .padding(.vertical, scaled(24))
     .frame(maxWidth: scaled(620))
-    .background(Color.white.opacity(0.42))
+    .background(OnboardingPalette.cardFill)
     .cornerRadius(6)
     .overlay(
       RoundedRectangle(cornerRadius: 6)
-        .stroke(Color(hex: "E4D3C2"), lineWidth: 1)
+        .stroke(OnboardingPalette.fieldBorder, lineWidth: 1)
     )
-    .shadow(color: Color(hex: "AF7246").opacity(0.15), radius: 8, x: 0, y: 2)
+    .shadow(color: OnboardingPalette.fieldShadow, radius: 8, x: 0, y: 2)
     .onAppear {
       dayflowProReferralCode = initialReferralCode
       trackDayflowProStepViewed(dayflowProStep)
@@ -163,7 +163,7 @@ struct DayflowProOnboardingSignInPanel: View {
         Text("Email")
           .font(.custom("Figtree", size: scaledText(13)))
           .fontWeight(.semibold)
-          .foregroundColor(Color(hex: "492304"))
+          .foregroundColor(OnboardingPalette.title)
 
         dayflowProTextField("you@example.com", text: $dayflowProEmail)
           .onSubmit(sendDayflowProCode)
@@ -187,7 +187,7 @@ struct DayflowProOnboardingSignInPanel: View {
         Text("Code sent to \(dayflowProVerificationTarget)")
           .font(.custom("Figtree", size: scaledText(13)))
           .fontWeight(.semibold)
-          .foregroundColor(Color(hex: "492304"))
+          .foregroundColor(OnboardingPalette.title)
 
         dayflowProTextField("123456", text: $dayflowProCode)
           .onChange(of: dayflowProCode) { _, newValue in
@@ -230,13 +230,13 @@ struct DayflowProOnboardingSignInPanel: View {
         Text("Do you have a referral code?")
           .font(.custom("Figtree", size: scaledText(13)))
           .fontWeight(.semibold)
-          .foregroundColor(Color(hex: "492304"))
+          .foregroundColor(OnboardingPalette.title)
 
         Text(
           "If someone gave you a code, enter it here. Don't worry if you don't have a code, we'll gift you a free week of Dayflow Pro!"
         )
         .font(.custom("Figtree", size: scaledText(13)))
-        .foregroundColor(Color(hex: "89380E").opacity(0.75))
+        .foregroundColor(OnboardingPalette.subtitle.opacity(0.75))
         .fixedSize(horizontal: false, vertical: true)
       }
 
@@ -267,12 +267,12 @@ struct DayflowProOnboardingSignInPanel: View {
         Text("Congrats, enjoy a free month of Dayflow Pro on us!")
           .font(.custom("Figtree", size: scaledText(16)))
           .fontWeight(.semibold)
-          .foregroundColor(Color(hex: "492304"))
+          .foregroundColor(OnboardingPalette.title)
           .multilineTextAlignment(.center)
 
         Text("Your referral reward is active on this account.")
           .font(.custom("Figtree", size: scaledText(13)))
-          .foregroundColor(Color(hex: "89380E").opacity(0.75))
+          .foregroundColor(OnboardingPalette.subtitle.opacity(0.75))
           .multilineTextAlignment(.center)
       }
 
@@ -293,14 +293,14 @@ struct DayflowProOnboardingSignInPanel: View {
         Text("Try Dayflow Pro free for 7 days.")
           .font(.custom("Figtree", size: scaledText(16)))
           .fontWeight(.semibold)
-          .foregroundColor(Color(hex: "492304"))
+          .foregroundColor(OnboardingPalette.title)
           .multilineTextAlignment(.center)
 
         Text(
           "We want you to be able to try Dayflow for free, no credit card and no strings attached!"
         )
         .font(.custom("Figtree", size: scaledText(13)))
-        .foregroundColor(Color(hex: "89380E").opacity(0.75))
+        .foregroundColor(OnboardingPalette.subtitle.opacity(0.75))
         .multilineTextAlignment(.center)
       }
 
@@ -330,12 +330,12 @@ struct DayflowProOnboardingSignInPanel: View {
         Text("Your Dayflow Pro trial is active.")
           .font(.custom("Figtree", size: scaledText(16)))
           .fontWeight(.semibold)
-          .foregroundColor(Color(hex: "492304"))
+          .foregroundColor(OnboardingPalette.title)
           .multilineTextAlignment(.center)
 
         Text("No credit card needed. You can set up billing later if Dayflow is useful.")
           .font(.custom("Figtree", size: scaledText(13)))
-          .foregroundColor(Color(hex: "89380E").opacity(0.75))
+          .foregroundColor(OnboardingPalette.subtitle.opacity(0.75))
           .multilineTextAlignment(.center)
       }
 
@@ -354,11 +354,11 @@ struct DayflowProOnboardingSignInPanel: View {
         Text("Referral code")
           .font(.custom("Figtree", size: scaledText(13)))
           .fontWeight(.semibold)
-          .foregroundColor(Color(hex: "492304"))
+          .foregroundColor(OnboardingPalette.title)
 
         Text("Optional")
           .font(.custom("Figtree", size: scaledText(12)))
-          .foregroundColor(Color(hex: "89380E").opacity(0.62))
+          .foregroundColor(OnboardingPalette.subtitle.opacity(0.62))
       }
 
       dayflowProTextField("ABC123", text: $dayflowProReferralCode)
@@ -379,7 +379,7 @@ struct DayflowProOnboardingSignInPanel: View {
       if !dayflowProReferralCode.isEmpty && !isDayflowProReferralCodeValid {
         Text("Enter the 6-character code from your invite.")
           .font(.custom("Figtree", size: scaledText(12)))
-          .foregroundColor(Color(hex: "B42318"))
+          .foregroundColor(OnboardingPalette.signInError)
       }
     }
   }
@@ -497,15 +497,15 @@ struct DayflowProOnboardingSignInPanel: View {
   private func dayflowProTextField(_ placeholder: String, text: Binding<String>) -> some View {
     TextField(placeholder, text: text)
       .font(.custom("Figtree", size: scaledText(14)))
-      .foregroundColor(Color(hex: "492304"))
+      .foregroundColor(OnboardingPalette.title)
       .textFieldStyle(.plain)
       .padding(.horizontal, scaled(12))
       .frame(height: scaled(42))
-      .background(Color.white.opacity(0.72))
+      .background(OnboardingPalette.glass(0.72, 0.13))
       .cornerRadius(6)
       .overlay(
         RoundedRectangle(cornerRadius: 6)
-          .stroke(Color(hex: "E4D3C2"), lineWidth: 1)
+          .stroke(OnboardingPalette.fieldBorder, lineWidth: 1)
       )
   }
 
@@ -523,16 +523,16 @@ struct DayflowProOnboardingSignInPanel: View {
           .lineLimit(1)
           .fixedSize(horizontal: true, vertical: false)
       },
-      background: enabled ? Color(hex: "FF9F6F") : Color(hex: "FF9F6F").opacity(0.3),
+      background: enabled ? OnboardingPalette.accent : OnboardingPalette.accent.opacity(0.3),
       foreground: .white,
-      borderColor: Color(hex: "F4C8B1"),
+      borderColor: OnboardingPalette.accentBorder,
       cornerRadius: 200,
       horizontalPadding: 12,
       verticalPadding: 0,
       minWidth: scaled(150),
       fixedHeight: 36,
       showOverlayStroke: false,
-      innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+      innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
     )
     .disabled(!enabled)
     .opacity(enabled ? 1 : 0.85)
@@ -550,9 +550,9 @@ struct DayflowProOnboardingSignInPanel: View {
           .font(.custom("Figtree", size: scaledText(13)))
           .fontWeight(.semibold)
       },
-      background: Color.white.opacity(0.64),
-      foreground: Color(hex: "492304"),
-      borderColor: Color(hex: "B6B6B6"),
+      background: OnboardingPalette.glass(0.64, 0.12),
+      foreground: OnboardingPalette.title,
+      borderColor: OnboardingPalette.neutralGray,
       cornerRadius: 200,
       horizontalPadding: 12,
       verticalPadding: 0,

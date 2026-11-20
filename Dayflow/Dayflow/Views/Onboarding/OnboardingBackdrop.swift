@@ -112,6 +112,20 @@ enum OnboardingPalette {
   static let sidebarStepBorder = adaptive(hex("FFB693"), hex("F3854B", alpha: 0.4))
   static let sidebarStepShadow = adaptive(
     hex("D5D3D9"), NSColor.black.withAlphaComponent(0.4))
+
+  // Prototype steps (the production role/provider/sign-in screens render
+  // these). Translucent white glass cards become faint white overlays via
+  // glass(_:_:); the other tokens pin the exact light values.
+  static func glass(_ light: Double, _ dark: Double) -> Color {
+    adaptive(
+      NSColor.white.withAlphaComponent(CGFloat(light)),
+      NSColor.white.withAlphaComponent(CGFloat(dark))
+    )
+  }
+  static let prototypeHeading = adaptive(hex("424242"), hex("F0F0F0"))
+  static let prototypeText = adaptive(hex("634D42"), hex("D9B8A6"))
+  static let selectedBorder = adaptive(hex("FFCCA7"), hex("F3854B", alpha: 0.55))
+  static let signInError = adaptive(hex("B42318"), hex("FF8A80"))
 }
 
 extension Color {
