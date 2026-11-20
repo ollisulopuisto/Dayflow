@@ -124,7 +124,7 @@ struct ScreenRecordingPermissionView: View {
         }
         .padding(16)
         .frame(maxWidth: 351, alignment: .leading)
-        .background(ColorOnboardingPalette.cardFillFaint)
+        .background(OnboardingPalette.cardFillFaint)
         .cornerRadius(5)
         .overlay(
           RoundedRectangle(cornerRadius: 5)
