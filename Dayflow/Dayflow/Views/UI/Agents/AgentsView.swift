@@ -19,6 +19,7 @@ enum AgentsStage: Equatable {
 struct AgentsView: View {
   @ObservedObject var store = AgentsRecapStore.shared
   @State private var stage: AgentsStage = .overview
+  @Environment(\.dayflowTheme) private var theme
 
   var body: some View {
     ZStack {
@@ -36,17 +37,22 @@ struct AgentsView: View {
 
   private var background: some View {
     ZStack {
-      LinearGradient(
-        colors: [Color(hex: "FFFDFB"), Color(hex: "FFF6EC")],
-        startPoint: .top,
-        endPoint: .bottom
-      )
-      RadialGradient(
-        colors: [Color(hex: "FFD9B0").opacity(0.45), Color.clear],
-        center: .bottomLeading,
-        startRadius: 0,
-        endRadius: 700
-      )
+      if theme.isDark {
+        // The themed dark window gradient replaces the cream canvas.
+        Rectangle().fill(theme.windowBackground)
+      } else {
+        LinearGradient(
+          colors: [Color(hex: "FFFDFB"), Color(hex: "FFF6EC")],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+        RadialGradient(
+          colors: [Color(hex: "FFD9B0").opacity(0.45), Color.clear],
+          center: .bottomLeading,
+          startRadius: 0,
+          endRadius: 700
+        )
+      }
     }
     .ignoresSafeArea()
   }
@@ -167,13 +173,13 @@ struct AgentsView: View {
     VStack(spacing: 14) {
       Text("Agents")
         .font(.custom("InstrumentSerif-Regular", size: 40))
-        .foregroundColor(.black.opacity(0.85))
+        .foregroundColor(Color.agentsInk(0.85))
 
       Text(
         "Fable reads today's Claude Code and Codex sessions and builds a review of everything your agents did, grouped by workstream, thread by thread."
       )
       .font(.custom("Figtree", size: 13))
-      .foregroundColor(.black.opacity(0.55))
+      .foregroundColor(Color.agentsInk(0.55))
       .multilineTextAlignment(.center)
       .frame(maxWidth: 420)
 
@@ -182,7 +188,7 @@ struct AgentsView: View {
 
       Text("Runs only when you ask. Nothing happens automatically.")
         .font(.custom("Figtree", size: 11))
-        .foregroundColor(.black.opacity(0.35))
+        .foregroundColor(Color.agentsInk(0.35))
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
@@ -194,13 +200,13 @@ struct AgentsView: View {
 
       Text("Fable is reading today's sessions…")
         .font(.custom("InstrumentSerif-Regular", size: 26))
-        .foregroundColor(.black.opacity(0.8))
+        .foregroundColor(Color.agentsInk(0.8))
 
       TimelineView(.periodic(from: startedAt, by: 1)) { context in
         let elapsed = Int(context.date.timeIntervalSince(startedAt))
         Text("Running for \(elapsed / 60)m \(elapsed % 60)s. A full day can take several minutes.")
           .font(.custom("Figtree", size: 12))
-          .foregroundColor(.black.opacity(0.45))
+          .foregroundColor(Color.agentsInk(0.45))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -210,16 +216,16 @@ struct AgentsView: View {
     VStack(spacing: 14) {
       Image(systemName: "exclamationmark.triangle.fill")
         .font(.system(size: 22))
-        .foregroundColor(Color(hex: "C04A00"))
+        .foregroundColor(AgentsPalette.errorAccent)
 
       Text("The recap run didn't finish")
         .font(.custom("InstrumentSerif-Regular", size: 26))
-        .foregroundColor(.black.opacity(0.8))
+        .foregroundColor(Color.agentsInk(0.8))
 
       ScrollView {
         Text(message)
           .font(.custom("Figtree", size: 12))
-          .foregroundColor(.black.opacity(0.55))
+          .foregroundColor(Color.agentsInk(0.55))
           .multilineTextAlignment(.center)
           .textSelection(.enabled)
       }
