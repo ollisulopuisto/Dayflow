@@ -4,6 +4,7 @@ import QuartzCore
 import SwiftUI
 
 struct ScreenshotSlideshowModal: View {
+  @Environment(\.dayflowTheme) private var theme
   let screenshots: [Screenshot]
   let title: String?
   let startTime: Date?
@@ -48,14 +49,14 @@ struct ScreenshotSlideshowModal: View {
               "\(Self.timeFormatter.string(from: startTime)) to \(Self.timeFormatter.string(from: endTime))"
             )
             .font(.caption)
-            .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
+            .foregroundColor(theme.isDark ? Color(hex: "B4B4B4") : Color(red: 0.4, green: 0.4, blue: 0.4))
           }
         }
         Spacer()
         Button(action: { dismiss() }) {
           Image(systemName: "xmark.circle.fill")
             .font(.system(size: 20))
-            .foregroundColor(Color.black.opacity(0.5))
+            .foregroundColor(theme.isDark ? Color.white.opacity(0.6) : Color.black.opacity(0.5))
         }
         .buttonStyle(PlainButtonStyle())
         .hoverScaleEffect(scale: 1.02)
@@ -63,7 +64,7 @@ struct ScreenshotSlideshowModal: View {
       }
       .padding(.horizontal, 16)
       .padding(.vertical, 10)
-      .background(Color.white)
+      .background(theme.isDark ? Color(hex: "272A3C") : Color.white)
 
       Divider()
 
@@ -97,10 +98,10 @@ struct ScreenshotSlideshowModal: View {
         .padding(.horizontal)
         .padding(.bottom, 12)
       }
-      .background(Color.white)
+      .background(theme.isDark ? Color(hex: "272A3C") : Color.white)
     }
     .frame(minWidth: 960, minHeight: 640)
-    .background(Color.white)
+    .background(theme.isDark ? Color(hex: "272A3C") : Color.white)
     .overlay {
       ScreenshotSlideshowDisplayLinkDriver(
         playbackState: playbackModel.timelineState,
@@ -507,6 +508,7 @@ final class ScreenshotFilmstripGenerator {
 }
 
 private struct ScreenshotScrubberView: View {
+  @Environment(\.dayflowTheme) private var theme
   let screenshots: [Screenshot]
   @ObservedObject var playbackState: ScreenshotSlideshowPlaybackTimelineState
   let onSeek: (Double) -> Void
@@ -554,7 +556,7 @@ private struct ScreenshotScrubberView: View {
 
           ZStack(alignment: .topLeading) {
             Rectangle()
-              .fill(Color.white)
+              .fill(theme.isDark ? Color(hex: "272A3C") : Color.white)
 
             let tileWidth = filmstripHeight * aspect
             let columnsNeeded = max(1, Int(ceil(stripWidth / tileWidth)))
@@ -571,7 +573,7 @@ private struct ScreenshotScrubberView: View {
               } else if images.isEmpty {
                 ForEach(0..<columnsNeeded, id: \.self) { _ in
                   Rectangle()
-                    .fill(Color.black.opacity(0.06))
+                    .fill(theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
                     .frame(width: tileWidth, height: filmstripHeight)
                 }
               } else {
@@ -584,7 +586,7 @@ private struct ScreenshotScrubberView: View {
                         .aspectRatio(contentMode: .fill)
                         .scaleEffect(zoom, anchor: .center)
                     } else {
-                      Rectangle().fill(Color.black.opacity(0.06))
+                      Rectangle().fill(theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
                     }
                   }
                   .frame(width: tileWidth, height: filmstripHeight)

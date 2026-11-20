@@ -79,6 +79,7 @@ final class VideoExpansionState: ObservableObject {
 // MARK: - Video Expansion Overlay (Hero Animation Modal)
 
 struct VideoExpansionOverlay: View {
+  @Environment(\.dayflowTheme) private var theme
   @ObservedObject var expansionState: VideoExpansionState
   let namespace: Namespace.ID
   @StateObject private var viewModel = VideoPlayerViewModel()
@@ -158,7 +159,7 @@ struct VideoExpansionOverlay: View {
         let vh = fitsWidth ? h : (geo.size.width / a)
 
         ZStack {
-          Color.white
+          (theme.isDark ? Color.black : Color.white)
           HStack(spacing: 0) {
             Spacer(minLength: 0)
             videoPlayerView(width: vw, height: vh)
@@ -179,7 +180,7 @@ struct VideoExpansionOverlay: View {
     .frame(width: targetWidth, height: targetHeight)
     .background(
       RoundedRectangle(cornerRadius: 12)
-        .fill(Color.white)
+        .fill(theme.isDark ? Color(hex: "272A3C") : Color.white)
         .shadow(color: .black.opacity(0.25), radius: 30, x: 0, y: 10)
     )
     .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -198,20 +199,20 @@ struct VideoExpansionOverlay: View {
             "\(videoPlayerTimeFormatter.string(from: startTime)) to \(videoPlayerTimeFormatter.string(from: endTime))"
           )
           .font(.caption)
-          .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
+          .foregroundColor(theme.isDark ? Color(hex: "B4B4B4") : Color(red: 0.4, green: 0.4, blue: 0.4))
         }
       }
       Spacer()
       Button(action: { closeModal() }) {
         Image(systemName: "xmark.circle.fill")
           .font(.system(size: 20))
-          .foregroundColor(Color.black.opacity(0.5))
+          .foregroundColor(theme.isDark ? Color.white.opacity(0.6) : Color.black.opacity(0.5))
       }
       .buttonStyle(ScaleButtonStyle())
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 10)
-    .background(Color.white)
+    .background(theme.isDark ? Color(hex: "272A3C") : Color.white)
     .overlay(
       Rectangle().stroke(Color.gray.opacity(0.25), lineWidth: 1)
     )
@@ -291,7 +292,7 @@ struct VideoExpansionOverlay: View {
         .padding(.bottom, 12)
       }
     }
-    .background(Color.white)
+    .background(theme.isDark ? Color(hex: "272A3C") : Color.white)
   }
 
   // Animation helpers
@@ -603,6 +604,7 @@ struct VideoPlayerModal: View {
   var endTime: Date? = nil
   var containerSize: CGSize? = nil
   @Environment(\.dismiss) var dismiss
+  @Environment(\.dayflowTheme) private var theme
   @StateObject private var viewModel = VideoPlayerViewModel()
   @State private var showControls = true
   @State private var controlsTimer: Timer?
@@ -626,20 +628,20 @@ struct VideoPlayerModal: View {
                 "\(videoPlayerTimeFormatter.string(from: startTime)) to \(videoPlayerTimeFormatter.string(from: endTime))"
               )
               .font(.caption)
-              .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
+              .foregroundColor(theme.isDark ? Color(hex: "B4B4B4") : Color(red: 0.4, green: 0.4, blue: 0.4))
             }
           }
           Spacer()
           Button(action: { dismiss() }) {
             Image(systemName: "xmark.circle.fill")
               .font(.system(size: 20))
-              .foregroundColor(Color.black.opacity(0.5))
+              .foregroundColor(theme.isDark ? Color.white.opacity(0.6) : Color.black.opacity(0.5))
           }
           .buttonStyle(ScaleButtonStyle())
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.white)
+        .background(theme.isDark ? Color(hex: "272A3C") : Color.white)
         .overlay(
           Rectangle().stroke(Color.gray.opacity(0.25), lineWidth: 1)
         )
@@ -655,7 +657,7 @@ struct VideoPlayerModal: View {
         let vh = fitsWidth ? h : (geo.size.width / a)
 
         ZStack {
-          Color.white
+          (theme.isDark ? Color.black : Color.white)
           HStack(spacing: 0) {
             Spacer(minLength: 0)
             ZStack {
@@ -752,7 +754,7 @@ struct VideoPlayerModal: View {
           .padding(.bottom, 12)
         }
       }
-      .background(Color.white)  // underneath video area edge
+      .background(theme.isDark ? Color(hex: "272A3C") : Color.white)  // underneath video area edge
     }
     // Size modal to 90% of the presenting window if available
     .frame(

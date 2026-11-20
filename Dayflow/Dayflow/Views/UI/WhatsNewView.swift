@@ -174,6 +174,7 @@ enum WhatsNewConfiguration {
 // MARK: - What's New View
 
 struct WhatsNewView: View {
+  @Environment(\.dayflowTheme) private var theme
   let releaseNote: ReleaseNote
   let onDismiss: () -> Void
 
@@ -217,12 +218,12 @@ struct WhatsNewView: View {
           VStack(alignment: .leading, spacing: 6) {
             Text("What's New in \(releaseNote.version) 🎉")
               .font(.custom("InstrumentSerif-Regular", size: 32))
-              .foregroundColor(.black.opacity(0.9))
+              .foregroundColor(theme.isDark ? Color.white.opacity(0.9) : Color.black.opacity(0.9))
 
             Text(releaseNote.title)
               .font(.custom("Figtree", size: 17))
               .fontWeight(.semibold)
-              .foregroundColor(.black.opacity(0.78))
+              .foregroundColor(theme.isDark ? Color.white.opacity(0.78) : Color.black.opacity(0.78))
               .fixedSize(horizontal: false, vertical: true)
           }
 
@@ -232,7 +233,7 @@ struct WhatsNewView: View {
             Image(systemName: "xmark")
               .font(.system(size: 13, weight: .semibold))
               .padding(8)
-              .background(Color.black.opacity(0.05))
+              .background(theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
               .clipShape(Circle())
           }
           .buttonStyle(PlainButtonStyle())
@@ -256,7 +257,7 @@ struct WhatsNewView: View {
 
                 Text(highlight)
                   .font(.custom("Figtree", size: 15))
-                  .foregroundColor(.black.opacity(0.75))
+                  .foregroundColor(theme.isDark ? Color.white.opacity(0.75) : Color.black.opacity(0.75))
                   .fixedSize(horizontal: false, vertical: true)
               }
             }
@@ -266,7 +267,7 @@ struct WhatsNewView: View {
         if let betaSignup = releaseNote.betaSignup {
           Label(betaSignup.followUp, systemImage: "chart.bar.xaxis")
             .font(.custom("Figtree", size: 13))
-            .foregroundColor(.black.opacity(0.58))
+            .foregroundColor(theme.isDark ? Color.white.opacity(0.58) : Color.black.opacity(0.58))
         }
 
         if releaseNote.showsWeeklyFeedbackSurvey {
@@ -282,7 +283,7 @@ struct WhatsNewView: View {
         {
           Text(previewIntro)
             .font(.custom("Figtree", size: 14))
-            .foregroundColor(.black.opacity(0.72))
+            .foregroundColor(theme.isDark ? Color.white.opacity(0.72) : Color.black.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, 6)
         }
@@ -302,7 +303,7 @@ struct WhatsNewView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
                   RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                    .stroke((theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.06)), lineWidth: 1)
                 )
             }
           }
@@ -330,7 +331,7 @@ struct WhatsNewView: View {
     .frame(width: 780)
     .background(
       RoundedRectangle(cornerRadius: 16, style: .continuous)
-        .fill(Color.white)
+        .fill(theme.isDark ? Color(hex: "272A3C") : Color.white)
         .shadow(color: Color.black.opacity(0.25), radius: 40, x: 0, y: 20)
     )
     .onAppear {
@@ -368,14 +369,14 @@ struct WhatsNewView: View {
       Text("How do you feel about Weekly so far?")
         .font(.custom("Figtree", size: 15))
         .fontWeight(.semibold)
-        .foregroundColor(.black.opacity(0.85))
+        .foregroundColor(theme.isDark ? Color.white.opacity(0.85) : Color.black.opacity(0.85))
         .fixedSize(horizontal: false, vertical: true)
 
       Text(
         "A quick answer helps shape where Weekly goes next."
       )
       .font(.custom("Figtree", size: 13))
-      .foregroundColor(.black.opacity(0.62))
+      .foregroundColor(theme.isDark ? Color.white.opacity(0.62) : Color.black.opacity(0.62))
       .fixedSize(horizontal: false, vertical: true)
 
       HStack(spacing: 10) {
@@ -388,7 +389,7 @@ struct WhatsNewView: View {
         Text("How can we improve Weekly?")
           .font(.custom("Figtree", size: 15))
           .fontWeight(.semibold)
-          .foregroundColor(.black.opacity(0.85))
+          .foregroundColor(theme.isDark ? Color.white.opacity(0.85) : Color.black.opacity(0.85))
 
         WhatsNewSurveyTextEditor(
           text: $weeklyImprovementText,
@@ -398,11 +399,11 @@ struct WhatsNewView: View {
         .frame(minHeight: 78)
         .background(
           RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(Color.white)
+            .fill(theme.isDark ? Color(hex: "34364A") : Color.white)
         )
         .overlay(
           RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .stroke(Color.black.opacity(0.1), lineWidth: 1)
+            .stroke((theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)), lineWidth: 1)
         )
       }
       .padding(.top, 4)
@@ -463,7 +464,7 @@ struct WhatsNewView: View {
         Text(option.title)
           .font(.custom("Figtree", size: 14))
           .fontWeight(isSelected ? .semibold : .regular)
-          .foregroundColor(.black.opacity(0.82))
+          .foregroundColor(theme.isDark ? Color.white.opacity(0.82) : Color.black.opacity(0.82))
           .fixedSize(horizontal: false, vertical: true)
       }
       .frame(maxWidth: .infinity)
@@ -474,7 +475,7 @@ struct WhatsNewView: View {
           .fill(
             isSelected
               ? Color(red: 0.25, green: 0.17, blue: 0).opacity(0.06)
-              : Color.white
+              : (theme.isDark ? Color.white.opacity(0.08) : Color.white)
           )
       )
       .overlay(
@@ -482,7 +483,7 @@ struct WhatsNewView: View {
           .stroke(
             isSelected
               ? Color(red: 0.25, green: 0.17, blue: 0).opacity(0.28)
-              : Color.black.opacity(0.1),
+              : (theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)),
             lineWidth: 1
           )
       )
@@ -498,11 +499,11 @@ struct WhatsNewView: View {
         Text(signup.title)
           .font(.custom("Figtree", size: 17))
           .fontWeight(.bold)
-          .foregroundColor(.black.opacity(0.86))
+          .foregroundColor(theme.isDark ? Color.white.opacity(0.86) : Color.black.opacity(0.86))
 
         Text(signup.description)
           .font(.custom("Figtree", size: 14))
-          .foregroundColor(.black.opacity(0.68))
+          .foregroundColor(theme.isDark ? Color.white.opacity(0.68) : Color.black.opacity(0.68))
       }
 
       if hasSubmittedAgentsBeta {
@@ -516,7 +517,7 @@ struct WhatsNewView: View {
           Text("How many agents do you launch per day?")
             .font(.custom("Figtree", size: 14))
             .fontWeight(.semibold)
-            .foregroundColor(.black.opacity(0.82))
+            .foregroundColor(theme.isDark ? Color.white.opacity(0.82) : Color.black.opacity(0.82))
 
           HStack(spacing: 8) {
             ForEach(AgentsPerDayOption.allCases) { option in
@@ -600,19 +601,21 @@ struct WhatsNewView: View {
       Text(option.title)
         .font(.custom("Figtree", size: 13))
         .fontWeight(isSelected ? .semibold : .regular)
-        .foregroundColor(.black.opacity(0.8))
+        .foregroundColor(theme.isDark ? Color.white.opacity(0.8) : Color.black.opacity(0.8))
         .frame(maxWidth: .infinity)
         .padding(.vertical, 9)
         .background(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(isSelected ? Color.white : Color.white.opacity(0.55))
+            .fill(isSelected
+              ? (theme.isDark ? Color(hex: "3A3A4C") : Color.white)
+              : (theme.isDark ? Color.white.opacity(0.18) : Color.white.opacity(0.55)))
         )
         .overlay(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
             .stroke(
               isSelected
                 ? Color(red: 0.25, green: 0.17, blue: 0).opacity(0.35)
-                : Color.black.opacity(0.09),
+                : (theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.09)),
               lineWidth: 1
             )
         )
@@ -633,28 +636,28 @@ struct WhatsNewView: View {
         Text(title)
           .font(.custom("Figtree", size: 13))
           .fontWeight(.semibold)
-          .foregroundColor(.black.opacity(0.78))
+          .foregroundColor(theme.isDark ? Color.white.opacity(0.78) : Color.black.opacity(0.78))
 
         if isRequired {
           Text("*")
             .font(.custom("Figtree", size: 13))
-            .foregroundColor(.black.opacity(0.42))
+            .foregroundColor(theme.isDark ? Color.white.opacity(0.42) : Color.black.opacity(0.42))
         }
       }
 
       TextField(placeholder, text: text)
         .textFieldStyle(.plain)
         .font(.custom("Figtree", size: 14))
-        .foregroundColor(.black.opacity(0.84))
+        .foregroundColor(theme.isDark ? Color.white.opacity(0.84) : Color.black.opacity(0.84))
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(Color.white)
+            .fill(theme.isDark ? Color(hex: "34364A") : Color.white)
         )
         .overlay(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .stroke(Color.black.opacity(0.1), lineWidth: 1)
+            .stroke((theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)), lineWidth: 1)
         )
         .disabled(isSubmittingAgentsBeta)
     }
@@ -666,11 +669,11 @@ struct WhatsNewView: View {
       Text(cta.title)
         .font(.custom("Figtree", size: 16))
         .fontWeight(.bold)
-        .foregroundColor(.black.opacity(0.86))
+        .foregroundColor(theme.isDark ? Color.white.opacity(0.86) : Color.black.opacity(0.86))
 
       Text(cta.description)
         .font(.custom("Figtree", size: 14))
-        .foregroundColor(.black.opacity(0.75))
+        .foregroundColor(theme.isDark ? Color.white.opacity(0.75) : Color.black.opacity(0.75))
         .fixedSize(horizontal: false, vertical: true)
 
       DayflowSurfaceButton(
@@ -713,11 +716,11 @@ struct WhatsNewView: View {
           VStack(alignment: .leading, spacing: 6) {
             Text(prompt.title)
               .font(.custom("InstrumentSerif-Regular", size: 26))
-              .foregroundColor(.black.opacity(0.9))
+              .foregroundColor(theme.isDark ? Color.white.opacity(0.9) : Color.black.opacity(0.9))
 
             Text(prompt.description)
               .font(.custom("Figtree", size: 15))
-              .foregroundColor(.black.opacity(0.72))
+              .foregroundColor(theme.isDark ? Color.white.opacity(0.72) : Color.black.opacity(0.72))
               .fixedSize(horizontal: false, vertical: true)
           }
         }
@@ -870,11 +873,11 @@ struct WhatsNewView: View {
           Text(preview.authorName)
             .font(.custom("Figtree", size: 14))
             .fontWeight(.semibold)
-            .foregroundColor(.black.opacity(0.86))
+            .foregroundColor(theme.isDark ? Color.white.opacity(0.86) : Color.black.opacity(0.86))
 
           Text("\(preview.authorHandle) - \(preview.dateText)")
             .font(.custom("Figtree", size: 13))
-            .foregroundColor(.black.opacity(0.48))
+            .foregroundColor(theme.isDark ? Color.white.opacity(0.48) : Color.black.opacity(0.48))
         }
 
         Spacer()
@@ -882,7 +885,7 @@ struct WhatsNewView: View {
 
       Text(preview.body)
         .font(.custom("Figtree", size: 15))
-        .foregroundColor(.black.opacity(0.78))
+        .foregroundColor(theme.isDark ? Color.white.opacity(0.78) : Color.black.opacity(0.78))
         .fixedSize(horizontal: false, vertical: true)
 
       Button(action: { openSocialPreview(preview) }) {
@@ -905,7 +908,7 @@ struct WhatsNewView: View {
     )
     .overlay(
       RoundedRectangle(cornerRadius: 12, style: .continuous)
-        .stroke(Color.black.opacity(0.08), lineWidth: 1)
+        .stroke((theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.08)), lineWidth: 1)
     )
     .padding(.top, 2)
   }
@@ -1206,7 +1209,10 @@ private struct WhatsNewSurveyTextEditor: NSViewRepresentable {
     textView.delegate = context.coordinator
     textView.placeholder = placeholder
     textView.font = NSFont(name: "Figtree", size: fontSize) ?? .systemFont(ofSize: fontSize)
-    textView.textColor = NSColor.black.withAlphaComponent(0.82)
+    textView.textColor = NSColor(name: nil) { appearance in
+      appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        ? .white.withAlphaComponent(0.82) : .black.withAlphaComponent(0.82)
+    }
     textView.insertionPointColor = .systemBlue
     textView.drawsBackground = false
     textView.backgroundColor = .clear
@@ -1285,7 +1291,10 @@ private final class PlaceholderTextView: NSTextView {
 
     let attributes: [NSAttributedString.Key: Any] = [
       .font: font,
-      .foregroundColor: NSColor.black.withAlphaComponent(0.35),
+      .foregroundColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+          ? .white.withAlphaComponent(0.35) : .black.withAlphaComponent(0.35)
+      },
     ]
 
     (placeholder as NSString).draw(
