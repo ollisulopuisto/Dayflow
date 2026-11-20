@@ -173,6 +173,7 @@ struct ScrubberView: View {
   var absoluteStart: Date? = nil
   var absoluteEnd: Date? = nil
 
+  @Environment(\.dayflowTheme) private var theme
   @State private var images: [NSImage] = []
   @State private var isDragging: Bool = false
 
@@ -213,10 +214,10 @@ struct ScrubberView: View {
           }
           .zIndex(1)  // ensure chip renders above the playhead bar
 
-          // Filmstrip with white background, square corners, no border
+          // Filmstrip with a panel background, square corners, no border
           ZStack(alignment: .topLeading) {
             Rectangle()
-              .fill(Color.white)
+              .fill(theme.isDark ? Color(hex: "272A3C") : Color.white)
 
             // Thumbnails row
             let tileWidth = filmstripHeight * aspect
@@ -234,7 +235,7 @@ struct ScrubberView: View {
               } else if images.isEmpty {
                 ForEach(0..<columnsNeeded, id: \.self) { _ in
                   Rectangle()
-                    .fill(Color.black.opacity(0.06))
+                    .fill(theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
                     .frame(width: tileWidth, height: filmstripHeight)
                 }
               } else {
@@ -247,7 +248,7 @@ struct ScrubberView: View {
                         .aspectRatio(contentMode: .fill)
                         .scaleEffect(zoom, anchor: .center)
                     } else {
-                      Rectangle().fill(Color.black.opacity(0.06))
+                      Rectangle().fill(theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
                     }
                   }
                   .frame(width: tileWidth, height: filmstripHeight)

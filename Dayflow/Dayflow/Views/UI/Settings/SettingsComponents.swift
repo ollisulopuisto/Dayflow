@@ -68,7 +68,8 @@ enum SettingsStyle {
   // Status dots (paired with 13pt labels — the dot carries the color, the
   // label carries the word).
   static let statusGood = Color(red: 0.25, green: 0.62, blue: 0.32)
-  static let statusIdle = Color.black.opacity(0.3)
+  static let statusIdle = Color.dayflowAdaptive(
+    light: NSColor.black.withAlphaComponent(0.3), dark: NSColor.white.withAlphaComponent(0.3))
   static let statusWarn = Color(red: 0.86, green: 0.6, blue: 0.1)
   static let statusBad = Color(red: 0.76, green: 0.19, blue: 0.19)
 }
