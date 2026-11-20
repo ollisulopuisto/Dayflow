@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Daily Brief docket dark mode: the docket's cream cards, menus, pop-ups, pills and summary card now resolve per appearance through DocketColors, matching the shared dark card and panel family. The page background uses the dark window gradient, the prompt fade matches the card color, and the summary halo and "submitted" veil become a warm glow instead of a white bloom. Avatar gradients, app icons and the peach call-to-action are unchanged.
 - A browser the privacy check cannot inspect is still hidden, but the placeholder now says why (for example "Automation not allowed"), the cause is logged without any URL, and the check is retried once first. Helium needs Automation allowed for Dayflow in System Settings > Privacy & Security > Automation.
 
 ## [2.9.0] - 2026-11-11

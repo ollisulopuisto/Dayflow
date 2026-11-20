@@ -97,8 +97,6 @@ struct DailyBriefPageView: View {
     .overlayPreferenceValue(DocketAnchorKey.self) { anchors in
       DocketMenuLayer(anchors: anchors)
     }
-    // The prototype is light only, so the brief stays light in dark mode.
-    .dayflowTheme(.light)
     .onDisappear {
       ui.openMenu = nil
       ui.askTitle = nil

@@ -1282,7 +1282,6 @@ private struct DocketTransitionView: View {
       }
     }
     .frame(width: size.width, height: size.height, alignment: .topLeading)
-    .dayflowTheme(.light)
     .allowsHitTesting(false)
   }
 
