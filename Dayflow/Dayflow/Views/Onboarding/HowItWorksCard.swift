@@ -26,7 +26,7 @@ struct HowItWorksCard: View {
         Text(title)
           .font(.custom("Figtree", size: 16))
           .fontWeight(.semibold)
-          .foregroundColor(.black.opacity(0.85))
+          .foregroundColor(Color.onboardingInk(0.85))
           .multilineTextAlignment(.leading)
           .fixedSize(horizontal: false, vertical: true)
 
@@ -34,7 +34,7 @@ struct HowItWorksCard: View {
         Text(description)
           .font(.custom("Figtree", size: 14))
           .fontWeight(.regular)
-          .foregroundColor(.black.opacity(0.6))
+          .foregroundColor(Color.onboardingInk(0.6))
           .multilineTextAlignment(.leading)
           .fixedSize(horizontal: false, vertical: true)
           .lineLimit(nil)
@@ -43,12 +43,12 @@ struct HowItWorksCard: View {
     }
     .padding(16)
     .frame(width: 580, alignment: .topLeading)
-    .background(.white.opacity(0.3))
+    .background(OnboardingPalette.cardFillFaint)
     .cornerRadius(5)
     .overlay(
       RoundedRectangle(cornerRadius: 5)
         .inset(by: 0.5)
-        .stroke(.black.opacity(0.06), lineWidth: 1)
+        .stroke(Color.onboardingStroke(0.06), lineWidth: 1)
     )
   }
 }

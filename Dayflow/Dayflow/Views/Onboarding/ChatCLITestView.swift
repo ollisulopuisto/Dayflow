@@ -19,7 +19,7 @@ struct ChatCLITestView: View {
     VStack(alignment: .leading, spacing: 14) {
       Text("We'll ask your CLI a simple question to verify it's working and signed in.")
         .font(.custom("Figtree", size: usesOnboardingStyle ? 16 : 12))
-        .foregroundColor(usesOnboardingStyle ? Color(hex: "898989") : SettingsStyle.secondary)
+        .foregroundColor(usesOnboardingStyle ? OnboardingPalette.secondaryGray : SettingsStyle.secondary)
         .fixedSize(horizontal: false, vertical: true)
 
       if usesOnboardingStyle {
@@ -42,15 +42,15 @@ struct ChatCLITestView: View {
                 .fontWeight(.medium)
             }
           },
-          background: Color(hex: "FDCEA4"),
-          foreground: Color(hex: "926244"),
-          borderColor: Color(hex: "F1CEBC"),
+          background: OnboardingPalette.peachDeep,
+          foreground: OnboardingPalette.brownText,
+          borderColor: OnboardingPalette.hairlineWarm,
           cornerRadius: 200,
           horizontalPadding: 24,
           verticalPadding: 8,
           fixedHeight: 41,
           showOverlayStroke: false,
-          innerGlowColor: Color(hex: "FFECE6")
+          innerGlowColor: OnboardingPalette.peachFill
         )
         .disabled(isTesting || selectedTool == nil)
         .opacity(selectedTool == nil ? 0.5 : 1)
@@ -97,7 +97,7 @@ struct ChatCLITestView: View {
             .padding(10)
             .background(
               RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.black.opacity(0.03))
+                .fill(Color.onboardingStroke(0.03))
             )
           }
         }

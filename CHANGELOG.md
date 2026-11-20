@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Changed
+- Onboarding follows the appearance setting: the warm backdrop, setup cards, provider setup, permission steps and sidebar use adaptive colors in dark mode instead of staying light-only.
 - Agents and Chat follow dark mode: the tool-call bubbles, workstream blobs, status chips, highlight pills, thread cards and the tab's cream canvas use adaptive colors that switch with the appearance setting.
 
 ### Fixed

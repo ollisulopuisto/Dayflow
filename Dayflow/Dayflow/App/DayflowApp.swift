@@ -233,12 +233,11 @@ struct DayflowApp: App {
             .environmentObject(categoryStore)
             .environmentObject(updaterManager)
           } else if !showVideoLaunch {
-            // Onboarding is designed light-only.
+            // Onboarding follows the appearance setting like the main UI.
             OnboardingFlow()
               .environmentObject(AppState.shared)
               .environmentObject(categoryStore)
               .environmentObject(updaterManager)
-              .dayflowTheme(.light)
           }
         }
         .opacity(contentOpacity)
