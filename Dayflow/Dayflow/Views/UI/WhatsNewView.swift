@@ -593,6 +593,16 @@ struct WhatsNewView: View {
 
   private func agentsPerDayButton(_ option: AgentsPerDayOption) -> some View {
     let isSelected = selectedAgentsPerDay == option
+    // Hoisted so the compiler doesn't have to type-check one giant expression.
+    let titleColor = theme.isDark ? Color.white.opacity(0.8) : Color.black.opacity(0.8)
+    let fillColor =
+      isSelected
+      ? (theme.isDark ? Color(hex: "3A3A4C") : Color.white)
+      : (theme.isDark ? Color.white.opacity(0.18) : Color.white.opacity(0.55))
+    let strokeColor =
+      isSelected
+      ? Color(red: 0.25, green: 0.17, blue: 0).opacity(0.35)
+      : (theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.09))
 
     return Button {
       selectedAgentsPerDay = option
@@ -601,23 +611,16 @@ struct WhatsNewView: View {
       Text(option.title)
         .font(.custom("Figtree", size: 13))
         .fontWeight(isSelected ? .semibold : .regular)
-        .foregroundColor(theme.isDark ? Color.white.opacity(0.8) : Color.black.opacity(0.8))
+        .foregroundColor(titleColor)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 9)
         .background(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(isSelected
-              ? (theme.isDark ? Color(hex: "3A3A4C") : Color.white)
-              : (theme.isDark ? Color.white.opacity(0.18) : Color.white.opacity(0.55)))
+            .fill(fillColor)
         )
         .overlay(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .stroke(
-              isSelected
-                ? Color(red: 0.25, green: 0.17, blue: 0).opacity(0.35)
-                : (theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.09)),
-              lineWidth: 1
-            )
+            .stroke(strokeColor, lineWidth: 1)
         )
     }
     .buttonStyle(.plain)
