@@ -7,19 +7,19 @@ struct WeeklyInteractionGraphNodeBadge: View {
     switch node.category {
     case .work:
       return LinearGradient(
-        colors: [Color(hex: "EEF3FF"), Color(hex: "F8FAFF")],
+        colors: [WeeklyPalette.workShellTop, WeeklyPalette.workShellBottom],
         startPoint: .top,
         endPoint: .bottom
       )
     case .personal:
       return LinearGradient(
-        colors: [Color(hex: "EFECE8"), Color(hex: "F8F6F4")],
+        colors: [WeeklyPalette.personalShellTop, WeeklyPalette.personalShellBottom],
         startPoint: .top,
         endPoint: .bottom
       )
     case .distraction:
       return LinearGradient(
-        colors: [Color(hex: "FFDCCF"), Color(hex: "F8F2EE")],
+        colors: [WeeklyPalette.distractionShellTop, WeeklyPalette.distractionShellBottom],
         startPoint: .top,
         endPoint: .bottom
       )
@@ -298,7 +298,7 @@ struct WeeklyInteractionCubeGlyph: View {
         Image(systemName: "shippingbox.fill")
           .resizable()
           .scaledToFit()
-          .foregroundStyle(Color(hex: "2B2724"))
+          .foregroundStyle(WeeklyPalette.cubeFill)
           .frame(width: size * 0.78, height: size * 0.78)
 
         Image(systemName: "shippingbox")
@@ -344,11 +344,11 @@ struct WeeklyInteractionBullseyeGlyph: View {
           .frame(width: size * 0.66, height: size * 0.66)
 
         Circle()
-          .stroke(Color(hex: "69751E"), lineWidth: max(size * 0.08, 1.5))
+          .stroke(WeeklyPalette.bullseyeStrong, lineWidth: max(size * 0.08, 1.5))
           .frame(width: size * 0.38, height: size * 0.38)
 
         Circle()
-          .fill(Color(hex: "69751E"))
+          .fill(WeeklyPalette.bullseyeStrong)
           .frame(width: size * 0.12, height: size * 0.12)
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -364,15 +364,15 @@ struct WeeklyInteractionBarsGlyph: View {
 
       HStack(alignment: .bottom, spacing: width * 0.06) {
         RoundedRectangle(cornerRadius: barWidth, style: .continuous)
-          .fill(Color(hex: "7E7E85"))
+          .fill(WeeklyPalette.barsMid)
           .frame(width: barWidth, height: width * 0.34)
 
         RoundedRectangle(cornerRadius: barWidth, style: .continuous)
-          .fill(Color(hex: "606067"))
+          .fill(WeeklyPalette.barsStrong)
           .frame(width: barWidth, height: width * 0.54)
 
         RoundedRectangle(cornerRadius: barWidth, style: .continuous)
-          .fill(Color(hex: "7E7E85"))
+          .fill(WeeklyPalette.barsMid)
           .frame(width: barWidth, height: width * 0.24)
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -404,7 +404,7 @@ struct WeeklyInteractionGraphLegend: View {
 
       Text(title)
         .font(.custom("Figtree-Regular", size: 12))
-        .foregroundStyle(.black)
+        .foregroundStyle(WeeklyPalette.glyphLabel)
     }
   }
 }

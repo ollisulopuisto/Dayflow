@@ -126,10 +126,10 @@ struct WeeklySankeyCard: View {
       sourcePath,
       with: .linearGradient(
         Gradient(stops: [
-          .init(color: Color(hex: "E6DBD1").opacity(0.48), location: 0),
-          .init(color: Color(hex: "EFE9E3").opacity(0.34), location: 0.42),
-          .init(color: Color(hex: "F4EEE9").opacity(0.2), location: 0.76),
-          .init(color: Color(hex: "F7F2ED").opacity(0.08), location: 1),
+          .init(color: WeeklyPalette.sankeyWash1.opacity(0.48), location: 0),
+          .init(color: WeeklyPalette.sankeyWash2.opacity(0.34), location: 0.42),
+          .init(color: WeeklyPalette.sankeyWash3.opacity(0.2), location: 0.76),
+          .init(color: WeeklyPalette.sankeyWash4.opacity(0.08), location: 1),
         ]),
         startPoint: scale.point(x: model.source.bar.maxX, y: 0),
         endPoint: scale.point(x: firstCategory.bar.minX, y: 0)
@@ -152,9 +152,9 @@ struct WeeklySankeyCard: View {
       rightPath,
       with: .linearGradient(
         Gradient(stops: [
-          .init(color: Color(hex: "EFE7E0").opacity(0.08), location: 0),
-          .init(color: Color(hex: "F4EEE9").opacity(0.11), location: 0.46),
-          .init(color: Color(hex: "EFE7E0").opacity(0.07), location: 1),
+          .init(color: WeeklyPalette.sankeyWash2.opacity(0.08), location: 0),
+          .init(color: WeeklyPalette.sankeyWash3.opacity(0.11), location: 0.46),
+          .init(color: WeeklyPalette.sankeyWash2.opacity(0.07), location: 1),
         ]),
         startPoint: scale.point(
           x: firstCategory.bar.minX + WeeklySankeyLayout.base.categories.width,
@@ -199,32 +199,37 @@ struct WeeklySankeyCard: View {
 
     if sourceFlow {
       return [
-        .init(color: Color(hex: "E3D8CF").opacity(0.18), location: 0),
-        .init(color: Color(hex: "ECE3DC").opacity(0.16), location: 0.24),
-        .init(color: Color(hex: toColor).opacity(min(0.12, strength * 0.42)), location: 0.58),
-        .init(color: Color(hex: toColor).opacity(min(0.2, strength * 0.72)), location: 0.82),
-        .init(color: Color(hex: toColor).opacity(min(0.32, strength * 1.08)), location: 1),
+        .init(color: WeeklyPalette.sankeySourceStart.opacity(0.18), location: 0),
+        .init(color: WeeklyPalette.sankeySourceMid.opacity(0.16), location: 0.24),
+        .init(color: toColor.opacity(min(0.12, strength * 0.42)), location: 0.58),
+        .init(color: toColor.opacity(min(0.2, strength * 0.72)), location: 0.82),
+        .init(color: toColor.opacity(min(0.32, strength * 1.08)), location: 1),
       ]
     }
 
     return [
-      .init(color: Color(hex: fromColor).opacity(min(0.2, strength * 0.68)), location: 0),
-      .init(color: Color(hex: fromColor).opacity(min(0.11, strength * 0.4)), location: 0.24),
-      .init(color: Color(hex: toColor).opacity(min(0.05, strength * 0.2)), location: 0.54),
-      .init(color: Color(hex: toColor).opacity(min(0.12, strength * 0.42)), location: 0.78),
-      .init(color: Color(hex: toColor).opacity(min(0.27, strength * 0.9)), location: 1),
+      .init(color: fromColor.opacity(min(0.2, strength * 0.68)), location: 0),
+      .init(color: fromColor.opacity(min(0.11, strength * 0.4)), location: 0.24),
+      .init(color: toColor.opacity(min(0.05, strength * 0.2)), location: 0.54),
+      .init(color: toColor.opacity(min(0.12, strength * 0.42)), location: 0.78),
+      .init(color: toColor.opacity(min(0.27, strength * 0.9)), location: 1),
     ]
   }
 
-  private func sankeyRibbonTint(_ colorHex: String) -> String {
+  /// Ribbon tints are app-supplied hex strings. Near-black tints are lifted
+  /// per appearance: they are invisible on the dark canvas otherwise.
+  private func sankeyRibbonTint(_ colorHex: String) -> Color {
     let normalized = colorHex.replacingOccurrences(of: "#", with: "").uppercased()
     if normalized == "000000" || normalized == "333333" {
-      return "CAC2BA"
+      return Color.dayflowAdaptive(
+        light: NSColor(hex: "CAC2BA") ?? .gray,
+        dark: NSColor(hex: "DDDDDD") ?? .lightGray
+      )
     }
     if normalized == "D9D9D9" || normalized == "BFB6AE" {
-      return "CFC8C1"
+      return Color(hex: "CFC8C1")
     }
-    return normalized
+    return Color(hex: normalized)
   }
 
   private func flowIsRelated(_ flow: WeeklySankeyFlow, _ activeNodeID: String?) -> Bool {

@@ -60,6 +60,43 @@ enum WeeklyPalette {
     NSColor.white.withAlphaComponent(0.96), hex("272A3C", alpha: 0.96))
   static let shadow = adaptive(
     NSColor.black.withAlphaComponent(0.05), NSColor.black.withAlphaComponent(0.25))
+
+  // Interaction-graph / application-network category tints. Light keeps the
+  // pale Figma fills; dark re-tints the category border hue at low alpha so
+  // the chips and node shells read on the dark canvas.
+  static let workFill = adaptive(hex("EEF3FF"), hex("4779E9", alpha: 0.18))
+  static let personalFill = adaptive(hex("E6E6E6"), NSColor.white.withAlphaComponent(0.12))
+  static let distractionFill = adaptive(hex("FFDCCF"), hex("FC7645", alpha: 0.18))
+  static let workShellTop = adaptive(hex("EEF3FF"), hex("4779E9", alpha: 0.28))
+  static let workShellBottom = adaptive(hex("F8FAFF"), hex("4779E9", alpha: 0.14))
+  static let personalShellTop = adaptive(hex("EFECE8"), NSColor.white.withAlphaComponent(0.16))
+  static let personalShellBottom = adaptive(hex("F8F6F4"), NSColor.white.withAlphaComponent(0.07))
+  static let distractionShellTop = adaptive(hex("FFDCCF"), hex("FC7645", alpha: 0.30))
+  static let distractionShellBottom = adaptive(hex("F8F2EE"), hex("FC7645", alpha: 0.14))
+  // Halo ring around the primary application node.
+  static let primaryNodeHalo = adaptive(
+    hex("EEF3FF", alpha: 0.98), NSColor.white.withAlphaComponent(0.35))
+  // Monogram marks on category nodes: hue-colored in light, lifted in dark so
+  // they stay readable on the darker shells.
+  static let workMark = adaptive(hex("4779E9"), hex("A9C3FF"))
+  static let neutralMark = adaptive(hex("8D8C8A"), hex("DDDDDD"))
+  // Distraction pill fill (FFECE5 pairs with the FF7C5A accent, a warmer hue
+  // than the graph's FC7645 distraction border).
+  static let distractionPillFill = adaptive(hex("FFECE5"), hex("FF7C5A", alpha: 0.18))
+  // Generic pictogram colors that disappear on dark shells.
+  static let glyphLabel = adaptive(.black, .white)
+  static let cubeFill = adaptive(hex("2B2724"), hex("E8E8E8"))
+  static let barsStrong = adaptive(hex("606067"), hex("B9B9C2"))
+  static let barsMid = adaptive(hex("7E7E85"), hex("9A9AA4"))
+  static let bullseyeStrong = adaptive(hex("69751E"), hex("C9D96A"))
+  // Sankey ribbon washes: warm paper tints in light, cool panel-matching
+  // tints in dark (the stop opacities are unchanged).
+  static let sankeyWash1 = adaptive(hex("E6DBD1"), hex("7F7A94"))
+  static let sankeyWash2 = adaptive(hex("EFE9E3"), hex("767C92"))
+  static let sankeyWash3 = adaptive(hex("F4EEE9"), hex("6E7488"))
+  static let sankeyWash4 = adaptive(hex("F7F2ED"), hex("686E80"))
+  static let sankeySourceStart = adaptive(hex("E3D8CF"), hex("8589A0"))
+  static let sankeySourceMid = adaptive(hex("ECE3DC"), hex("7F8398"))
 }
 
 /// Finds the week the Weekly tab should open on. Pure so it can run off the main thread
