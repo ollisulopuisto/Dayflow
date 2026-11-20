@@ -348,8 +348,6 @@ struct WhatsNewView: View {
       guard releaseNote.githubStar != nil else { return }
       await checkGitHubStarStatus()
     }
-    .environment(\.colorScheme, .light)
-    .preferredColorScheme(.light)
   }
 
   private func dismiss() {
@@ -450,8 +448,6 @@ struct WhatsNewView: View {
       }
     }
     .padding(.top, 10)
-    .environment(\.colorScheme, .light)
-    .preferredColorScheme(.light)
   }
 
   private func weeklyFeedbackButton(_ option: WhatsNewWeeklyFeedback) -> some View {

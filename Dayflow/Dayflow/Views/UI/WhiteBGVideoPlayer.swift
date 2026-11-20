@@ -59,9 +59,16 @@ final class PlayerLayerView: NSView {
 }
 
 struct WhiteBGVideoPlayer: NSViewRepresentable {
+  /// The layer's loading/letterbox color: white in light mode, the shared dark
+  /// panel in dark mode.
+  static let defaultBackground: NSColor = NSColor(name: nil) { appearance in
+    let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    return isDark ? (NSColor(hex: "272A3C") ?? .black) : .white
+  }
+
   var player: AVPlayer?
   var videoGravity: AVLayerVideoGravity = .resizeAspect
-  var backgroundColor: NSColor = .white
+  var backgroundColor: NSColor = WhiteBGVideoPlayer.defaultBackground
   var onReadyForDisplay: ((Bool) -> Void)?
 
   func makeNSView(context: Context) -> PlayerLayerView {
