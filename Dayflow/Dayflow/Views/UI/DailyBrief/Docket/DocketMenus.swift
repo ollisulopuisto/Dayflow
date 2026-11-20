@@ -150,8 +150,8 @@ private struct DocketGearMenu: View {
     .padding(12)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(shape.fill(.ultraThinMaterial))
-    .background(shape.fill(Color(red: 1, green: 254 / 255, blue: 254 / 255).opacity(0.85)))
-    .overlay(shape.strokeBorder(Color(hex: "F0E5E1"), lineWidth: 1))
+    .background(shape.fill(DocketColors.menuPanel))
+    .overlay(shape.strokeBorder(DocketColors.menuBorder, lineWidth: 1))
     .padding(.top, corners == .top ? 0 : -1)
   }
 
@@ -222,10 +222,10 @@ private struct DocketFolderMenu: View {
     .padding(.leading, 13)
     .padding(.trailing, 12)
     .frame(width: 200.29, alignment: .leading)
-    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "FFFDFC")))
+    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DocketColors.popupFill))
     .overlay(
       RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(
-        Color(hex: "EFE4E1"), lineWidth: 1)
+        DocketColors.menuBorder, lineWidth: 1)
     )
     .shadow(color: Color.black.opacity(0.1), radius: 3, y: 2)
   }
@@ -312,10 +312,10 @@ struct DocketAskPopup: View {
     VStack(alignment: .leading, spacing: 0) {
       Text("HELP US IMPROVE THE PRODUCT")
         .font(DailyBriefFonts.sans(12, weight: .medium))
-        .foregroundStyle(Color(hex: "AB8C82"))
+        .foregroundStyle(DocketColors.mutedBrown)
         .padding(.bottom, 10)
 
-      (Text("You dismissed ").foregroundColor(Color(hex: "8A8A8A"))
+      (Text("You dismissed ").foregroundColor(DocketColors.grayText)
         + Text(title).fontWeight(.medium).foregroundColor(DocketColors.ink))
         .font(DailyBriefFonts.sans(13))
         .lineSpacing(3)
@@ -339,7 +339,7 @@ struct DocketAskPopup: View {
                 .frame(width: 16, height: 16)
               Text(option)
                 .font(DailyBriefFonts.sans(13))
-                .foregroundStyle(Color(hex: "4E4E4E"))
+                .foregroundStyle(DocketColors.fieldText)
                 .fixedSize(horizontal: false, vertical: true)
               Spacer(minLength: 0)
             }
@@ -389,7 +389,7 @@ struct DocketAskPopup: View {
       RoundedRectangle(cornerRadius: 12, style: .continuous)
         .fill(
           LinearGradient(
-            colors: [.white, Color(hex: "FFF8F5")], startPoint: .top, endPoint: .bottom))
+            colors: [DocketColors.popupTop, DocketColors.popupBottom], startPoint: .top, endPoint: .bottom))
     )
     .overlay {
       if isSubmitted {
@@ -398,7 +398,7 @@ struct DocketAskPopup: View {
     }
     .overlay(
       RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(
-        Color(hex: "F0E5E1"), lineWidth: 1)
+        DocketColors.menuBorder, lineWidth: 1)
     )
     .overlay(alignment: .topTrailing) {
       Button(action: close) {
@@ -426,14 +426,9 @@ struct DocketAskPopup: View {
         .fill(
           LinearGradient(
             stops: [
-              .init(
-                color: Color(red: 1, green: 241 / 255, blue: 232 / 255).opacity(0.61), location: 0),
-              .init(
-                color: Color(red: 234 / 255, green: 197 / 255, blue: 188 / 255).opacity(0.61),
-                location: 0.5048),
-              .init(
-                color: Color(red: 174 / 255, green: 190 / 255, blue: 230 / 255).opacity(0.61),
-                location: 1),
+              .init(color: DocketColors.veilTop, location: 0),
+              .init(color: DocketColors.veilMid, location: 0.5048),
+              .init(color: DocketColors.veilBottom, location: 1),
             ], startPoint: .top, endPoint: .bottom))
       Text("SUBMITTED")
         .font(DailyBriefFonts.sans(18, weight: .semibold))
