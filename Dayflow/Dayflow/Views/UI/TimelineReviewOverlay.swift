@@ -107,7 +107,7 @@ struct TimelineReviewOverlay: View {
 
   private var overlayBackground: some View {
     Rectangle()
-      .fill(Color(hex: "FBE9E0").opacity(0.92))
+      .fill(TimelineReviewPalette.backdrop)
       .ignoresSafeArea()
   }
 
@@ -124,8 +124,8 @@ struct TimelineReviewOverlay: View {
             .frame(width: 28, height: 28)
             .background(
               Circle()
-                .fill(Color.white.opacity(0.7))
-                .overlay(Circle().stroke(Color(hex: "DABCA4"), lineWidth: 1))
+                .fill(TimelineReviewPalette.closeFill)
+                .overlay(Circle().stroke(TimelineReviewPalette.closeStroke, lineWidth: 1))
             )
         }
         .buttonStyle(.plain)
@@ -220,7 +220,7 @@ struct TimelineReviewOverlay: View {
     VStack(spacing: 14) {
       Text("Swipe on each card on your Timeline to review your day.")
         .font(.custom("Figtree", size: 14).weight(.medium))
-        .foregroundColor(Color(hex: "98806D"))
+        .foregroundColor(TimelineReviewPalette.taupe)
         .lineLimit(1)
         .minimumScaleFactor(0.95)
 
@@ -237,12 +237,12 @@ struct TimelineReviewOverlay: View {
       VStack(spacing: 12) {
         Text("All caught up!")
           .font(.custom("InstrumentSerif-Regular", size: 40))
-          .foregroundColor(Color(hex: "333333"))
+          .foregroundColor(TimelineReviewPalette.ink)
         Text(
           "You've reviewed all your activities so far.\nThe Timeline right panel will be updated with your rating."
         )
         .font(.custom("Figtree", size: 16).weight(.medium))
-        .foregroundColor(Color(hex: "333333"))
+        .foregroundColor(TimelineReviewPalette.ink)
         .multilineTextAlignment(.center)
       }
 
@@ -253,14 +253,14 @@ struct TimelineReviewOverlay: View {
       } label: {
         Text("Close")
           .font(.custom("Figtree", size: 14).weight(.semibold))
-          .foregroundColor(Color(hex: "333333"))
+          .foregroundColor(TimelineReviewPalette.ink)
           .padding(.horizontal, 24)
           .padding(.vertical, 10)
           .background(
             Capsule()
               .fill(
                 LinearGradient(
-                  colors: [Color(hex: "FFF9F1").opacity(0.9), Color(hex: "FDE8D1").opacity(0.9)],
+                  colors: [TimelineReviewPalette.capsuleTop, TimelineReviewPalette.capsuleBottom],
                   startPoint: .topLeading,
                   endPoint: .bottomTrailing
                 )
@@ -280,10 +280,10 @@ struct TimelineReviewOverlay: View {
     VStack(spacing: 12) {
       Text("Nothing to review yet")
         .font(.custom("InstrumentSerif-Regular", size: 28))
-        .foregroundColor(Color(hex: "333333"))
+        .foregroundColor(TimelineReviewPalette.ink)
       Text("Come back after a few timeline cards appear.")
         .font(.custom("Figtree", size: 14).weight(.medium))
-        .foregroundColor(Color(hex: "707070"))
+        .foregroundColor(TimelineReviewPalette.subtext)
     }
   }
 

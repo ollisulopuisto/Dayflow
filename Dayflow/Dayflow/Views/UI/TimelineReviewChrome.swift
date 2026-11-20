@@ -135,7 +135,7 @@ struct TimelineReviewCategoryPill: View {
       Circle().fill(color).frame(width: 8, height: 8)
       Text(name)
         .font(.custom("Figtree", size: 10).weight(.bold))
-        .foregroundColor(Color(hex: "333333"))
+        .foregroundColor(TimelineReviewPalette.ink)
     }
     .padding(.horizontal, 6)
     .padding(.vertical, 4)
@@ -151,12 +151,12 @@ struct TimelineReviewTimeRangePill: View {
   var body: some View {
     Text(timeRange)
       .font(.custom("Figtree", size: 10).weight(.bold))
-      .foregroundColor(Color(hex: "656565"))
+      .foregroundColor(TimelineReviewPalette.pillText)
       .padding(.horizontal, 6)
       .padding(.vertical, 4)
-      .background(Color(hex: "F5F0E9").opacity(0.9))
+      .background(TimelineReviewPalette.pillFill)
       .cornerRadius(6)
-      .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(hex: "E4E4E4"), lineWidth: 0.75))
+      .overlay(RoundedRectangle(cornerRadius: 6).stroke(TimelineReviewPalette.pillStroke, lineWidth: 0.75))
   }
 }
 
@@ -181,7 +181,7 @@ struct TimelineReviewRatingRow: View {
         ZUndoIcon(size: 16)
         Text("Undo")
           .font(.custom("Figtree", size: 12).weight(.medium))
-          .foregroundColor(Color(hex: "98806D"))
+          .foregroundColor(TimelineReviewPalette.taupe)
       }
     }
     .buttonStyle(.plain)
@@ -196,7 +196,7 @@ struct TimelineReviewRatingRow: View {
         TimelineReviewFooterIcon(rating: rating, size: 16)
         Text(rating.title)
           .font(.custom("Figtree", size: 12).weight(.medium))
-          .foregroundColor(Color(hex: "98806D"))
+          .foregroundColor(TimelineReviewPalette.taupe)
       }
     }
     .buttonStyle(.plain)
@@ -334,7 +334,7 @@ struct SummaryLabelRow: View {
           }
           Text(formatDuration(duration))
             .font(.custom("Figtree", size: 16).weight(.semibold))
-            .foregroundColor(Color(hex: "333333"))
+            .foregroundColor(TimelineReviewPalette.ink)
             .padding(.leading, 18)
         }
       }
