@@ -320,9 +320,7 @@ struct DayflowApp: App {
         }
       }
       // Use an explicit scheme even for System; clearing an override can lag until focus changes.
-      .preferredColorScheme(
-        didOnboard ? appearance.colorScheme(system: systemAppearance.colorScheme) : .light
-      )
+      .preferredColorScheme(appearance.colorScheme(system: systemAppearance.colorScheme))
       .resolveDayflowTheme()
       .resolveStylePreview()
       .onAppear {

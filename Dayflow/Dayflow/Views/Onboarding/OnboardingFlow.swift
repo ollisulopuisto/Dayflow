@@ -240,7 +240,6 @@ struct OnboardingFlow: View {
       // Background at parent level - fills entire window!
       OnboardingBackdrop()
     }
-    .preferredColorScheme(.light)
     .alert(
       "Couldn't save your provider",
       isPresented: Binding(

@@ -154,7 +154,6 @@ struct HowItWorksView: View {
       .padding(.horizontal, 40)
       .padding(.bottom, 40)
     }
-    .preferredColorScheme(.light)
   }
 }
 

@@ -123,7 +123,6 @@ struct LLMProviderSetupView: View {
       setupState.configureSteps(for: providerType)
       animateAppearance()
     }
-    .preferredColorScheme(.light)
     .alert(
       "Couldn't finish setup",
       isPresented: Binding(

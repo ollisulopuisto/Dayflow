@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+- Onboarding follows the appearance setting: the warm backdrop, setup cards, provider setup, permission steps and sidebar use adaptive colors in dark mode instead of staying light-only.
+- Agents and Chat follow dark mode: the tool-call bubbles, workstream blobs, status chips, highlight pills, thread cards and the tab's cream canvas use adaptive colors that switch with the appearance setting.
+
 ### Fixed
 - Dark mode sweep: the Timeline review overlay (backdrop, cards, pills, rating row and summary), the Settings > Account plan cards and sign-in sheet, and the Daily Brief page base and wash now resolve per appearance instead of staying light. The plan cards no longer stay light "like printed cards"; their glow artwork is deepened by a dark wash. Rating, category, status and brand accent colors are unchanged, and the Daily Brief menu-bar notice keeps its painted card artwork in both modes.
 - Daily Brief docket dark mode: the docket's cream cards, menus, pop-ups, pills and summary card now resolve per appearance through DocketColors, matching the shared dark card and panel family. The page background uses the dark window gradient, the prompt fade matches the card color, and the summary halo and "submitted" veil become a warm glow instead of a white bloom. Avatar gradients, app icons and the peach call-to-action are unchanged.
