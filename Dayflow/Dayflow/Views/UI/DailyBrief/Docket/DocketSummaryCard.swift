@@ -33,12 +33,13 @@ struct DocketSummaryCard: View {
     .frame(width: 676, height: Self.height)
     .background(
       EllipticalGradient(
-        colors: [Color(hex: "FFE6D6"), Color(hex: "E8EEFF")],
+        colors: [DocketColors.summaryTop, DocketColors.summaryBottom],
         center: UnitPoint(x: 0.49, y: 1.02), startRadiusFraction: 0, endRadiusFraction: 1.02)
     )
     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
     .overlay(
-      RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.white, lineWidth: 1)
+      RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(
+        DocketColors.summaryBorder, lineWidth: 1)
     )
     .shadow(color: Color.black.opacity(0.06), radius: 5, y: 2)
     .onAppear {
@@ -99,12 +100,12 @@ struct DocketSummaryCard: View {
         startControlPoint: UnitPoint(x: 0.22, y: 0.61), endControlPoint: UnitPoint(x: 0.36, y: 1)))
     return EllipticalGradient(
       stops: [
-        .init(color: .white.opacity(0.93), location: 0),
-        .init(color: .white.opacity(0.93), location: 0.28),
-        .init(color: .white.opacity(0.8), location: 0.46),
-        .init(color: .white.opacity(0.46), location: 0.64),
-        .init(color: .white.opacity(0.12), location: 0.82),
-        .init(color: .white.opacity(0), location: 1),
+        .init(color: DocketColors.summaryHalo.opacity(0.93), location: 0),
+        .init(color: DocketColors.summaryHalo.opacity(0.93), location: 0.28),
+        .init(color: DocketColors.summaryHalo.opacity(0.8), location: 0.46),
+        .init(color: DocketColors.summaryHalo.opacity(0.46), location: 0.64),
+        .init(color: DocketColors.summaryHalo.opacity(0.12), location: 0.82),
+        .init(color: DocketColors.summaryHalo.opacity(0), location: 1),
       ], center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5
     )
     .opacity(p)

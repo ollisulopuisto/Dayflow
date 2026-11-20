@@ -194,12 +194,12 @@ struct DocketCardContent: View {
         // The second line fades into the card.
         LinearGradient(
           stops: [
-            .init(color: Color(hex: "FFFBFA").opacity(0), location: 0),
-            .init(color: Color(hex: "FFFBFA").opacity(0.46), location: 0.17),
-            .init(color: Color(hex: "FFFBFA").opacity(0.71), location: 0.33),
-            .init(color: Color(hex: "FFFBFA").opacity(0.77), location: 0.5),
-            .init(color: Color(hex: "FFFBFA").opacity(0.83), location: 0.67),
-            .init(color: Color(hex: "FFFBFA").opacity(0.9), location: 1),
+            .init(color: DocketColors.cardFade.opacity(0), location: 0),
+            .init(color: DocketColors.cardFade.opacity(0.46), location: 0.17),
+            .init(color: DocketColors.cardFade.opacity(0.71), location: 0.33),
+            .init(color: DocketColors.cardFade.opacity(0.77), location: 0.5),
+            .init(color: DocketColors.cardFade.opacity(0.83), location: 0.67),
+            .init(color: DocketColors.cardFade.opacity(0.9), location: 1),
           ], startPoint: .top, endPoint: .bottom
         )
         .frame(height: 59.3)
@@ -248,7 +248,7 @@ private struct DocketOpenPrompt: View {
           )
           .overlay(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-              .strokeBorder(Color(hex: "EFE7E2"), lineWidth: 1)
+              .strokeBorder(DocketColors.editBorder, lineWidth: 1)
           )
           .shadow(color: Color(red: 1, green: 114 / 255, blue: 43 / 255).opacity(0.25), radius: 2.5)
           .padding(.horizontal, -13)
@@ -387,7 +387,7 @@ struct DocketCountsRow: View {
   let item: DailyBriefDocketItem
   @Binding var panel: DocketPanel?
   /// The list view uses a fainter background for the open count.
-  var openFill = Color(hex: "F8F1F0")
+  var openFill = DocketColors.countOpenFill
 
   var body: some View {
     HStack(spacing: 19) {
@@ -628,7 +628,7 @@ private struct DocketFeedbackRow: View {
       Text(entry.text)
         .font(DailyBriefFonts.sans(14))
         .lineSpacing(4)
-        .foregroundStyle(Color(hex: "727272"))
+        .foregroundStyle(DocketColors.feedbackText)
         .fixedSize(horizontal: false, vertical: true)
         .textSelection(.enabled)
         .padding(.leading, 25)
