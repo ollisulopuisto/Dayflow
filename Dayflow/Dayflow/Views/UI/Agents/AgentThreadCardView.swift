@@ -38,13 +38,13 @@ struct AgentThreadCardView: View {
 
       footer
     }
-    .background(Color.white)
+    .background(AgentsPalette.cardSolid)
     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 12, style: .continuous)
-        .stroke(Color.black.opacity(0.07), lineWidth: 1)
+        .stroke(Color.agentsStroke(0.07), lineWidth: 1)
     )
-    .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 6)
+    .shadow(color: Color.agentsShadow(0.08), radius: 14, x: 0, y: 6)
   }
 
   // MARK: - Chrome
@@ -53,12 +53,12 @@ struct AgentThreadCardView: View {
     HStack(spacing: 7) {
       Image(systemName: thread.source == .claude ? "asterisk" : "circle.hexagongrid")
         .font(.system(size: 10, weight: .semibold))
-        .foregroundColor(.black.opacity(0.45))
+        .foregroundColor(Color.agentsInk(0.45))
 
       Text(headerTitle)
         .font(.custom("Figtree", size: 12))
         .fontWeight(.medium)
-        .foregroundColor(.black.opacity(0.6))
+        .foregroundColor(Color.agentsInk(0.6))
         .lineLimit(1)
 
       Spacer()
@@ -67,7 +67,7 @@ struct AgentThreadCardView: View {
     }
     .padding(.horizontal, 14)
     .padding(.vertical, 9)
-    .background(Color(hex: "F1EFED"))
+    .background(AgentsPalette.wellFill)
   }
 
   private var headerTitle: String {
@@ -84,7 +84,7 @@ struct AgentThreadCardView: View {
         Image(systemName: "arrow.up.right")
           .font(.system(size: 8.5, weight: .semibold))
       }
-      .foregroundColor(.black.opacity(0.4))
+      .foregroundColor(Color.agentsInk(0.4))
     }
     .buttonStyle(.plain)
     .disabled(thread.sessionPath.isEmpty)
@@ -97,7 +97,7 @@ struct AgentThreadCardView: View {
       Button(action: onToggleKept) {
         Image(systemName: isKept ? "star.fill" : "star")
           .font(.system(size: 13))
-          .foregroundColor(isKept ? Color(hex: "F96E00") : .black.opacity(0.4))
+          .foregroundColor(isKept ? Color(hex: "F96E00") : Color.agentsInk(0.4))
       }
       .buttonStyle(.plain)
       .hoverScaleEffect(scale: 1.1)
@@ -115,7 +115,7 @@ struct AgentThreadCardView: View {
           Image(systemName: "chevron.up.chevron.down")
             .font(.system(size: 9))
         }
-        .foregroundColor(.black.opacity(0.4))
+        .foregroundColor(Color.agentsInk(0.4))
       }
       .buttonStyle(.plain)
       .hoverScaleEffect(scale: 1.03)
@@ -146,17 +146,17 @@ struct AgentThreadCardView: View {
       HStack(spacing: 4) {
         Text(thread.firstPrompt)
           .font(.custom("Figtree", size: 13))
-          .foregroundColor(.black.opacity(0.5))
+          .foregroundColor(Color.agentsInk(0.5))
           .lineLimit(2)
         Image(systemName: "chevron.right")
           .font(.system(size: 9, weight: .semibold))
-          .foregroundColor(.black.opacity(0.3))
+          .foregroundColor(Color.agentsInk(0.3))
       }
 
       Text(thread.latestOutcome.isEmpty ? thread.title : thread.latestOutcome)
         .font(.custom("Figtree", size: 15))
         .fontWeight(.semibold)
-        .foregroundColor(.black.opacity(0.85))
+        .foregroundColor(Color.agentsInk(0.85))
         .fixedSize(horizontal: false, vertical: true)
 
       AgentStatusChipView(status: thread.status)
@@ -188,10 +188,10 @@ private struct MessengerTurnsView: View {
       }
       Text(turn.text)
         .font(.custom("Figtree", size: 13))
-        .foregroundColor(.black.opacity(0.72))
+        .foregroundColor(Color.agentsInk(0.72))
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .background(Color(hex: "F4F3F1"))
+        .background(AgentsPalette.wellFillAlt)
         .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
     }
     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -209,7 +209,7 @@ private struct MessengerTurnsView: View {
 
       Text(turn.text)
         .font(.custom("Figtree", size: 13))
-        .foregroundColor(.black.opacity(0.62))
+        .foregroundColor(Color.agentsInk(0.62))
         .fixedSize(horizontal: false, vertical: true)
 
       AgentTurnBulletsView(bullets: turn.bullets)
@@ -230,7 +230,7 @@ private struct TranscriptTurnsView: View {
       Text(thread.title)
         .font(.custom("Figtree", size: 14))
         .fontWeight(.semibold)
-        .foregroundColor(.black.opacity(0.85))
+        .foregroundColor(Color.agentsInk(0.85))
         .padding(.bottom, 3)
 
       ForEach(thread.turns) { turn in
@@ -244,14 +244,14 @@ private struct TranscriptTurnsView: View {
     let base = HStack(alignment: .top, spacing: 10) {
       Image(systemName: turn.role == .user ? "person.fill" : "sparkle")
         .font(.system(size: 10))
-        .foregroundColor(.black.opacity(0.4))
+        .foregroundColor(Color.agentsInk(0.4))
         .frame(width: 14)
         .padding(.top, 2.5)
 
       VStack(alignment: .leading, spacing: 5) {
         Text(turn.text)
           .font(.custom("Figtree", size: 13))
-          .foregroundColor(.black.opacity(0.68))
+          .foregroundColor(Color.agentsInk(0.68))
           .fixedSize(horizontal: false, vertical: true)
         AgentTurnBulletsView(bullets: turn.bullets)
         AgentArtifactChipView(turn: turn)
@@ -299,7 +299,7 @@ private struct BriefTurnsView: View {
           Text(turn.text)
             .font(.custom("Figtree", size: 13))
             .fontWeight(.medium)
-            .foregroundColor(.black.opacity(0.75))
+            .foregroundColor(Color.agentsInk(0.75))
             .fixedSize(horizontal: false, vertical: true)
           AgentTurnBulletsView(bullets: turn.bullets)
           AgentArtifactChipView(turn: turn)
@@ -318,21 +318,21 @@ private struct MilestonesView: View {
     VStack(alignment: .leading, spacing: 12) {
       Text(thread.firstPrompt)
         .font(.custom("Figtree", size: 13))
-        .foregroundColor(.black.opacity(0.5))
+        .foregroundColor(Color.agentsInk(0.5))
 
       if !thread.milestoneTexts.isEmpty {
         VStack(alignment: .leading, spacing: 7) {
           ForEach(Array(thread.milestoneTexts.enumerated()), id: \.offset) { _, milestone in
             Text(milestone)
               .font(.custom("Figtree", size: 12))
-              .foregroundColor(.black.opacity(0.45))
+              .foregroundColor(Color.agentsInk(0.45))
               .fixedSize(horizontal: false, vertical: true)
           }
         }
         .padding(.leading, 12)
         .overlay(alignment: .leading) {
           RoundedRectangle(cornerRadius: 1)
-            .fill(Color.black.opacity(0.12))
+            .fill(Color.agentsInk(0.12))
             .frame(width: 2)
         }
       }
@@ -340,7 +340,7 @@ private struct MilestonesView: View {
       Text(thread.latestOutcome.isEmpty ? thread.title : thread.latestOutcome)
         .font(.custom("Figtree", size: 15))
         .fontWeight(.semibold)
-        .foregroundColor(.black.opacity(0.85))
+        .foregroundColor(Color.agentsInk(0.85))
         .fixedSize(horizontal: false, vertical: true)
     }
   }
@@ -405,7 +405,7 @@ struct AgentStatusChipView: View {
       .padding(.vertical, 4)
       .background(AgentsPalette.chipBackground(for: status))
       .clipShape(Capsule())
-      .overlay(Capsule().stroke(Color.black.opacity(0.05), lineWidth: 0.5))
+      .overlay(Capsule().stroke(Color.agentsStroke(0.05), lineWidth: 0.5))
   }
 }
 
@@ -419,10 +419,10 @@ struct AgentTurnBulletsView: View {
           HStack(alignment: .top, spacing: 6) {
             Text("•")
               .font(.custom("Figtree", size: 12))
-              .foregroundColor(.black.opacity(0.35))
+              .foregroundColor(Color.agentsInk(0.35))
             Text(bullet)
               .font(.custom("Figtree", size: 12))
-              .foregroundColor(.black.opacity(0.55))
+              .foregroundColor(Color.agentsInk(0.55))
               .fixedSize(horizontal: false, vertical: true)
           }
         }
@@ -443,19 +443,19 @@ struct AgentArtifactChipView: View {
         HStack(spacing: 7) {
           Image(systemName: "doc.fill")
             .font(.system(size: 11))
-            .foregroundColor(.black.opacity(0.75))
+            .foregroundColor(Color.agentsInk(0.75))
           Text(name)
             .font(.custom("Figtree", size: 12))
             .fontWeight(.medium)
-            .foregroundColor(.black.opacity(0.75))
+            .foregroundColor(Color.agentsInk(0.75))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color(hex: "F6F5F3"))
+        .background(AgentsPalette.footerFill)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .stroke(Color.black.opacity(0.06), lineWidth: 1)
+            .stroke(Color.agentsStroke(0.06), lineWidth: 1)
         )
       }
       .buttonStyle(.plain)

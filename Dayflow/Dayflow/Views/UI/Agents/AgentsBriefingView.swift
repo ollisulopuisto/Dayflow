@@ -34,7 +34,7 @@ struct AgentsBriefingView: View {
       VStack(spacing: 22) {
         Text(workstream.name)
           .font(.custom("InstrumentSerif-Regular", size: 38))
-          .foregroundColor(.black.opacity(0.85))
+          .foregroundColor(Color.agentsInk(0.85))
 
         bullets
       }
@@ -73,11 +73,11 @@ struct AgentsBriefingView: View {
     Button(action: onBack) {
       Image(systemName: "chevron.left")
         .font(.system(size: 12, weight: .semibold))
-        .foregroundColor(.black.opacity(0.5))
+        .foregroundColor(Color.agentsInk(0.5))
         .frame(width: 28, height: 28)
-        .background(Color.white.opacity(0.8))
+        .background(AgentsPalette.cardFillSoft)
         .clipShape(Circle())
-        .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+        .overlay(Circle().stroke(Color.agentsStroke(0.06), lineWidth: 1))
     }
     .buttonStyle(.plain)
     .hoverScaleEffect(scale: 1.05)
@@ -93,11 +93,11 @@ struct AgentsBriefingView: View {
         HStack(alignment: .top, spacing: 9) {
           Image(systemName: "sparkle")
             .font(.system(size: 10))
-            .foregroundColor(.black.opacity(0.4))
+            .foregroundColor(Color.agentsInk(0.4))
             .padding(.top, 3)
           Text(line)
             .font(.custom("Figtree", size: 13.5))
-            .foregroundColor(.black.opacity(0.72))
+            .foregroundColor(Color.agentsInk(0.72))
             .fixedSize(horizontal: false, vertical: true)
         }
       }
@@ -131,9 +131,9 @@ struct AgentsBriefingView: View {
           .font(.custom("Figtree", size: 13))
           .fontWeight(.semibold)
       },
-      background: Color(hex: "FFF1E5"),
-      foreground: Color(hex: "F96E00"),
-      borderColor: Color(hex: "F9D9BD"),
+      background: AgentsPalette.reviewBackground,
+      foreground: AgentsPalette.reviewForeground,
+      borderColor: AgentsPalette.reviewBorder,
       cornerRadius: 9,
       horizontalPadding: 20,
       verticalPadding: 10,
