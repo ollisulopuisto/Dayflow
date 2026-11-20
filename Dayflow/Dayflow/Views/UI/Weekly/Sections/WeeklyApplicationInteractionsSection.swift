@@ -61,9 +61,9 @@ private struct WeeklyApplicationNetworkPane: View {
       }
 
       HStack(spacing: 30) {
-        legendItem("Work", border: Color(hex: "4779E9"), fill: Color(hex: "EEF3FF"))
-        legendItem("Personal", border: Color(hex: "B8B8B8"), fill: Color(hex: "E6E6E6"))
-        legendItem("Distraction", border: Color(hex: "FF7C5A"), fill: Color(hex: "FFDCCF"))
+        legendItem("Work", border: Color(hex: "4779E9"), fill: WeeklyPalette.workFill)
+        legendItem("Personal", border: Color(hex: "B8B8B8"), fill: WeeklyPalette.personalFill)
+        legendItem("Distraction", border: Color(hex: "FF7C5A"), fill: WeeklyPalette.distractionFill)
       }
       .offset(x: 158, y: 507)
     }
@@ -111,7 +111,7 @@ private struct WeeklyApplicationNodeView: View {
       .overlay {
         if node.isPrimary {
           Circle()
-            .stroke(Color(hex: "EEF3FF").opacity(0.98), lineWidth: 5)
+            .stroke(WeeklyPalette.primaryNodeHalo, lineWidth: 5)
             .padding(-5)
         }
       }
@@ -262,7 +262,7 @@ private func averagePill(
   tone: AverageTone = .work
 ) -> some View {
   let color = tone == .work ? Color(hex: "4779E9") : Color(hex: "FF7C5A")
-  let fill = tone == .work ? Color(hex: "EEF3FF") : Color(hex: "FFECE5")
+  let fill = tone == .work ? WeeklyPalette.workFill : WeeklyPalette.distractionPillFill
 
   return HStack(spacing: 4) {
     Circle()
@@ -450,17 +450,17 @@ struct WeeklyApplicationNode: Identifiable {
   var fill: LinearGradient {
     switch kind {
     case .work:
-      return LinearGradient(colors: [Color(hex: "EEF3FF")], startPoint: .top, endPoint: .bottom)
+      return LinearGradient(colors: [WeeklyPalette.workFill], startPoint: .top, endPoint: .bottom)
     case .personal:
       return LinearGradient(
-        colors: [Color(hex: "FFDCCF"), Color(hex: "E6E6E6")], startPoint: .top, endPoint: .bottom)
+        colors: [WeeklyPalette.distractionFill, WeeklyPalette.personalFill], startPoint: .top, endPoint: .bottom)
     case .distraction:
       return LinearGradient(
-        colors: [Color(hex: "FFDCCF"), Color(hex: "E6E6E6"), Color(hex: "EEF3FF")],
+        colors: [WeeklyPalette.distractionFill, WeeklyPalette.personalFill, WeeklyPalette.workFill],
         startPoint: .top, endPoint: .bottom)
     }
   }
-  var markColor: Color { kind == .work ? Color(hex: "4779E9") : Color(hex: "8D8C8A") }
+  var markColor: Color { kind == .work ? WeeklyPalette.workMark : WeeklyPalette.neutralMark }
   var shadowColor: Color { Color(hex: "EEF3FF").opacity(0.76) }
 }
 

@@ -8,11 +8,11 @@ enum WeeklyInteractionGraphCategory: String, CaseIterable {
   var fillColor: Color {
     switch self {
     case .work:
-      return Color(hex: "EEF3FF")
+      return WeeklyPalette.workFill
     case .personal:
-      return Color(hex: "E6E6E6")
+      return WeeklyPalette.personalFill
     case .distraction:
-      return Color(hex: "FFDCCF")
+      return WeeklyPalette.distractionFill
     }
   }
 
