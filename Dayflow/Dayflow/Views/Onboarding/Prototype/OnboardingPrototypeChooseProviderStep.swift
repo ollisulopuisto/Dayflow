@@ -258,7 +258,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
     Text(text)
       .font(.custom("Figtree", size: 14))
       .fontWeight(.semibold)
-      .foregroundColor(.black)
+      .foregroundColor(OnboardingPalette.prototypeHeading)
       .fixedSize(horizontal: false, vertical: true)
       .gridColumnAlignment(.leading)
   }
@@ -269,7 +269,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
       Text(provider.title)
         .font(.custom("Figtree", size: 16))
         .fontWeight(.semibold)
-        .foregroundColor(.black)
+        .foregroundColor(OnboardingPalette.prototypeHeading)
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -342,7 +342,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
         .frame(width: 10, height: 10)
       Text(value.text)
         .font(.custom("Figtree", size: 14))
-        .foregroundColor(.black)
+        .foregroundColor(OnboardingPalette.prototypeText)
         .fixedSize(horizontal: false, vertical: true)
     }
   }
@@ -350,7 +350,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
   private func subscriptionCell(_ text: String) -> some View {
     Text(text)
       .font(.custom("Figtree", size: 14))
-      .foregroundColor(.black)
+      .foregroundColor(OnboardingPalette.prototypeText)
       .multilineTextAlignment(.center)
       .fixedSize(horizontal: false, vertical: true)
       .frame(maxWidth: 170)
@@ -359,7 +359,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
   private func notesCell(_ text: String) -> some View {
     Text(text)
       .font(.custom("Figtree", size: 12))
-      .foregroundColor(.black)
+      .foregroundColor(OnboardingPalette.prototypeText)
       .multilineTextAlignment(.leading)
       .fixedSize(horizontal: false, vertical: true)
       .frame(maxWidth: 180)
