@@ -8,10 +8,22 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
+def first_numbered_heading(changelog):
+    """Return the first numbered release heading, skipping an Unreleased section."""
+    match = re.search(r'^## \[(\d[^\]]*)\]', changelog, re.MULTILINE)
+    return match.group(1) if match else None
+
+
 class UpstreamMergeContractTests(unittest.TestCase):
+    def test_changelog_version_skips_unreleased_heading(self):
+        sample = '# Changelog\n\n## [Unreleased]\n\n## [2.9.1] - 2026-11-21\n\n## [2.9.0] - 2026-11-11\n'
+        self.assertEqual(first_numbered_heading(sample), '2.9.1')
+        self.assertEqual(first_numbered_heading('## [Unreleased]\n## [3.0.0]\n'), '3.0.0')
+        self.assertIsNone(first_numbered_heading('## [Unreleased]\n'))
+
     def test_release_metadata_and_update_feed(self):
         info = plistlib.loads((ROOT / 'Dayflow/Dayflow/Info.plist').read_bytes())
-        latest_version = re.search(r'^## \[([^\]]+)\]', (ROOT / 'CHANGELOG.md').read_text(), re.MULTILINE).group(1)
+        latest_version = first_numbered_heading((ROOT / 'CHANGELOG.md').read_text())
         self.assertEqual(info['CFBundleShortVersionString'], latest_version)
         self.assertTrue(info['CFBundleVersion'].isdigit())
         self.assertNotIn('SUFeedURL', info)
