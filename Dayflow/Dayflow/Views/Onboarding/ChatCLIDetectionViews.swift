@@ -89,7 +89,7 @@ struct ChatCLIDetectionStepView: View {
   let selectedTool: CLITool?
   let onSelectTool: (CLITool) -> Void
 
-  let accentColor = Color(hex: "FF9F6F")
+  let accentColor = OnboardingPalette.accent
 
   var body: some View {
     VStack(alignment: .leading, spacing: 24) {
@@ -97,7 +97,7 @@ struct ChatCLIDetectionStepView: View {
         "Dayflow can talk to ChatGPT (via the Codex CLI) or Claude Code. You only need one installed and signed in on this Mac. After installing, run `codex login` or `claude login` in Terminal to connect it to your account."
       )
       .font(.custom("Figtree", size: 16))
-      .foregroundColor(Color(hex: "333333"))
+      .foregroundColor(OnboardingPalette.ink)
 
       HStack(alignment: .top, spacing: 18) {
         ChatCLIToolStatusRow(
@@ -116,14 +116,14 @@ struct ChatCLIDetectionStepView: View {
         "Tip: Once both are installed, you can choose which provider Dayflow uses from Settings → AI Provider."
       )
       .font(.custom("Figtree", size: 16))
-      .foregroundColor(Color(hex: "333333"))
+      .foregroundColor(OnboardingPalette.ink)
 
       VStack(alignment: .leading, spacing: 8) {
         VStack(alignment: .leading, spacing: 14) {
           Text("Choose which provider Dayflow should use")
             .font(.custom("Figtree", size: 14))
             .fontWeight(.medium)
-            .foregroundColor(Color(hex: "333333"))
+            .foregroundColor(OnboardingPalette.ink)
           HStack(spacing: 12) {
             ForEach(CLITool.allCases, id: \.self) { tool in
               selectionButton(for: tool)
@@ -132,11 +132,11 @@ struct ChatCLIDetectionStepView: View {
         }
         .padding(16)
         .frame(maxWidth: 516)
-        .background(Color.white.opacity(0.6))
+        .background(OnboardingPalette.cardFillMid)
         .cornerRadius(12)
         .overlay(
           RoundedRectangle(cornerRadius: 12)
-            .stroke(Color(hex: "EDE5E1"), lineWidth: 1)
+            .stroke(OnboardingPalette.neutralStroke, lineWidth: 1)
         )
 
         DayflowSurfaceButton(
@@ -159,15 +159,15 @@ struct ChatCLIDetectionStepView: View {
                 .fontWeight(.medium)
             }
           },
-          background: Color(hex: "FDCEA4"),
-          foreground: Color(hex: "926244"),
-          borderColor: Color(hex: "F1CEBC"),
+          background: OnboardingPalette.peachDeep,
+          foreground: OnboardingPalette.brownText,
+          borderColor: OnboardingPalette.hairlineWarm,
           cornerRadius: 200,
           horizontalPadding: 24,
           verticalPadding: 8,
           fixedHeight: 41,
           showOverlayStroke: false,
-          innerGlowColor: Color(hex: "FFECE6")
+          innerGlowColor: OnboardingPalette.peachFill
         )
         .disabled(isChecking)
       }
@@ -195,7 +195,7 @@ struct ChatCLIDetectionStepView: View {
         Image(systemName: selectedTool == tool ? "largecircle.fill.circle" : "circle")
           .font(.system(size: 22, weight: .regular))
           .frame(width: 24, height: 24)
-          .foregroundColor(selectedTool == tool ? accentColor : Color(hex: "D0C8C2"))
+          .foregroundColor(selectedTool == tool ? accentColor : OnboardingPalette.mutedWarm)
         VStack(alignment: .leading, spacing: 4) {
           Text(tool.shortName)
             .font(.custom("Figtree", size: 16))
@@ -203,7 +203,7 @@ struct ChatCLIDetectionStepView: View {
             .foregroundColor(.black)
           Text(enabled ? String(localized: "Ready to use") : String(localized: "Install to enable"))
             .font(.custom("Figtree", size: 12))
-            .foregroundColor(Color(hex: "727272"))
+            .foregroundColor(OnboardingPalette.bodyGray)
         }
       }
       .padding(.horizontal, 14)
@@ -211,11 +211,11 @@ struct ChatCLIDetectionStepView: View {
       .frame(maxWidth: .infinity, alignment: .leading)
       .background(
         RoundedRectangle(cornerRadius: 12)
-          .fill(Color.white.opacity(0.8))
+          .fill(OnboardingPalette.cardFillStrong)
       )
       .overlay(
         RoundedRectangle(cornerRadius: 12)
-          .stroke(Color(hex: "EDE5E1"), lineWidth: 1)
+          .stroke(OnboardingPalette.neutralStroke, lineWidth: 1)
       )
     }
     .buttonStyle(.plain)
@@ -228,7 +228,7 @@ struct ChatCLIToolStatusRow: View {
   let status: CLIDetectionState
   let onInstall: () -> Void
 
-  let accentColor = Color(hex: "FF9F6F")
+  let accentColor = OnboardingPalette.accent
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
@@ -261,7 +261,7 @@ struct ChatCLIToolStatusRow: View {
                 .fontWeight(.semibold)
             }
           },
-          background: .white.opacity(0.85),
+          background: OnboardingPalette.cardFillStrong,
           foreground: accentColor,
           borderColor: accentColor.opacity(0.35),
           cornerRadius: 6,
@@ -273,11 +273,11 @@ struct ChatCLIToolStatusRow: View {
     }
     .padding(14)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Color.white.opacity(0.9))
+    .background(OnboardingPalette.panelFill)
     .cornerRadius(12)
     .overlay(
       RoundedRectangle(cornerRadius: 12)
-        .stroke(Color(hex: "EDE5E1"), lineWidth: 1)
+        .stroke(OnboardingPalette.neutralStroke, lineWidth: 1)
     )
   }
 
@@ -290,29 +290,29 @@ struct ChatCLIToolStatusRow: View {
         Text(status.statusLabel)
           .font(.custom("Figtree", size: 12))
           .fontWeight(.semibold)
-          .foregroundColor(Color(hex: "634342"))
+          .foregroundColor(OnboardingPalette.warmText)
       }
       .padding(.horizontal, 8)
       .padding(.vertical, 4)
-      .background(Color(hex: "634342").opacity(0.08))
+      .background(OnboardingPalette.warmText.opacity(0.08))
       .cornerRadius(20)
     case .installed:
       Text(status.statusLabel)
         .font(.custom("Figtree", size: 12))
         .fontWeight(.semibold)
-        .foregroundColor(Color(hex: "21A638"))
+        .foregroundColor(OnboardingPalette.success)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Color(hex: "DEF3E0"))
+        .background(OnboardingPalette.successFill)
         .cornerRadius(20)
     case .notFound:
       Text(status.statusLabel)
         .font(.custom("Figtree", size: 11))
         .fontWeight(.semibold)
-        .foregroundColor(Color(hex: "E91515"))
+        .foregroundColor(OnboardingPalette.error)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(Color(hex: "FFD1D1"))
+        .background(OnboardingPalette.errorFill)
         .cornerRadius(999)
     case .failed:
       Text(status.statusLabel)

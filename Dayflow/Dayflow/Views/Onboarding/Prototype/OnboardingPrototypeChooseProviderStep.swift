@@ -122,7 +122,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
         .font(.custom("InstrumentSerif-Regular", size: 40))
         .tracking(-1.2)
         .multilineTextAlignment(.center)
-        .foregroundColor(Color(hex: "492304"))
+        .foregroundColor(OnboardingPalette.title)
         .frame(maxWidth: .infinity)
         .padding(.top, 12)
         .padding(.bottom, 24)
@@ -250,7 +250,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
 
   private var rowSeparator: some View {
     Rectangle()
-      .fill(Color.black.opacity(0.15))
+      .fill(Color.onboardingStroke(0.15))
       .frame(height: 0.75)
   }
 
@@ -258,7 +258,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
     Text(text)
       .font(.custom("Figtree", size: 14))
       .fontWeight(.semibold)
-      .foregroundColor(.black)
+      .foregroundColor(OnboardingPalette.prototypeHeading)
       .fixedSize(horizontal: false, vertical: true)
       .gridColumnAlignment(.leading)
   }
@@ -269,7 +269,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
       Text(provider.title)
         .font(.custom("Figtree", size: 16))
         .fontWeight(.semibold)
-        .foregroundColor(.black)
+        .foregroundColor(OnboardingPalette.prototypeHeading)
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -310,19 +310,19 @@ struct OnboardingPrototypeChooseProviderStep: View {
       .scaledToFit()
       .frame(width: 20, height: 20)
       .frame(width: 36, height: 36)
-      .background(Color.white.opacity(0.3))
+      .background(OnboardingPalette.cardFillFaint)
       .clipShape(Circle())
-      .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+      .overlay(Circle().stroke(Color.onboardingStroke(0.06), lineWidth: 1))
   }
 
   private func iconCircle(systemName: String) -> some View {
     Image(systemName: systemName)
       .font(.system(size: 14, weight: .medium))
-      .foregroundColor(.black.opacity(0.8))
+      .foregroundColor(Color.onboardingInk(0.8))
       .frame(width: 36, height: 36)
-      .background(Color.white.opacity(0.3))
+      .background(OnboardingPalette.cardFillFaint)
       .clipShape(Circle())
-      .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+      .overlay(Circle().stroke(Color.onboardingStroke(0.06), lineWidth: 1))
   }
 
   private func easeValue(for provider: ComparisonProvider) -> RatedValue {
@@ -342,7 +342,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
         .frame(width: 10, height: 10)
       Text(value.text)
         .font(.custom("Figtree", size: 14))
-        .foregroundColor(.black)
+        .foregroundColor(OnboardingPalette.prototypeText)
         .fixedSize(horizontal: false, vertical: true)
     }
   }
@@ -350,7 +350,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
   private func subscriptionCell(_ text: String) -> some View {
     Text(text)
       .font(.custom("Figtree", size: 14))
-      .foregroundColor(.black)
+      .foregroundColor(OnboardingPalette.prototypeText)
       .multilineTextAlignment(.center)
       .fixedSize(horizontal: false, vertical: true)
       .frame(maxWidth: 170)
@@ -359,7 +359,7 @@ struct OnboardingPrototypeChooseProviderStep: View {
   private func notesCell(_ text: String) -> some View {
     Text(text)
       .font(.custom("Figtree", size: 12))
-      .foregroundColor(.black)
+      .foregroundColor(OnboardingPalette.prototypeText)
       .multilineTextAlignment(.leading)
       .fixedSize(horizontal: false, vertical: true)
       .frame(maxWidth: 180)
@@ -383,14 +383,14 @@ struct OnboardingPrototypeChooseProviderStep: View {
           // around the word instead of cutting it to "Sel...".
           .fixedSize()
       },
-      background: Color(hex: "FF9F6F"),
+      background: OnboardingPalette.accent,
       foreground: .white,
-      borderColor: Color(hex: "F4C8B1"),
+      borderColor: OnboardingPalette.accentBorder,
       cornerRadius: 200,
       horizontalPadding: 20,
       verticalPadding: 8,
       showOverlayStroke: false,
-      innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+      innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
     )
   }
 }

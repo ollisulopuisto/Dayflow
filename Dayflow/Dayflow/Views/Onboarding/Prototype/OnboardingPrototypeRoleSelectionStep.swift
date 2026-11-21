@@ -33,7 +33,7 @@ struct OnboardingPrototypeRoleSelectionStep: View {
         .font(.custom("InstrumentSerif-Regular", size: 40))
         .tracking(-1.2)
         .multilineTextAlignment(.center)
-        .foregroundColor(Color(hex: "424242"))
+        .foregroundColor(OnboardingPalette.prototypeHeading)
         .lineSpacing(40 * 0.2)
         .frame(maxWidth: 708)
         .fixedSize(horizontal: false, vertical: true)
@@ -45,11 +45,11 @@ struct OnboardingPrototypeRoleSelectionStep: View {
         VStack(spacing: 4) {
           Text("What do you do for work?")
             .font(.custom("Figtree", size: 20))
-            .foregroundColor(Color(hex: "634D42"))
+            .foregroundColor(OnboardingPalette.prototypeText)
 
           Text("This will help Dayflow generate categories that are most helpful to you.")
             .font(.custom("Figtree", size: 20))
-            .foregroundColor(Color(hex: "634D42"))
+            .foregroundColor(OnboardingPalette.prototypeText)
         }
         .multilineTextAlignment(.center)
 
@@ -71,22 +71,22 @@ struct OnboardingPrototypeRoleSelectionStep: View {
         VStack(spacing: 16) {
           Text("Please specify")
             .font(.custom("Figtree", size: 20))
-            .foregroundColor(Color(hex: "634D42"))
+            .foregroundColor(OnboardingPalette.prototypeText)
 
           TextField("", text: $otherText)
             .font(.custom("Figtree", size: 16))
-            .foregroundColor(Color(hex: "634D42"))
+            .foregroundColor(OnboardingPalette.prototypeText)
             .textFieldStyle(.plain)
             .padding(.horizontal, 12)
             .frame(width: 353, height: 34)
-            .background(Color.white.opacity(0.4))
+            .background(OnboardingPalette.glass(0.4, 0.08))
             .cornerRadius(5)
             .overlay(
               RoundedRectangle(cornerRadius: 5)
-                .stroke(Color(hex: "E4D3C2"), lineWidth: 1)
+                .stroke(OnboardingPalette.fieldBorder, lineWidth: 1)
             )
             .shadow(
-              color: Color(hex: "AF7246").opacity(0.15),
+              color: OnboardingPalette.fieldShadow,
               radius: 2, x: 0, y: 0
             )
         }
@@ -107,15 +107,15 @@ struct OnboardingPrototypeRoleSelectionStep: View {
             .font(.custom("Figtree", size: 16))
             .fontWeight(.medium)
         },
-        background: Color(hex: "FF9F6F"),
+        background: OnboardingPalette.accent,
         foreground: .white,
-        borderColor: Color(hex: "F4C8B1"),
+        borderColor: OnboardingPalette.accentBorder,
         cornerRadius: 200,
         horizontalPadding: 59,
         verticalPadding: 18,
         minWidth: 234,
         showOverlayStroke: false,
-        innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+        innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
       )
       .opacity(resolvedRole == nil ? 0.4 : 1.0)
       .allowsHitTesting(resolvedRole != nil)
@@ -149,26 +149,26 @@ struct OnboardingPrototypeRoleSelectionStep: View {
     } label: {
       Text(roleTitle(role))
         .font(.custom("Figtree", size: 16))
-        .foregroundColor(Color(hex: "634D42"))
+        .foregroundColor(OnboardingPalette.prototypeText)
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
         .background(
           isSelected
             ? Color(red: 1, green: 0.898, blue: 0.812).opacity(0.4)
-            : Color.white.opacity(0.4)
+            : OnboardingPalette.glass(0.4, 0.08)
         )
         .clipShape(Capsule())
         .overlay(
           Capsule()
             .stroke(
-              isSelected ? Color(hex: "FFCCA7") : Color(hex: "E4D3C2"),
+              isSelected ? OnboardingPalette.selectedBorder : OnboardingPalette.fieldBorder,
               lineWidth: 1
             )
         )
         .shadow(
           color: isSelected
             ? Color(red: 1, green: 0.416, blue: 0).opacity(0.5)
-            : Color(hex: "AF7246").opacity(0.15),
+            : OnboardingPalette.fieldShadow,
           radius: isSelected ? 3 : 2, x: 0, y: 0
         )
     }

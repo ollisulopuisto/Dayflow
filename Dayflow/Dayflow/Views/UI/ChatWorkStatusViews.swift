@@ -18,7 +18,7 @@ struct WorkStatusCard: View {
         if status.stage == .error, let message = status.errorMessage, !message.isEmpty {
           Text(message)
             .font(.custom("Figtree", size: 12).weight(.semibold))
-            .foregroundColor(Color(hex: "C62828"))
+            .foregroundColor(Color.chatError(isDark: theme.isDark))
         }
 
         if !status.tools.isEmpty {
@@ -127,7 +127,7 @@ struct WorkStatusCard: View {
   var accentColor: Color {
     switch status.stage {
     case .error:
-      return Color(hex: "C62828")
+      return Color.chatError(isDark: theme.isDark)
     default:
       return theme.accentText
     }
@@ -136,7 +136,7 @@ struct WorkStatusCard: View {
   var backgroundColor: Color {
     switch status.stage {
     case .error:
-      return Color(hex: "C62828").opacity(0.12)
+      return Color.chatError(isDark: theme.isDark).opacity(0.12)
     default:
       return theme.chatSoftAccentFill
     }
@@ -145,7 +145,7 @@ struct WorkStatusCard: View {
   var borderColor: Color {
     switch status.stage {
     case .error:
-      return Color(hex: "C62828").opacity(0.35)
+      return Color.chatError(isDark: theme.isDark).opacity(0.35)
     default:
       return theme.chatSoftAccentBorder
     }
@@ -219,16 +219,24 @@ struct ToolStatusRow: View {
     case .failed:
       Image(systemName: "xmark.circle.fill")
         .font(.system(size: 12, weight: .semibold))
-        .foregroundColor(Color(hex: "C62828"))
+        .foregroundColor(Color.chatError(isDark: theme.isDark))
     }
   }
 
   var textColor: Color {
     switch tool.state {
     case .failed:
-      return Color(hex: "C62828")
+      return Color.chatError(isDark: theme.isDark)
     default:
       return theme.textPrimary
     }
+  }
+}
+
+extension Color {
+  /// Chat error red: C62828 on light fills, lifted to FF8A80 so it keeps its
+  /// contrast on the dark canvas.
+  static func chatError(isDark: Bool) -> Color {
+    isDark ? Color(hex: "FF8A80") : Color(hex: "C62828")
   }
 }

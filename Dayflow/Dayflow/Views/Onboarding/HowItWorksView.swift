@@ -85,7 +85,7 @@ struct HowItWorksView: View {
           content: { Text("Back").font(.custom("Figtree", size: 14)).fontWeight(.semibold) },
           background: .white,
           foreground: Color(red: 0.25, green: 0.17, blue: 0),
-          borderColor: Color(hex: "B6B6B6"),
+          borderColor: OnboardingPalette.neutralGray,
           cornerRadius: 200,
           horizontalPadding: 32,
           verticalPadding: 0,
@@ -113,14 +113,14 @@ struct HowItWorksView: View {
               Text("Star Dayflow on GitHub").font(.custom("Figtree", size: 14)).fontWeight(.medium)
             }
           },
-          background: Color(hex: "FF9F6F"),
+          background: OnboardingPalette.accent,
           foreground: .white,
-          borderColor: Color(hex: "F4C8B1"),
+          borderColor: OnboardingPalette.accentBorder,
           cornerRadius: 200,
           horizontalPadding: 24,
           verticalPadding: 12,
           showOverlayStroke: false,
-          innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+          innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
         )
 
         Spacer()
@@ -134,16 +134,16 @@ struct HowItWorksView: View {
             }
             .padding(.leading, 4)
           },
-          background: Color(hex: "FF9F6F"),
+          background: OnboardingPalette.accent,
           foreground: .white,
-          borderColor: Color(hex: "F4C8B1"),
+          borderColor: OnboardingPalette.accentBorder,
           cornerRadius: 200,
           horizontalPadding: 32,
           verticalPadding: 0,
           minWidth: 120,
           fixedHeight: 44,
           showOverlayStroke: false,
-          innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+          innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
         )
       }
       .frame(maxWidth: 600)  // Match card width
@@ -154,7 +154,6 @@ struct HowItWorksView: View {
       .padding(.horizontal, 40)
       .padding(.bottom, 40)
     }
-    .preferredColorScheme(.light)
   }
 }
 

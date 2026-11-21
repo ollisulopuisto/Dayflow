@@ -29,11 +29,11 @@ struct APIKeyInputView: View {
       Text(title)
         .font(.custom("Figtree", size: 16))
         .fontWeight(.semibold)
-        .foregroundColor(.black.opacity(0.9))
+        .foregroundColor(Color.onboardingInk(0.9))
 
       Text(subtitle)
         .font(.custom("Figtree", size: 14))
-        .foregroundColor(.black.opacity(0.6))
+        .foregroundColor(Color.onboardingInk(0.6))
 
       // Input field container
       VStack(alignment: .leading, spacing: 8) {
@@ -61,7 +61,7 @@ struct APIKeyInputView: View {
           Button(action: { showPassword.toggle() }) {
             Image(systemName: showPassword ? "eye.slash" : "eye")
               .font(.system(size: 14, weight: .medium))
-              .foregroundColor(.black.opacity(0.4))
+              .foregroundColor(Color.onboardingInk(0.4))
           }
           .buttonStyle(.plain)
           .pointingHandCursor()
@@ -74,14 +74,14 @@ struct APIKeyInputView: View {
             .font(.system(size: 16))
             .foregroundColor(
               validationState == .valid
-                ? Color(red: 0.34, green: 1, blue: 0.45) : Color(hex: "E91515")
+                ? Color(red: 0.34, green: 1, blue: 0.45) : OnboardingPalette.error
             )
             .transition(.scale.combined(with: .opacity))
           }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.8))
+        .background(OnboardingPalette.cardFillStrong)
         .cornerRadius(8)
         .overlay(
           RoundedRectangle(cornerRadius: 8)
@@ -92,7 +92,7 @@ struct APIKeyInputView: View {
         if validationState == .invalid {
           Text("API key should be more than 10 characters")
             .font(.custom("Figtree", size: 12))
-            .foregroundColor(Color(hex: "E91515"))
+            .foregroundColor(OnboardingPalette.error)
             .transition(.opacity)
         }
       }
@@ -108,7 +108,7 @@ struct APIKeyInputView: View {
           "Your API key is encrypted and stored in your macOS Keychain - never uploaded anywhere"
         )
         .font(.custom("Figtree", size: 12))
-        .foregroundColor(.black.opacity(0.5))
+        .foregroundColor(Color.onboardingInk(0.5))
       }
     }
   }
@@ -119,12 +119,12 @@ struct APIKeyInputView: View {
       case .valid:
         return Color(red: 0.34, green: 1, blue: 0.45).opacity(0.6)
       case .invalid:
-        return Color(hex: "E91515").opacity(0.6)
+        return OnboardingPalette.error.opacity(0.6)
       case .none:
         return Color(red: 1, green: 0.42, blue: 0.02).opacity(0.6)
       }
     } else {
-      return Color.black.opacity(0.1)
+      return Color.onboardingStroke(0.1)
     }
   }
 

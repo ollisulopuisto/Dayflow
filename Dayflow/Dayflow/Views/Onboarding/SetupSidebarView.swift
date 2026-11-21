@@ -51,7 +51,7 @@ struct SetupSidebarItem: View {
 
   @State private var isHovered = false
 
-  private let textColor = Color(hex: "634342")
+  private let textColor = OnboardingPalette.warmText
 
   var body: some View {
     Button(action: onTap) {
@@ -75,7 +75,7 @@ struct SetupSidebarItem: View {
           HStack(alignment: .center, spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
               .font(.system(size: 15, weight: .medium))
-              .foregroundColor(Color(hex: "21A638"))
+              .foregroundColor(OnboardingPalette.success)
               .frame(width: 16, height: 16)
 
             itemLabel
@@ -112,9 +112,9 @@ struct SetupSidebarItem: View {
     let shape = RoundedRectangle(cornerRadius: 10)
     return
       shape
-      .fill(Color(hex: "FFFAF8"))
-      .overlay(shape.strokeBorder(Color(hex: "FFB693"), lineWidth: 1))
-      .shadow(color: Color(hex: "D5D3D9"), radius: 2, x: 0, y: 1)
+      .fill(OnboardingPalette.sidebarStepFill)
+      .overlay(shape.strokeBorder(OnboardingPalette.sidebarStepBorder, lineWidth: 1))
+      .shadow(color: OnboardingPalette.sidebarStepShadow, radius: 2, x: 0, y: 1)
       .matchedGeometryEffect(id: "selection", in: namespace)
   }
 }

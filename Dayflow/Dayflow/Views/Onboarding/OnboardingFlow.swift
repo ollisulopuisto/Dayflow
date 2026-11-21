@@ -240,7 +240,6 @@ struct OnboardingFlow: View {
       // Background at parent level - fills entire window!
       OnboardingBackdrop()
     }
-    .preferredColorScheme(.light)
     .alert(
       "Couldn't save your provider",
       isPresented: Binding(
@@ -650,7 +649,7 @@ struct OnboardingPrototypeReferralStep: View {
         .font(.custom("InstrumentSerif-Regular", size: 40))
         .tracking(-1.2)
         .multilineTextAlignment(.center)
-        .foregroundColor(Color(hex: "492304"))
+        .foregroundColor(OnboardingPalette.title)
         .lineSpacing(40 * 0.2)
         .frame(maxWidth: 708)
         .fixedSize(horizontal: false, vertical: true)
@@ -682,15 +681,15 @@ struct OnboardingPrototypeReferralStep: View {
             .font(.custom("Figtree", size: 16))
             .fontWeight(.medium)
         },
-        background: Color(hex: "FF9F6F"),
+        background: OnboardingPalette.accent,
         foreground: .white,
-        borderColor: Color(hex: "F4C8B1"),
+        borderColor: OnboardingPalette.accentBorder,
         cornerRadius: 200,
         horizontalPadding: 59,
         verticalPadding: 18,
         minWidth: 234,
         showOverlayStroke: false,
-        innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+        innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
       )
       .opacity(canContinue ? 1.0 : 0.4)
       .allowsHitTesting(canContinue)
@@ -723,7 +722,7 @@ struct OnboardingPersonalGoalStep: View {
         .font(.custom("InstrumentSerif-Regular", size: 40))
         .tracking(-1.2)
         .multilineTextAlignment(.center)
-        .foregroundColor(Color(hex: "492304"))
+        .foregroundColor(OnboardingPalette.title)
         .frame(maxWidth: 708)
         .fixedSize(horizontal: false, vertical: true)
 
@@ -732,7 +731,7 @@ struct OnboardingPersonalGoalStep: View {
 
       Text("Tell Dayflow what you're hoping to get out of it.")
         .font(.custom("Figtree", size: 18))
-        .foregroundColor(Color(hex: "89380E").opacity(0.78))
+        .foregroundColor(OnboardingPalette.subtitle.opacity(0.78))
         .multilineTextAlignment(.center)
         .frame(maxWidth: 560)
         .fixedSize(horizontal: false, vertical: true)
@@ -755,15 +754,15 @@ struct OnboardingPersonalGoalStep: View {
             .font(.custom("Figtree", size: 16))
             .fontWeight(.medium)
         },
-        background: Color(hex: "FF9F6F"),
+        background: OnboardingPalette.accent,
         foreground: .white,
-        borderColor: Color(hex: "F4C8B1"),
+        borderColor: OnboardingPalette.accentBorder,
         cornerRadius: 200,
         horizontalPadding: 59,
         verticalPadding: 18,
         minWidth: 234,
         showOverlayStroke: false,
-        innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+        innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
       )
       .opacity(trimmedGoal.isEmpty ? 0.4 : 1.0)
       .allowsHitTesting(!trimmedGoal.isEmpty)
@@ -774,7 +773,7 @@ struct OnboardingPersonalGoalStep: View {
       } label: {
         Text("Skip")
           .font(.custom("Figtree", size: 14))
-          .foregroundColor(Color(hex: "89380E").opacity(0.7))
+          .foregroundColor(OnboardingPalette.subtitle.opacity(0.7))
           .padding(.vertical, 8)
           .padding(.horizontal, 16)
       }
@@ -792,7 +791,7 @@ struct OnboardingPersonalGoalStep: View {
     ZStack(alignment: .topLeading) {
       TextEditor(text: $goalText)
         .font(.custom("Figtree", size: 16))
-        .foregroundColor(Color(hex: "492304"))
+        .foregroundColor(OnboardingPalette.title)
         .scrollContentBackground(.hidden)
         .padding(.horizontal, 8)
         .padding(.vertical, 10)
@@ -807,21 +806,21 @@ struct OnboardingPersonalGoalStep: View {
           "e.g. See where my time actually goes, cut down on distractions, or have an automatic log of my work for standups and reviews."
         )
         .font(.custom("Figtree", size: 16))
-        .foregroundColor(Color(hex: "492304").opacity(0.4))
+        .foregroundColor(OnboardingPalette.title.opacity(0.4))
         .padding(.horizontal, 13)
         .padding(.vertical, 10)
         .allowsHitTesting(false)
       }
     }
     .frame(height: 160)
-    .background(Color.white.opacity(0.42))
+    .background(OnboardingPalette.cardFill)
     .cornerRadius(8)
     .overlay(
       RoundedRectangle(cornerRadius: 8)
-        .stroke(Color(hex: "E4D3C2"), lineWidth: 1)
+        .stroke(OnboardingPalette.fieldBorder, lineWidth: 1)
     )
     .shadow(
-      color: Color(hex: "AF7246").opacity(0.15),
+      color: OnboardingPalette.fieldShadow,
       radius: 2, x: 0, y: 0
     )
   }
@@ -842,13 +841,13 @@ struct CompletionView: View {
       VStack(spacing: 8) {
         Text("You are ready to go!")
           .font(.custom("InstrumentSerif-Regular", size: 36))
-          .foregroundColor(.black.opacity(0.9))
+          .foregroundColor(Color.onboardingInk(0.9))
 
         Text(
           "To get useful insights, let Dayflow run in the background for an hour or two to gather enough context, then check back in."
         )
         .font(.custom("Figtree", size: 15))
-        .foregroundColor(.black.opacity(0.6))
+        .foregroundColor(Color.onboardingInk(0.6))
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
       }
@@ -862,15 +861,15 @@ struct CompletionView: View {
             .font(.custom("Figtree", size: 16))
             .fontWeight(.semibold)
         },
-        background: Color(hex: "FF9F6F"),
+        background: OnboardingPalette.accent,
         foreground: .white,
-        borderColor: Color(hex: "F4C8B1"),
+        borderColor: OnboardingPalette.accentBorder,
         cornerRadius: 200,
         horizontalPadding: 40,
         verticalPadding: 14,
         minWidth: 200,
         showOverlayStroke: false,
-        innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+        innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
       )
       .padding(.top, 16)
     }

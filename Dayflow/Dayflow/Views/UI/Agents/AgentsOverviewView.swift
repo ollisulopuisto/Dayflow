@@ -65,7 +65,7 @@ struct AgentsOverviewView: View {
         dayToggle(systemName: "chevron.left", day: previousDay)
         Text(dayHeading)
           .font(.custom("InstrumentSerif-Regular", size: 32))
-          .foregroundColor(.black.opacity(0.85))
+          .foregroundColor(Color.agentsInk(0.85))
         dayToggle(systemName: "chevron.right", day: nextDay)
       }
 
@@ -76,11 +76,11 @@ struct AgentsOverviewView: View {
         if refreshError != nil {
           Text("Last refresh failed. Try again")
             .font(.custom("Figtree", size: 11))
-            .foregroundColor(Color(hex: "C04A00"))
+            .foregroundColor(AgentsPalette.errorAccent)
         } else if let generatedText = generatedAtText {
           Text(generatedText)
             .font(.custom("Figtree", size: 11))
-            .foregroundColor(.black.opacity(0.35))
+            .foregroundColor(Color.agentsInk(0.35))
         }
       }
     }
@@ -90,7 +90,7 @@ struct AgentsOverviewView: View {
     Button(action: { if let day { onSelectDay(day) } }) {
       Image(systemName: systemName)
         .font(.system(size: 15, weight: .semibold))
-        .foregroundColor(.black.opacity(day == nil ? 0.12 : 0.45))
+        .foregroundColor(Color.agentsInk(day == nil ? 0.12 : 0.45))
         .frame(width: 24, height: 24)
         .contentShape(Rectangle())
     }
@@ -152,9 +152,9 @@ struct AgentsOverviewView: View {
             .fontWeight(.semibold)
         }
       },
-      background: Color(hex: "FFF1E5"),
-      foreground: Color(hex: "F96E00"),
-      borderColor: Color(hex: "F9D9BD"),
+      background: AgentsPalette.reviewBackground,
+      foreground: AgentsPalette.reviewForeground,
+      borderColor: AgentsPalette.reviewBorder,
       cornerRadius: 8,
       horizontalPadding: 12,
       verticalPadding: 7,
@@ -185,18 +185,18 @@ struct AgentsOverviewView: View {
       Text("Total")
         .font(.custom("Figtree", size: 11))
         .fontWeight(.semibold)
-        .foregroundColor(.black.opacity(0.55))
+        .foregroundColor(Color.agentsInk(0.55))
 
       ForEach(AgentThreadStatus.allCases, id: \.self) { status in
         legendRow(status: status, count: counts.count(for: status))
       }
     }
     .padding(12)
-    .background(Color.white.opacity(0.85))
+    .background(AgentsPalette.cardFill)
     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .stroke(Color.black.opacity(0.05), lineWidth: 1)
+        .stroke(Color.agentsStroke(0.05), lineWidth: 1)
     )
   }
 
@@ -204,11 +204,11 @@ struct AgentsOverviewView: View {
     HStack(spacing: 6) {
       Circle()
         .fill(AgentsPalette.legendDot(for: status))
-        .overlay(Circle().stroke(Color.black.opacity(0.08), lineWidth: 0.5))
+        .overlay(Circle().stroke(Color.agentsStroke(0.08), lineWidth: 0.5))
         .frame(width: 8, height: 8)
       Text("\(count) \(status.displayName)")
         .font(.custom("Figtree", size: 11))
-        .foregroundColor(.black.opacity(0.6))
+        .foregroundColor(Color.agentsInk(0.6))
     }
   }
 
@@ -232,12 +232,12 @@ struct AgentsOverviewView: View {
         Text(workstream.name)
           .font(.custom("Figtree", size: 16))
           .fontWeight(.medium)
-          .foregroundColor(.black.opacity(0.8))
+          .foregroundColor(Color.agentsInk(0.8))
 
         if !workstream.summary.isEmpty {
           Text(workstream.summary)
             .font(.custom("Figtree", size: 11.5))
-            .foregroundColor(.black.opacity(0.55))
+            .foregroundColor(Color.agentsInk(0.55))
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .frame(maxWidth: size * 1.15)
@@ -282,8 +282,8 @@ struct AgentsOverviewView: View {
       .padding(.vertical, 4)
       .background(AgentsPalette.chipBackground(for: status))
       .clipShape(Capsule())
-      .overlay(Capsule().stroke(Color.black.opacity(0.05), lineWidth: 0.5))
-      .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
+      .overlay(Capsule().stroke(Color.agentsStroke(0.05), lineWidth: 0.5))
+      .shadow(color: Color.agentsShadow(0.05), radius: 3, x: 0, y: 1)
   }
 
   // MARK: - Start review

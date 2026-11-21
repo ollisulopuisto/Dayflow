@@ -11,11 +11,11 @@ struct NetworkAccessOnboardingStep: View {
       VStack(alignment: .leading, spacing: 10) {
         Text("Your network, your choice")
           .font(.custom("InstrumentSerif-Regular", size: 34))
-          .foregroundColor(Color(hex: "492304"))
+          .foregroundColor(OnboardingPalette.title)
 
         Text("Choose where Dayflow's own HTTP and HTTPS connections may go. You can change this anytime in Settings.")
           .font(.custom("Figtree-Medium", size: 14))
-          .foregroundColor(Color(hex: "5B5B5B"))
+          .foregroundColor(OnboardingPalette.grayText)
           .fixedSize(horizontal: false, vertical: true)
       }
       .frame(maxWidth: 640, alignment: .leading)
@@ -26,22 +26,22 @@ struct NetworkAccessOnboardingStep: View {
       VStack(alignment: .leading, spacing: 10) {
         Text("Local Network permission")
           .font(.custom("Figtree-Bold", size: 13))
-          .foregroundColor(Color(hex: "492304"))
+          .foregroundColor(OnboardingPalette.title)
         Text("macOS separately asks whether Dayflow may connect to devices on your local network. It will show that system prompt the first time Dayflow connects to a configured local service.")
           .font(.custom("Figtree-Medium", size: 12))
-          .foregroundColor(Color(hex: "5B5B5B"))
+          .foregroundColor(OnboardingPalette.grayText)
           .fixedSize(horizontal: false, vertical: true)
         Button("Open Local Network settings") {
           NetworkAccessSystemSettings.openLocalNetworkPrivacy()
         }
         .font(.custom("Figtree-SemiBold", size: 12))
         .buttonStyle(.plain)
-        .foregroundColor(Color(hex: "89380E"))
+        .foregroundColor(OnboardingPalette.subtitle)
         .pointingHandCursor()
       }
       .frame(maxWidth: 640, alignment: .leading)
       .padding(14)
-      .background(Color.white.opacity(0.42))
+      .background(OnboardingPalette.cardFill)
       .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
 
       Spacer(minLength: 0)
@@ -49,7 +49,7 @@ struct NetworkAccessOnboardingStep: View {
       HStack {
         Button("Back", action: onBack)
           .buttonStyle(.plain)
-          .foregroundColor(Color(hex: "89380E"))
+          .foregroundColor(OnboardingPalette.subtitle)
         Spacer()
         Button {
           NetworkAccessStore.shared.setScope(selectedScope)
@@ -63,7 +63,7 @@ struct NetworkAccessOnboardingStep: View {
           .foregroundColor(.white)
           .padding(.horizontal, 24)
           .frame(height: 42)
-          .background(Color(hex: "F96E00"))
+          .background(OnboardingPalette.brand)
           .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -74,7 +74,7 @@ struct NetworkAccessOnboardingStep: View {
     .padding(.horizontal, 48)
     .padding(.vertical, 34)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color(hex: "FFF9F4"))
+    .background(OnboardingPalette.networkPanel)
     .onChange(of: selectedScope) { _, newScope in
       NetworkAccessStore.shared.setScope(newScope)
     }

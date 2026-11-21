@@ -233,40 +233,72 @@ enum AgentCardStyle: String, CaseIterable, Identifiable {
 // MARK: - Shared palette
 
 enum AgentsPalette {
+  private static func hex(_ value: String, alpha: CGFloat = 1) -> NSColor {
+    (NSColor(hex: value) ?? .black).withAlphaComponent(alpha)
+  }
+
+  private static func adaptive(_ light: NSColor, _ dark: NSColor) -> Color {
+    Color.dayflowAdaptive(light: light, dark: dark)
+  }
+
   // Soft blob fills, assigned to workstreams by index (mirrors the Figma
-  // scatter: blue, purple, orange, tan, light blue).
+  // scatter: blue, purple, orange, tan, light blue). Light keeps the pastel
+  // fills; dark re-tints each hue at low alpha so the blobs read as soft
+  // glows instead of glaring pastel panels.
   static let blobColors: [Color] = [
-    Color(hex: "9FC1F2"),
-    Color(hex: "CBB8F5"),
-    Color(hex: "F5A25C"),
-    Color(hex: "DEC9B2"),
-    Color(hex: "B4CDF0"),
-    Color(hex: "F2B8C6"),
-    Color(hex: "A8DCC5"),
+    adaptive(hex("9FC1F2"), hex("5B8DEF", alpha: 0.35)),
+    adaptive(hex("CBB8F5"), hex("9B7BE8", alpha: 0.35)),
+    adaptive(hex("F5A25C"), hex("F3854B", alpha: 0.35)),
+    adaptive(hex("DEC9B2"), hex("A98A68", alpha: 0.35)),
+    adaptive(hex("B4CDF0"), hex("6E9BE8", alpha: 0.35)),
+    adaptive(hex("F2B8C6"), hex("E87E9A", alpha: 0.35)),
+    adaptive(hex("A8DCC5"), hex("4FB98F", alpha: 0.35)),
   ]
 
   static func blobColor(at index: Int) -> Color {
     blobColors[index % blobColors.count]
   }
 
+  // Card surfaces. Light keeps the near-opaque white glass over the cream
+  // canvas; dark drops to faint white overlays over the dark canvas.
+  static let cardFill = adaptive(
+    NSColor.white.withAlphaComponent(0.85), NSColor.white.withAlphaComponent(0.1))
+  static let cardFillSoft = adaptive(
+    NSColor.white.withAlphaComponent(0.8), NSColor.white.withAlphaComponent(0.08))
+  // The solid thread card: white in light, the theme's dark card color.
+  static let cardSolid = adaptive(.white, hex("3A3A4C"))
+  // Inset wells and footer strips inside cards.
+  static let wellFill = adaptive(hex("F1EFED"), NSColor.white.withAlphaComponent(0.07))
+  static let wellFillAlt = adaptive(hex("F4F3F1"), NSColor.white.withAlphaComponent(0.07))
+  static let footerFill = adaptive(hex("F6F5F3"), NSColor.white.withAlphaComponent(0.05))
+
+  // Warm accents used by the error/empty states and the review chip.
+  static let errorAccent = adaptive(hex("C04A00"), hex("F3854B"))
+  static let reviewBorder = adaptive(hex("F9D9BD"), hex("F3854B", alpha: 0.4))
+
   static func chipBackground(for status: AgentThreadStatus) -> Color {
     switch status {
-    case .blocked: return Color(hex: "FFDCDA")
-    case .reviewReady: return Color(hex: "CFF3E4")
-    case .inProgress: return Color.white
-    case .completed: return Color(hex: "ECEAE7")
+    case .blocked: return adaptive(hex("FFDCDA"), hex("FC5546", alpha: 0.22))
+    case .reviewReady: return adaptive(hex("CFF3E4"), hex("3FA37C", alpha: 0.25))
+    case .inProgress:
+      return adaptive(.white, NSColor.white.withAlphaComponent(0.14))
+    case .completed:
+      return adaptive(hex("ECEAE7"), NSColor.white.withAlphaComponent(0.1))
     }
   }
 
   static func chipForeground(for status: AgentThreadStatus) -> Color {
     switch status {
-    case .blocked: return Color(hex: "B03A31")
-    case .reviewReady: return Color(hex: "1F8A6E")
-    case .inProgress: return Color(hex: "6B655F")
-    case .completed: return Color(hex: "8D8781")
+    case .blocked: return adaptive(hex("B03A31"), hex("FF9B92"))
+    case .reviewReady: return adaptive(hex("1F8A6E"), hex("5ED4AC"))
+    case .inProgress: return adaptive(hex("6B655F"), hex("DDDDDD"))
+    case .completed: return adaptive(hex("8D8781"), hex("B4B4B4"))
     }
   }
 
+  // Legend dots are deliberately constant: they are already light pastels
+  // that read on both canvases, and the overview legend expects them to
+  // match the chips' hues.
   static func legendDot(for status: AgentThreadStatus) -> Color {
     switch status {
     case .blocked: return Color(hex: "F58B84")
@@ -278,10 +310,39 @@ enum AgentsPalette {
 
   // Highlight pill colors, constant across all card styles: purple = key
   // decision, blue = key info, orange = ready for review.
-  static let keyDecisionBackground = Color(hex: "EDE4FC")
-  static let keyDecisionForeground = Color(hex: "7A4FD1")
-  static let keyInfoBackground = Color(hex: "E1ECFC")
-  static let keyInfoForeground = Color(hex: "3E76D6")
-  static let reviewBackground = Color(hex: "FFF1E5")
-  static let reviewForeground = Color(hex: "F96E00")
+  static let keyDecisionBackground = adaptive(hex("EDE4FC"), hex("9B7BE8", alpha: 0.22))
+  static let keyDecisionForeground = adaptive(hex("7A4FD1"), hex("C4B0F0"))
+  static let keyInfoBackground = adaptive(hex("E1ECFC"), hex("5B8DEF", alpha: 0.22))
+  static let keyInfoForeground = adaptive(hex("3E76D6"), hex("9FC1F2"))
+  static let reviewBackground = adaptive(hex("FFF1E5"), hex("F3854B", alpha: 0.18))
+  static let reviewForeground = adaptive(hex("F96E00"), hex("F3854B"))
+}
+
+extension Color {
+  /// Agents-tab ink: black in light mode, white in dark mode, same alpha, so
+  /// the Figma's `.black.opacity(x)` text hierarchy inverts cleanly.
+  static func agentsInk(_ opacity: Double) -> Color {
+    Color.dayflowAdaptive(
+      light: NSColor.black.withAlphaComponent(CGFloat(opacity)),
+      dark: NSColor.white.withAlphaComponent(CGFloat(opacity))
+    )
+  }
+
+  /// Hairline strokes: light keeps the Figma's faint black; dark lifts the
+  /// alpha so the line stays visible against the dark canvas.
+  static func agentsStroke(_ opacity: Double) -> Color {
+    Color.dayflowAdaptive(
+      light: NSColor.black.withAlphaComponent(CGFloat(opacity)),
+      dark: NSColor.white.withAlphaComponent(CGFloat(min(opacity * 2, 0.16)))
+    )
+  }
+
+  /// Drop shadows stay black in both modes but deepen in dark, matching the
+  /// weekly palette's shadow treatment.
+  static func agentsShadow(_ opacity: Double) -> Color {
+    Color.dayflowAdaptive(
+      light: NSColor.black.withAlphaComponent(CGFloat(opacity)),
+      dark: NSColor.black.withAlphaComponent(0.3)
+    )
+  }
 }

@@ -50,7 +50,7 @@ struct AgentsScrubberView: View {
       Text(workstream.name)
         .font(.custom("Figtree", size: 11))
         .fontWeight(isCurrentWorkstream ? .semibold : .regular)
-        .foregroundColor(.black.opacity(isCurrentWorkstream ? 0.8 : 0.4))
+        .foregroundColor(Color.agentsInk(isCurrentWorkstream ? 0.8 : 0.4))
     }
   }
 
@@ -58,7 +58,7 @@ struct AgentsScrubberView: View {
     HStack(alignment: .bottom, spacing: 2) {
       ForEach(0..<max(thread.turns.count, 1), id: \.self) { _ in
         RoundedRectangle(cornerRadius: 0.75)
-          .fill(Color.black.opacity(isSelected ? 0.75 : 0.3))
+          .fill(Color.agentsInk(isSelected ? 0.75 : 0.3))
           .frame(width: 1.5, height: isSelected ? 15 : 10)
       }
     }

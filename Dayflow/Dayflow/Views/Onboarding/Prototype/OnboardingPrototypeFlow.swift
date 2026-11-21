@@ -212,13 +212,13 @@ private struct OnboardingPrototypePlaceholderStep: View {
       VStack(spacing: 10) {
         Text("Prototype checkpoint")
           .font(.custom("InstrumentSerif-Regular", size: 44))
-          .foregroundColor(.black.opacity(0.9))
+          .foregroundColor(Color.onboardingInk(0.9))
 
         Text(
           "The intro video, role-selection screen, and preferences screen are now wired up. We can keep replacing the remaining placeholders step by step without touching production onboarding yet."
         )
         .font(.custom("Figtree", size: 17))
-        .foregroundColor(.black.opacity(0.65))
+        .foregroundColor(Color.onboardingInk(0.65))
         .multilineTextAlignment(.center)
         .frame(maxWidth: 620)
       }
@@ -233,7 +233,7 @@ private struct OnboardingPrototypePlaceholderStep: View {
           },
           background: .white,
           foreground: Color(red: 0.25, green: 0.17, blue: 0),
-          borderColor: Color(hex: "B6B6B6"),
+          borderColor: OnboardingPalette.neutralGray,
           cornerRadius: 200,
           horizontalPadding: 12,
           verticalPadding: 0,
@@ -249,15 +249,15 @@ private struct OnboardingPrototypePlaceholderStep: View {
               .font(.custom("Figtree", size: 15))
               .fontWeight(.semibold)
           },
-          background: Color(hex: "FF9F6F"),
+          background: OnboardingPalette.accent,
           foreground: .white,
-          borderColor: Color(hex: "F4C8B1"),
+          borderColor: OnboardingPalette.accentBorder,
           cornerRadius: 200,
           horizontalPadding: 28,
           verticalPadding: 14,
           minWidth: 170,
           showOverlayStroke: false,
-          innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+          innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
         )
       }
     }

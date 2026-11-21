@@ -19,18 +19,18 @@ struct TerminalCommandView: View {
       Text(title)
         .font(.custom("Figtree", size: 16))
         .fontWeight(.semibold)
-        .foregroundColor(.black.opacity(0.9))
+        .foregroundColor(Color.onboardingInk(0.9))
 
       Text(subtitle)
         .font(.custom("Figtree", size: 14))
-        .foregroundColor(.black.opacity(0.6))
+        .foregroundColor(Color.onboardingInk(0.6))
 
       // Command block with trailing copy button (overlay for tight right alignment)
       ZStack(alignment: .leading) {
         // Command text area
         Text(command)
           .font(.custom("SF Mono", size: 13))
-          .foregroundColor(.black.opacity(0.85))
+          .foregroundColor(Color.onboardingInk(0.85))
           .textSelection(.enabled)
           .padding(.horizontal, 16)
           .padding(.vertical, 14)
@@ -49,11 +49,11 @@ struct TerminalCommandView: View {
                 .fontWeight(.medium)
             }
             .foregroundColor(
-              isCopied ? Color(red: 0.34, green: 1, blue: 0.45) : .black.opacity(0.75))
+              isCopied ? Color(red: 0.34, green: 1, blue: 0.45) : Color.onboardingInk(0.75))
           },
-          background: Color.white.opacity(0.93),
+          background: OnboardingPalette.panelFill,
           foreground: .black,
-          borderColor: Color.black.opacity(0.12),
+          borderColor: Color.onboardingStroke(0.12),
           cornerRadius: 6,
           horizontalPadding: 14,
           verticalPadding: 10,
@@ -62,11 +62,11 @@ struct TerminalCommandView: View {
         .padding(.trailing, 6)
         .padding(.vertical, 6)
       }
-      .background(Color(hex: "F8F9FA"))
+      .background(OnboardingPalette.coolPanel)
       .cornerRadius(8)
       .overlay(
         RoundedRectangle(cornerRadius: 8)
-          .stroke(Color.black.opacity(0.08), lineWidth: 1)
+          .stroke(Color.onboardingStroke(0.08), lineWidth: 1)
       )
     }
   }

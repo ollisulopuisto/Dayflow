@@ -29,7 +29,7 @@ struct ScreenRecordingPermissionView: View {
   private var screenRecordingGranted: Bool { permissions.screenRecordingGranted }
   private var allGranted: Bool { accessibilityGranted && screenRecordingGranted }
 
-  private let privacyTextColor = Color(hex: "89380E")
+  private let privacyTextColor = OnboardingPalette.subtitle
 
   var body: some View {
     GeometryReader { geo in
@@ -89,7 +89,7 @@ struct ScreenRecordingPermissionView: View {
       VStack(alignment: .leading, spacing: 10) {
         Text("Last step!")
           .font(.custom("Figtree-Bold", size: 16))
-          .foregroundColor(Color(hex: "F96E00"))
+          .foregroundColor(OnboardingPalette.brand)
 
         Text("Permissions")
           .font(.custom("InstrumentSerif-Regular", size: 28))
@@ -97,7 +97,7 @@ struct ScreenRecordingPermissionView: View {
 
         Text("Dayflow can help understand your day.")
           .font(.custom("Figtree-Medium", size: 14))
-          .foregroundColor(Color(hex: "5B5B5B"))
+          .foregroundColor(OnboardingPalette.grayText)
           .fixedSize(horizontal: false, vertical: true)
 
         // Privacy info box
@@ -124,7 +124,7 @@ struct ScreenRecordingPermissionView: View {
         }
         .padding(16)
         .frame(maxWidth: 351, alignment: .leading)
-        .background(Color.white.opacity(0.3))
+        .background(OnboardingPalette.cardFillFaint)
         .cornerRadius(5)
         .overlay(
           RoundedRectangle(cornerRadius: 5)
@@ -151,11 +151,11 @@ struct ScreenRecordingPermissionView: View {
           .resizable()
           .aspectRatio(contentMode: .fit)
           .frame(width: metrics.imageWidth, height: metrics.imageHeight)
-          .background(Color(hex: "FCFCFC"))
+          .background(OnboardingPalette.wellPanel)
           .cornerRadius(8)
           .overlay(
             RoundedRectangle(cornerRadius: 8)
-              .stroke(Color(hex: "F0F0F0"), lineWidth: 1)
+              .stroke(OnboardingPalette.coolStroke, lineWidth: 1)
           )
           .shadow(
             color: Color(red: 0.725, green: 0.608, blue: 0.482).opacity(0.25), radius: 3, x: 0,
@@ -174,8 +174,8 @@ struct ScreenRecordingPermissionView: View {
         action: onBack,
         content: { Text("Back").font(.custom("Figtree-Medium", size: 14)).tracking(-0.48) },
         background: .white,
-        foreground: Color(hex: "B6B6B6"),
-        borderColor: Color(hex: "B6B6B6"),
+        foreground: OnboardingPalette.neutralGray,
+        borderColor: OnboardingPalette.neutralGray,
         cornerRadius: 200,
         horizontalPadding: 32,
         verticalPadding: 0,
@@ -194,16 +194,16 @@ struct ScreenRecordingPermissionView: View {
           .padding(.leading, 4)
         },
         background: allGranted
-          ? Color(hex: "FF9F6F")
-          : Color(hex: "FF9F6F").opacity(0.3),
+          ? OnboardingPalette.accent
+          : OnboardingPalette.accent.opacity(0.3),
         foreground: .white,
-        borderColor: Color(hex: "F4C8B1"),
+        borderColor: OnboardingPalette.accentBorder,
         cornerRadius: 200,
         horizontalPadding: 32,
         verticalPadding: 0,
         fixedHeight: 44,
         showOverlayStroke: false,
-        innerGlowColor: Color(hex: "FFDCCB").opacity(0.9)
+        innerGlowColor: OnboardingPalette.accentGlow.opacity(0.9)
       )
       .disabled(!allGranted)
     }

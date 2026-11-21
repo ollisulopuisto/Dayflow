@@ -100,11 +100,11 @@ struct AgentsCardsView: View {
         Button(action: onBack) {
           Image(systemName: "chevron.left")
             .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(.black.opacity(0.5))
+            .foregroundColor(Color.agentsInk(0.5))
             .frame(width: 28, height: 28)
-            .background(Color.white.opacity(0.8))
+            .background(AgentsPalette.cardFillSoft)
             .clipShape(Circle())
-            .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+            .overlay(Circle().stroke(Color.agentsStroke(0.06), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .hoverScaleEffect(scale: 1.05)
@@ -124,11 +124,11 @@ struct AgentsCardsView: View {
     Button(action: action) {
       Image(systemName: systemName)
         .font(.system(size: 13, weight: .semibold))
-        .foregroundColor(.black.opacity(enabled ? 0.55 : 0.18))
+        .foregroundColor(Color.agentsInk(enabled ? 0.55 : 0.18))
         .frame(width: 32, height: 32)
-        .background(Color.white.opacity(0.85))
+        .background(AgentsPalette.cardFill)
         .clipShape(Circle())
-        .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+        .overlay(Circle().stroke(Color.agentsStroke(0.06), lineWidth: 1))
     }
     .buttonStyle(.plain)
     .disabled(!enabled)
@@ -173,7 +173,7 @@ struct AgentsCardsView: View {
       "Thread \(currentPositionIndex + 1) of \(positions.count) · \(recap.workstreams[workstreamIndex].name)"
     )
     .font(.custom("Figtree", size: 11))
-    .foregroundColor(.black.opacity(0.35))
+    .foregroundColor(Color.agentsInk(0.35))
   }
 
   // MARK: - Style picker
@@ -196,14 +196,14 @@ struct AgentsCardsView: View {
       Text(style.displayName)
         .font(.custom("Figtree", size: 12))
         .fontWeight(.medium)
-        .foregroundColor(isSelected ? .white : .black.opacity(0.5))
+        .foregroundColor(isSelected ? .white : Color.agentsInk(0.5))
         .padding(.horizontal, 13)
         .padding(.vertical, 6)
-        .background(isSelected ? Color(hex: "F96E00") : Color.white.opacity(0.85))
+        .background(isSelected ? Color(hex: "F96E00") : AgentsPalette.cardFill)
         .clipShape(Capsule())
         .overlay(
           Capsule().stroke(
-            isSelected ? Color.clear : Color.black.opacity(0.08), lineWidth: 1)
+            isSelected ? Color.clear : Color.agentsStroke(0.08), lineWidth: 1)
         )
     }
     .buttonStyle(.plain)
