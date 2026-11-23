@@ -7,7 +7,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
   private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
   private let menu = NSMenu()
   private var cancellable: AnyCancellable?
-
+  private var problemCancellable: AnyCancellable?
+  /// Orange dot on the icon while a provider problem is waiting on the user.
+  private let problemDot = NSView(frame: NSRect(x: 0, y: 0, width: 6, height: 6))
   /// The live controller, so floating cards (like the Daily brief notice) can
   /// sit under the menu bar icon.
   private(set) static weak var current: StatusBarController?
@@ -25,7 +27,20 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
       let isRecording = AppState.shared.isRecording
       button.image = menuBarIcon(isRecording: isRecording)
+
+      problemDot.wantsLayer = true
+      problemDot.layer?.backgroundColor = NSColor.systemOrange.cgColor
+      problemDot.layer?.cornerRadius = 3
+      problemDot.isHidden = true
+      button.addSubview(problemDot)
     }
+
+    problemCancellable = ProviderProblemCenter.shared.$problem
+      .map { $0 != nil }
+      .removeDuplicates()
+      .sink { [weak self] hasProblem in
+        self?.updateProblemDot(hasProblem: hasProblem)
+      }
 
     // Observe recording state changes and update icon
     cancellable = AppState.shared.$isRecording
@@ -48,6 +63,16 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     return window.convertToScreen(button.convert(button.bounds, to: nil))
   }
 
+  /// Puts the dot in the icon's top right corner. Hidden during a Flow session, when the icon
+  /// is replaced by the wide Flow pill.
+  private func updateProblemDot(hasProblem: Bool) {
+    guard let button = statusItem.button else { return }
+    let size = problemDot.frame.size
+    let y = button.isFlipped ? 3 : button.bounds.height - size.height - 3
+    problemDot.frame.origin = CGPoint(x: button.bounds.width - size.width - 2, y: y)
+    problemDot.isHidden = !hasProblem
+  }
+
   private func updateIcon(isRecording: Bool) {
     statusItem.button?.image = menuBarIcon(isRecording: isRecording)
   }
@@ -64,6 +89,17 @@ final class StatusBarController: NSObject, NSMenuDelegate {
   // Rebuilt every time the menu opens, so it always reflects the current recording state.
   func menuNeedsUpdate(_ menu: NSMenu) {
     menu.removeAllItems()
+
+    if let problem = ProviderProblemCenter.shared.problem {
+      menu.addItem(problemItem(problem))
+      if let backup = problem.backupOfferProviderID {
+        menu.addItem(
+          actionItem(
+            String(localized: "Use \(ProviderSignIn.displayName(for: backup)) as backup instead"),
+            #selector(useBackupProvider), symbol: "arrow.triangle.branch"))
+      }
+      menu.addItem(.separator())
+    }
 
     switch RecordingControl.currentMode() {
     case .active:
@@ -91,6 +127,20 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
   func menuDidClose(_ menu: NSMenu) {
     menu.removeAllItems()
+  }
+
+  /// "Claude is signed out · 3 hrs waiting · Click to sign in"
+  private func problemItem(_ problem: TimelineFailureToastPayload) -> NSMenuItem {
+    var parts = [problem.title ?? String(localized: "Dayflow needs a hand")]
+    if let waiting = problem.waitingText {
+      parts.append(String(localized: "\(waiting) waiting"))
+    }
+    parts.append(
+      problem.signInProviderID == nil
+        ? String(localized: "Click to fix") : String(localized: "Click to sign in"))
+    return actionItem(
+      parts.joined(separator: " · "), #selector(fixProviderProblem),
+      symbol: "exclamationmark.triangle.fill", tint: .systemOrange)
   }
 
   private func resumeItem() -> NSMenuItem {
@@ -149,6 +199,37 @@ final class StatusBarController: NSObject, NSMenuDelegate {
       PauseManager.shared.resume(source: .userClickedMenuBar)
     } else {
       RecordingControl.start(reason: "user_menu_bar")
+    }
+  }
+
+  /// Opens Dayflow on the fix-it card, starting the browser sign-in when that is the fix.
+  @objc private func fixProviderProblem() {
+    guard let problem = ProviderProblemCenter.shared.problem else { return }
+    AnalyticsService.shared.capture("provider_problem_menu_item_clicked", problem.analyticsProps)
+    openDayflow()
+    NotificationCenter.default.post(name: .navigateToTimeline, object: nil)
+    if let provider = problem.signInProviderID {
+      ProviderSignIn.shared.start(provider, source: "menu_bar")
+    }
+    // If the main window is still opening, it picks the request up when it appears.
+    ProviderProblemCenter.shared.showCardAgain()
+  }
+
+  /// Makes the other tool on this Mac the backup provider, so the waiting recordings get
+  /// processed without the user fixing the first provider.
+  @objc private func useBackupProvider() {
+    guard let problem = ProviderProblemCenter.shared.problem,
+      let backup = problem.backupOfferProviderID
+    else { return }
+    let saved = ProviderProblemCenter.shared.acceptBackupOffer(backup, source: "menu_bar_offer")
+    var props = problem.analyticsProps
+    props["saved"] = saved
+    AnalyticsService.shared.capture("provider_problem_menu_backup_clicked", props)
+    // Saving failed, so show the card, which can take the user to Settings.
+    if !saved {
+      openDayflow()
+      NotificationCenter.default.post(name: .navigateToTimeline, object: nil)
+      ProviderProblemCenter.shared.showCardAgain()
     }
   }
 

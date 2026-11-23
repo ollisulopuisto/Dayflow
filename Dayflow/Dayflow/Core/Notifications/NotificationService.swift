@@ -10,6 +10,9 @@ import AppKit
 import Foundation
 @preconcurrency import UserNotifications
 
+private let providerProblemSignInAction = "provider.problem.signIn"
+private let providerProblemLaterAction = "provider.problem.later"
+
 enum WeeklyUnlockNotificationScheduleResult {
   case scheduled
   case denied
@@ -33,12 +36,133 @@ final class NotificationService: NSObject, ObservableObject {
   /// Call this from AppDelegate.applicationDidFinishLaunching
   func start() {
     center.delegate = self
+    registerProviderProblemActions()
 
     // Check current permission status
     Task {
       await retireJournalNotifications()
       await checkPermissionStatus()
     }
+  }
+
+  // MARK: - Provider problems
+
+  private static let providerProblemIdentifier = "provider.problem"
+  private static let providerProblemSignInCategory = "provider_problem_sign_in"
+  private static let providerProblemLastSentDayByKindKey =
+    "providerProblemNotificationLastDayByKind"
+  private static let providerProblemLastSkippedDayByKindKey =
+    "providerProblemNotificationLastSkippedDayByKind"
+
+  /// Adds the Sign in and Later buttons to the signed-out notification.
+  private func registerProviderProblemActions() {
+    let signIn = UNNotificationAction(
+      identifier: providerProblemSignInAction,
+      title: String(localized: "Sign in"),
+      options: [.foreground])
+    let later = UNNotificationAction(
+      identifier: providerProblemLaterAction,
+      title: String(localized: "Later"),
+      options: [])
+    center.setNotificationCategories([
+      UNNotificationCategory(
+        identifier: Self.providerProblemSignInCategory,
+        actions: [signIn, later],
+        intentIdentifiers: [])
+    ])
+  }
+
+  /// Tells the user about a provider problem only they can fix, when Dayflow isn't in front
+  /// of them. At most once a day per kind of problem. Asks for notification permission if the
+  /// user was never asked, because without it nothing reaches someone who has Dayflow closed.
+  func notifyProviderProblem(_ payload: TimelineFailureToastPayload) {
+    let logicalDay = Date().getDayInfoFor4AMBoundary().dayString
+    let lastSentDayByKind =
+      UserDefaults.standard.dictionary(forKey: Self.providerProblemLastSentDayByKindKey)
+      as? [String: String] ?? [:]
+    guard lastSentDayByKind[payload.failureKind] != logicalDay else { return }
+
+    // Dayflow counts as in front only with a window on screen, where the card shows. An active
+    // app with every window closed shows the user nothing.
+    let windowIsOnScreen = NSApp.windows.contains {
+      $0.isVisible && !$0.isMiniaturized && $0.canBecomeMain
+    }
+    guard !(NSApp.isActive && windowIsOnScreen) else {
+      noteProviderProblemNotificationSkipped(payload, reason: "app_in_front", day: logicalDay)
+      return
+    }
+
+    Task {
+      var status = await authorizationStatus()
+      if status == .notDetermined {
+        let granted = await requestPermission()
+        var props = payload.analyticsProps
+        props["granted"] = granted
+        AnalyticsService.shared.capture("provider_problem_notification_permission_asked", props)
+        status = await authorizationStatus()
+      }
+      guard Self.canScheduleNotifications(for: status) else {
+        noteProviderProblemNotificationSkipped(
+          payload, reason: "permission_\(Self.authorizationStatusName(status))", day: logicalDay)
+        return
+      }
+
+      // Checked again here because another batch may have sent it while permission was read.
+      var sentDayByKind =
+        UserDefaults.standard.dictionary(forKey: Self.providerProblemLastSentDayByKindKey)
+        as? [String: String] ?? [:]
+      guard sentDayByKind[payload.failureKind] != logicalDay else { return }
+      sentDayByKind[payload.failureKind] = logicalDay
+      UserDefaults.standard.set(
+        sentDayByKind, forKey: Self.providerProblemLastSentDayByKindKey)
+
+      let content = UNMutableNotificationContent()
+      content.title = payload.title ?? String(localized: "Dayflow needs a hand")
+      var body = payload.message
+      if let waiting = payload.waitingText {
+        body += " " + String(localized: "\(waiting) of recording is waiting.")
+      }
+      if payload.signInProvider != nil {
+        body += " " + String(localized: "Click to sign in.")
+      }
+      content.body = body
+      content.sound = .default
+      if let signInProvider = payload.signInProvider {
+        content.categoryIdentifier = Self.providerProblemSignInCategory
+        content.userInfo = ["sign_in_provider": signInProvider]
+      }
+
+      do {
+        try await center.add(
+          UNNotificationRequest(
+            identifier: Self.providerProblemIdentifier, content: content, trigger: nil))
+        AnalyticsService.shared.capture(
+          "provider_problem_notification_sent", payload.analyticsProps)
+      } catch {
+        print("[NotificationService] Provider problem notification failed: \(error)")
+      }
+    }
+  }
+
+  /// Records why a provider problem notification was not sent, once a day per kind of problem.
+  private func noteProviderProblemNotificationSkipped(
+    _ payload: TimelineFailureToastPayload, reason: String, day: String
+  ) {
+    var skippedDayByKind =
+      UserDefaults.standard.dictionary(forKey: Self.providerProblemLastSkippedDayByKindKey)
+      as? [String: String] ?? [:]
+    guard skippedDayByKind[payload.failureKind] != day else { return }
+    skippedDayByKind[payload.failureKind] = day
+    UserDefaults.standard.set(
+      skippedDayByKind, forKey: Self.providerProblemLastSkippedDayByKindKey)
+
+    var props = payload.analyticsProps
+    props["reason"] = reason
+    AnalyticsService.shared.capture("provider_problem_notification_skipped", props)
+  }
+
+  func clearProviderProblemNotification() {
+    center.removeDeliveredNotifications(withIdentifiers: [Self.providerProblemIdentifier])
   }
 
   /// One-time nudge after onboarding: the first real timeline cards are ready.
@@ -364,15 +488,37 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     let isWeeklyUnlockNotification = identifier.hasPrefix("weekly.")
 
     let isGettingStartedNotification = identifier.hasPrefix("gettingStarted.")
+    let isProviderProblemNotification = identifier.hasPrefix("provider.")
+    let actionIdentifier = response.actionIdentifier
+    let signInProvider =
+      (response.notification.request.content.userInfo["sign_in_provider"]
+      as? String).flatMap(LLMProviderID.init(rawValue:))
     guard
-      isDailyRecapNotification || isWeeklyUnlockNotification || isGettingStartedNotification
+      isDailyRecapNotification || isWeeklyUnlockNotification || isGettingStartedNotification || isProviderProblemNotification
     else {
       completionHandler()
       return
     }
 
     Task { @MainActor in
-      if isGettingStartedNotification {
+      if isProviderProblemNotification {
+        AnalyticsService.shared.capture(
+          "provider_problem_notification_clicked", ["action": actionIdentifier])
+        guard actionIdentifier != providerProblemLaterAction,
+          actionIdentifier != UNNotificationDismissActionIdentifier
+        else { return }
+        AppDelegate.pendingNotificationNavigationDestination = .timeline
+        activateAppForNotificationTap()
+        // Clicking the notification itself signs in too, the same as its Sign in button.
+        let wantsSignIn =
+          actionIdentifier == providerProblemSignInAction
+          || actionIdentifier == UNNotificationDefaultActionIdentifier
+        if wantsSignIn, let signInProvider {
+          ProviderSignIn.shared.start(signInProvider, source: "notification")
+        }
+        // If the main window is still opening, it picks the request up when it appears.
+        ProviderProblemCenter.shared.showCardAgain()
+      } else if isGettingStartedNotification {
         AnalyticsService.shared.capture("getting_started_first_cards_notification_clicked")
         AppDelegate.pendingNotificationNavigationDestination = .timeline
         activateAppForNotificationTap()
@@ -427,6 +573,11 @@ extension NotificationService: UNUserNotificationCenterDelegate {
 
     if identifier.hasPrefix("weekly.") {
       print("[NotificationService] willPresent options=banner,sound identifier=\(identifier)")
+      completionHandler([.banner, .sound])
+      return
+    }
+
+    if identifier.hasPrefix("provider.") {
       completionHandler([.banner, .sound])
       return
     }

@@ -169,7 +169,10 @@ extension ClaudeProvider {
     let parsedCards = try parseCards(from: run.stdout, stderr: run.stderr)
     guard !parsedCards.isEmpty else { throw ClaudeCardGenerationError.empty }
 
-    let normalizedCards = normalizeCards(parsedCards, descriptors: context.categories)
+    // An outer boundary a minute or two off the source timeline is moved onto it, not sent back.
+    let normalizedCards = ClaudeOutputValidator.snappingOuterEdges(
+      normalizeCards(parsedCards, descriptors: context.categories),
+      existingCards: context.existingCards, observations: observations)
     let (coverageValid, coverageError) = validateClaudeTimeCoverage(
       existingCards: context.existingCards,
       requiredObservations: observations,
@@ -394,7 +397,7 @@ extension ClaudeProvider {
             duration
           )
         )
-      } else if duration > 60 {
+      } else if duration > Double(ClaudeTimelineTolerance.maximumCardSeconds) / 60 {
         issues.append(
           String(
             format: "Card %d '%@' is %.1f minutes long; cards may not exceed 60 minutes.",

@@ -22,6 +22,7 @@ enum TimelineFailureKind: String {
   case apiKeyProblem = "api_key_problem"
   case usageLimitHit = "usage_limit_hit"
   case outOfCredits = "out_of_credits"
+  case paymentPastDue = "payment_past_due"
   case geoBlocked = "geo_blocked"
   case accountBlocked = "account_blocked"
   case modelMisconfigured = "model_misconfigured"
@@ -37,8 +38,8 @@ enum TimelineFailureKind: String {
   var failsEveryRequestToProvider: Bool {
     switch self {
     case .dayflowProRequired, .providerLoginExpired, .cliNotInstalled, .cliOutdated,
-      .localEngineOffline, .apiKeyProblem, .usageLimitHit, .outOfCredits, .geoBlocked,
-      .accountBlocked, .notConfigured:
+      .localEngineOffline, .apiKeyProblem, .usageLimitHit, .outOfCredits, .paymentPastDue,
+      .geoBlocked, .accountBlocked, .notConfigured:
       return true
     // A missing or unsupported model can work with the other step's model.
     case .modelMisconfigured, .localModelMissing, .transient, .modelFlaky, .unknown:
@@ -69,9 +70,8 @@ struct TimelineFailureToastContent {
 struct TimelineFailureClassification {
   let kind: TimelineFailureKind
 
-  /// Provider named by the error text itself, when it identifies one.
-  /// More reliable than the configured provider: after a backup fallback,
-  /// the failing provider isn't the primary one.
+  /// Provider named by the error text itself, when it identifies one. Only a guess from the
+  /// wording, so for Claude and ChatGPT the provider that actually failed wins over it.
   let providerName: String?
 
   /// One or two plain sentences for the failed timeline card. Written for
@@ -83,7 +83,7 @@ struct TimelineFailureClassification {
     switch kind {
     case .dayflowProRequired:
       return
-        "Your Dayflow Pro plan has ended. Renew it or switch to another provider in Settings. \(catchUp)"
+        "Dayflow's own AI needs an active Pro plan. Subscribe, or switch to another provider in Settings. \(catchUp)"
 
     case .providerLoginExpired:
       if let fix = signInFix(for: provider) {
@@ -118,11 +118,19 @@ struct TimelineFailureClassification {
       return
         "Your \(provider) account is out of credits. Top it up, or switch providers in Settings. \(catchUp)"
 
+    case .paymentPastDue:
+      return
+        "\(provider) paused your plan, usually because a payment is past due. Pay or renew in your \(provider) account. \(catchUp)"
+
     case .geoBlocked:
       return
         "\(provider) isn't available in your region. Switch to another provider in Settings. \(catchUp)"
 
     case .accountBlocked:
+      if signsInThroughItsOwnApp(provider) {
+        return
+          "\(provider) blocked access for this account. Check your \(provider) account for what it needs from you, or switch providers in Settings. \(catchUp)"
+      }
       return
         "\(provider) blocked access for this account. A new API key or a different provider in Settings usually fixes it. \(catchUp)"
 
@@ -147,6 +155,13 @@ struct TimelineFailureClassification {
     }
   }
 
+  /// Title for the timeline card of a batch that is waiting for the provider to be fixed.
+  func waitingCardTitle(fallbackProviderLabel: String?) -> String {
+    if kind == .dayflowProRequired { return "Waiting for Dayflow Pro" }
+    if kind == .notConfigured { return "Waiting for an AI provider" }
+    return "Waiting for \(resolvedProvider(fallbackProviderLabel))"
+  }
+
   /// Copy for the bottom-right card, or nil when the failure isn't worth
   /// interrupting the user for (Dayflow retries those on its own).
   func toastContent(fallbackProviderLabel: String?) -> TimelineFailureToastContent? {
@@ -160,8 +175,9 @@ struct TimelineFailureClassification {
     switch kind {
     case .dayflowProRequired:
       return TimelineFailureToastContent(
-        title: "Your Dayflow Pro plan ended",
-        body: "Renew to keep your timeline going, or switch to a free provider like Gemini.",
+        title: "Dayflow's AI needs a Pro plan",
+        body:
+          "Your account doesn't have an active Pro plan, so recent activity hasn't been turned into cards. Subscribe, or switch to a free provider like Gemini.",
         steps: [],
         command: nil,
         destination: .account
@@ -261,6 +277,16 @@ struct TimelineFailureClassification {
         destination: .providers
       )
 
+    case .paymentPastDue:
+      return TimelineFailureToastContent(
+        title: "Your \(provider) payment is past due",
+        body:
+          "\(provider) paused your plan until the payment goes through. Pay or renew in your \(provider) account, or switch providers.",
+        steps: [],
+        command: nil,
+        destination: .providers
+      )
+
     case .geoBlocked:
       return TimelineFailureToastContent(
         title: "\(provider) isn't available in your region",
@@ -273,7 +299,9 @@ struct TimelineFailureClassification {
     case .accountBlocked:
       return TimelineFailureToastContent(
         title: "\(provider) blocked this account",
-        body: "Creating a new API key or switching providers usually fixes this.",
+        body: signsInThroughItsOwnApp(provider)
+          ? "Check your \(provider) account for what it needs from you, or switch providers."
+          : "Creating a new API key or switching providers usually fixes this.",
         steps: [],
         command: nil,
         destination: .providers
@@ -340,6 +368,17 @@ struct TimelineFailureClassification {
     }
   }
 
+  /// The provider Dayflow can sign back in to with its own Sign in button, when being signed
+  /// out is the problem. AWS sessions and API-key providers have no such button.
+  func signInProvider(fallbackProviderLabel: String?) -> LLMProviderID? {
+    guard kind == .providerLoginExpired else { return nil }
+    switch resolvedProvider(fallbackProviderLabel) {
+    case "Claude": return .claude
+    case "ChatGPT": return .chatGPT
+    default: return nil
+    }
+  }
+
   private func installCommand(for provider: String) -> String? {
     switch provider {
     case "ChatGPT": return "npm install -g @openai/codex"
@@ -348,8 +387,23 @@ struct TimelineFailureClassification {
     }
   }
 
-  private func resolvedProvider(_ fallbackProviderLabel: String?) -> String {
-    providerName ?? displayName(forProviderLabel: fallbackProviderLabel) ?? "your AI provider"
+  /// The name to show for the provider that failed. `failingProviderLabel` is the provider
+  /// the request was sent to. For Claude and ChatGPT it wins over the name guessed from the
+  /// error text, because both tools word some errors the same way ("could not be refreshed")
+  /// and the wrong guess would send the user to sign in to the other one.
+  private func resolvedProvider(_ failingProviderLabel: String?) -> String {
+    let failingProvider = displayName(forProviderLabel: failingProviderLabel)
+    // Claude through Bedrock is the exception: the expired session is AWS's, which only the
+    // error text says.
+    if providerName != "AWS", let failingProvider, signsInThroughItsOwnApp(failingProvider) {
+      return failingProvider
+    }
+    return providerName ?? failingProvider ?? "your AI provider"
+  }
+
+  /// Claude and ChatGPT run through their own command-line tools and accounts, not an API key.
+  private func signsInThroughItsOwnApp(_ provider: String) -> Bool {
+    provider == "Claude" || provider == "ChatGPT"
   }
 
   /// Provider labels arrive as lowercase analytics names ("gemini",
@@ -361,6 +415,7 @@ struct TimelineFailureClassification {
     case "claude": return "Claude"
     case "local", "ollama": return "Ollama/LM Studio"
     case "dayflow": return "Dayflow"
+    case "openai_compatible": return "your custom provider"
     default: return label
     }
   }
@@ -369,27 +424,132 @@ struct TimelineFailureClassification {
 enum TimelineFailureClassifier {
   static func classify(_ error: Error) -> TimelineFailureClassification {
     let lower = error.localizedDescription.lowercased()
+    // The error's type and code come first: macOS writes network errors in the user's language,
+    // and Dayflow's own reply checks are translated too, so their text can't be matched.
+    let failureKind: TimelineFailureKind
+    if let known = Self.kind(forTypeOf: error) {
+      failureKind = known
+    } else if Self.looksLikeRawModelOutput(lower) {
+      // Usually a jumbled reply from the model, whose words (a card about "OAuth", say) must
+      // not be read as an account problem. A provider's error page can start with "{" too,
+      // though, so an HTTP error is still classified by its status and wording.
+      let nsError = error as NSError
+      let isHTTPError =
+        httpStatusErrorDomains.contains(nsError.domain) && (400...599).contains(nsError.code)
+      failureKind =
+        Self.kind(forErrorsUnder: error) ?? Self.kind(forHTTPStatusOf: error)
+        ?? (isHTTPError ? Self.ruleKind(for: lower) : nil) ?? .modelFlaky
+    } else {
+      failureKind =
+        Self.ruleKind(for: lower) ?? Self.kind(forErrorsUnder: error)
+        ?? Self.kind(forHTTPStatusOf: error) ?? .unknown
+    }
     return TimelineFailureClassification(
-      kind: kind(for: lower),
+      kind: failureKind,
       providerName: providerName(in: lower)
     )
   }
 
-  private static func kind(for lower: String) -> TimelineFailureKind {
-    let trimmed = lower.trimmingCharacters(in: .whitespacesAndNewlines)
+  // MARK: - Classifying by type and code
 
-    // Raw model output sometimes ends up as the error message (truncated
-    // JSON, stray brackets, empty strings) — all symptoms of a flaky reply.
-    if trimmed.isEmpty || trimmed.hasPrefix("[") || trimmed.hasPrefix("{")
-      || trimmed.hasPrefix("]") || trimmed.hasPrefix("`")
-    {
-      return .modelFlaky
+  private static let transientURLErrorCodes: Set<Int> = [
+    NSURLErrorTimedOut, NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost,
+    NSURLErrorNetworkConnectionLost, NSURLErrorDNSLookupFailed,
+    NSURLErrorNotConnectedToInternet, NSURLErrorSecureConnectionFailed, NSURLErrorCancelled,
+    NSURLErrorInternationalRoamingOff, NSURLErrorDataNotAllowed, NSURLErrorCallIsActive,
+  ]
+
+  private static let transientPOSIXErrorCodes: Set<Int32> = [
+    ECONNREFUSED, ETIMEDOUT, ENETDOWN, ENETUNREACH, ECONNRESET, EHOSTUNREACH,
+  ]
+
+  /// Providers whose NSError code is the HTTP status of the failed request.
+  private static let httpStatusErrorDomains: Set<String> = [
+    "GeminiError", "GeminiProvider", "GeminiDirectProvider", "GemmaBackupProvider",
+    "DayflowBackend", "OpenAICompatibleProvider",
+  ]
+
+  /// Dayflow's own checks on a model's reply. Some of these types are private to their
+  /// provider, so they are matched by name.
+  private static let replyCheckTypeNames = [
+    "ClaudeOutputValidationError", "ClaudeStrictJSONParserError", "ClaudeCardGenerationError",
+    "CardParseError",
+  ]
+
+  private static func kind(forTypeOf error: Error) -> TimelineFailureKind? {
+    if error is CancellationError { return .transient }
+    if error is DecodingError { return .modelFlaky }
+    let typeName = String(describing: type(of: error))
+    if replyCheckTypeNames.contains(where: { typeName.contains($0) }) { return .modelFlaky }
+
+    let nsError = error as NSError
+    if nsError.domain == NSURLErrorDomain, transientURLErrorCodes.contains(nsError.code) {
+      // A refused connection to this Mac means the local model's app is closed.
+      if nsError.code == NSURLErrorCannotConnectToHost, isLocalHost(failingURL(of: nsError)) {
+        return .localEngineOffline
+      }
+      return .transient
     }
+    if nsError.domain == NSPOSIXErrorDomain,
+      transientPOSIXErrorCodes.contains(Int32(truncatingIfNeeded: nsError.code))
+    {
+      return .transient
+    }
+    return nil
+  }
 
+  /// Looks through the errors wrapped inside `error`, nearest first.
+  private static func kind(forErrorsUnder error: Error) -> TimelineFailureKind? {
+    var current = (error as NSError).userInfo[NSUnderlyingErrorKey] as? Error
+    for _ in 0..<5 {
+      guard let underlying = current else { return nil }
+      if let found = Self.kind(forTypeOf: underlying) { return found }
+      current = (underlying as NSError).userInfo[NSUnderlyingErrorKey] as? Error
+    }
+    return nil
+  }
+
+  private static func kind(forHTTPStatusOf error: Error) -> TimelineFailureKind? {
+    let nsError = error as NSError
+    guard httpStatusErrorDomains.contains(nsError.domain) else { return nil }
+    if nsError.domain == "DayflowBackend" {
+      if nsError.code == 402 { return .dayflowProRequired }
+      if nsError.code == 401 || nsError.code == 403 { return .providerLoginExpired }
+    } else {
+      if nsError.code == 401 { return .apiKeyProblem }
+      if nsError.code == 402 { return .outOfCredits }
+    }
+    if (500...599).contains(nsError.code) || nsError.code == 408 || nsError.code == 429 {
+      return .transient
+    }
+    return nil
+  }
+
+  private static func failingURL(of error: NSError) -> URL? {
+    if let url = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL { return url }
+    return (error.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).flatMap {
+      URL(string: $0)
+    }
+  }
+
+  private static func isLocalHost(_ url: URL?) -> Bool {
+    guard let host = url?.host?.lowercased() else { return false }
+    return ["localhost", "127.0.0.1", "::1", "0.0.0.0"].contains(host)
+  }
+
+  /// Raw model output sometimes ends up as the error message (truncated JSON, stray brackets,
+  /// empty strings), all symptoms of a flaky reply.
+  private static func looksLikeRawModelOutput(_ lower: String) -> Bool {
+    let trimmed = lower.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty || trimmed.hasPrefix("[") || trimmed.hasPrefix("{")
+      || trimmed.hasPrefix("]") || trimmed.hasPrefix("`")
+  }
+
+  private static func ruleKind(for lower: String) -> TimelineFailureKind? {
     for rule in rules where rule.patterns.contains(where: { lower.contains($0) }) {
       return rule.kind
     }
-    return .unknown
+    return nil
   }
 
   /// Ordered: first matching rule wins, so specific/actionable rules must
@@ -415,13 +575,15 @@ enum TimelineFailureClassifier {
         "sso session", "aws sso login",
       ]
     ),
-    (.cliNotInstalled, ["cli not found", "enoent"]),
+    (.cliNotInstalled, ["cli not found", "enoent", "native binary not installed"]),
     (.cliOutdated, ["requires a newer version of codex", "newer version of codex"]),
     (
       .modelMisconfigured,
       [
         "is not supported when using codex with a chatgpt account",
         "is not found for api version", "not_found_error",
+        // A gateway in front of Claude that doesn't know the model Dayflow asks for.
+        "is not a valid llm model",
       ]
     ),
     (.localEngineOffline, ["ollama/lmstudio is running"]),
@@ -441,6 +603,8 @@ enum TimelineFailureClassifier {
         "you've hit your", "you’ve hit your",
       ]
     ),
+    // "Claude Code can't use your Claude subscription, usually because a payment is past due".
+    (.paymentPastDue, ["payment is past due", "use your claude subscription"]),
     (
       .outOfCredits,
       [
@@ -456,7 +620,15 @@ enum TimelineFailureClassifier {
       ]
     ),
     (.geoBlocked, ["location is not supported"]),
-    (.accountBlocked, ["denied access", "organization has disabled", "account is on hold"]),
+    (
+      .accountBlocked,
+      [
+        "denied access", "organization has disabled", "account is on hold",
+        // "Your account can't receive replies from Claude right now. You can find the next
+        // step in the Anthropic Verification Portal".
+        "verification portal", "receive replies from claude",
+      ]
+    ),
     (.notConfigured, ["no llm provider configured"]),
     (
       .transient,
@@ -479,15 +651,13 @@ enum TimelineFailureClassifier {
   ]
 
   private static func providerName(in lower: String) -> String? {
-    if lower.contains("codex") || lower.contains("chatgpt")
-      || lower.contains("could not be refreshed")
-    {
-      return "ChatGPT"
-    }
-    // Claude via Bedrock: the expired session is AWS's, and the fix is
-    // 'aws sso login' — not Claude's own login. Must be checked before Claude.
+    // Claude via Bedrock: the expired session is AWS's, and the fix is 'aws sso login', not
+    // Claude's own login. Checked first, so no other provider's name in the text hides it.
     if lower.contains("aws sso") || lower.contains("sso session") {
       return "AWS"
+    }
+    if lower.contains("codex") || lower.contains("chatgpt") {
+      return "ChatGPT"
     }
     if lower.contains("claude") || lower.contains("/login") || lower.contains("anthropic") {
       return "Claude"

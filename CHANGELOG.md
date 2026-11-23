@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.9.2] - 2026-11-23
+
+### Fixed
+- Repair upstream sync ancestry and merge newer provider retry/cancellation and availability fixes without restoring Flow, support chat, paid Privacy Shield or remote link previews.
+- Preserve provider consent, header-only API keys, disk-backed screenshot videos, timeline search and bounded local frame processing during the merge.
+
 ## [2.9.1] - 2026-11-21
 
 ### Changed

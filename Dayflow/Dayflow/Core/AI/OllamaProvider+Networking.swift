@@ -56,7 +56,7 @@ extension OllamaProvider {
     }
 
     struct ResponseMessage: Codable {
-      let content: String
+      let content: String?
 
       private enum CodingKeys: String, CodingKey {
         case content
@@ -73,7 +73,7 @@ extension OllamaProvider {
         } else if let parts = try? container.decode([ContentPart].self, forKey: .content) {
           content = parts.compactMap(\.text).joined()
         } else {
-          content = try container.decode(String.self, forKey: .content)
+          content = try container.decodeIfPresent(String.self, forKey: .content)
         }
       }
 
@@ -328,7 +328,15 @@ extension OllamaProvider {
 
     let response = try await callChatAPI(
       request, operation: operation, batchId: batchId, maxRetries: maxRetries)
-    return response.choices.first?.message.content ?? ""
+    let text = response.choices.first?.message.content ?? ""
+    guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      throw NSError(
+        domain: "OllamaProvider", code: 16,
+        userInfo: [
+          NSLocalizedDescriptionKey: "Failed to parse response: empty reply from the local model"
+        ])
+    }
+    return text
   }
 
   private func applyAuthorizationHeader(to request: inout URLRequest) {

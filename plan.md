@@ -172,3 +172,40 @@ actual runner behavior. No tag/build/merge; local synthetic tests pass.
   rejects the added Permissions tab. Keep Storage first/default and Account
   second-to-last, place Permissions after Privacy, and extend that exact assertion
   to include the new upstream tab without weakening the established ordering.
+
+
+## 2026-11-23 - Upstream sync conflict repair
+
+- Actual failed run: Sync Upstream #33, job 137525080329, run 45124321739.
+  The merge step failed before push/PR/build, with 56 conflicted paths.
+- PR #127 was squash-merged. Its reviewed head 81842f1a has the same tree as
+  main's 901057f1 squash commit. Restore that parent ancestry, then merge
+  upstream 0365e6f8 using a real merge commit, not another squash.
+- Preserve fork Flow/support removal, local rules-only Privacy Shield, disabled
+  model downloads/link previews, API keys in headers, consent and updater guards.
+- Port provider availability, retry/cancellation, Gemini one-step timeline and
+  docket feedback fixes. Keep fork timeline search/windowing and local frame
+  concurrency. Video composition remains disk-backed, including the new path.
+- Defer upstream onboarding redesign/automatic shell-script installation; keep
+  fork dark-mode onboarding. Do not silently install tools during this repair.
+- Upstream 6cb916fc deliberately adds failing timezone characterization cases.
+  Preserve their full source in docs/upstream-timezone-regressions.swift.txt,
+  outside the XCTest target, for a separate timezone repair. No existing fork
+  tests were removed or disabled.
+- Version 2.9.2, build 180. No workflow edits, merge, tag or release requested here.
+- Local validation: Python merge contracts, entitlement guard fixtures, release
+  credential transport fixtures and Studio queue suite. Swift/Xcode and native UI
+  verification are unavailable locally; await public macOS PR CI. UI acceptance
+  of the new provider issue card/menu remains unverified.
+
+### PR #136 compile follow-up
+- Native CI exposed an accidentally truncated ProviderSignIn file in the consent
+  integration. Restored all lifecycle, cancellation, polling and command helpers.
+- Added regression coverage ensuring those consumers remain, and re-ran own
+  adversarial review. Native CI recheck still required.
+
+- Second native pass compiled the restored sign-in helper, then found a remaining
+  consumer of newly optional Ollama reply content in the retained onboarding UI.
+  Updated that consumer to keep empty-response rejection; added a contract and
+  traced all ChatResponse/message.content consumers again. Own review ran, fixed
+  this finding, no other static findings. Native check remains pending.

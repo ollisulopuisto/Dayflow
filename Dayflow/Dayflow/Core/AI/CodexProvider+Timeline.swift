@@ -85,8 +85,12 @@ extension CodexProvider {
               ])
           }
 
-          let cards = normalizeCards(
-            try parseCards(from: run.stdout, stderr: run.stderr), descriptors: context.categories)
+          // An outer boundary a minute or two off the window is moved onto it, not sent back.
+          let cards = ClaudeOutputValidator.snappingOuterEdges(
+            normalizeCards(
+              try parseCards(from: run.stdout, stderr: run.stderr),
+              descriptors: context.categories),
+            existingCards: previousCards, observations: [window])
           do {
             try ClaudeOutputValidator.validateActivityCards(
               cards, existingCards: previousCards, observations: [window])
@@ -134,7 +138,8 @@ extension CodexProvider {
             start: callStart, end: run.finishedAt, input: currentPrompt, output: run.stdout)
           return (cards, observations, plan.rewriteSpan, llmCall)
         } catch {
-          if error is CancellationError { throw error }
+          // A batch stopped for sleep sees the runner's timeout error, not CancellationError.
+          if error is CancellationError || Task.isCancelled { throw error }
           if currentAttempt < Self.timelineMaxAttempts,
             let fallback = Self.availabilityFallback(
               for: model, error: error, stderr: lastRun?.stderr)
@@ -174,7 +179,7 @@ extension CodexProvider {
     let workingDirectory = config.workingDirectory
     // The frames go to the CLI as written; the shared image preparation would shrink them to
     // 720 pixels, which loses small on-screen text.
-    return try await Task.detached(priority: .utility) {
+    let task = Task.detached(priority: .utility) {
       try runner.run(
         tool: .codex,
         prompt: prompt,
@@ -183,7 +188,14 @@ extension CodexProvider {
         model: model,
         reasoningEffort: reasoningEffort
       )
-    }.value
+    }
+    // A detached task doesn't see its caller being cancelled (the batch stopping because the
+    // Mac is going to sleep), so pass the cancellation on and let the runner stop the CLI.
+    return try await withTaskCancellationHandler {
+      try await task.value
+    } onCancel: {
+      task.cancel()
+    }
   }
 
   // MARK: Prompt

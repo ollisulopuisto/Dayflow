@@ -19,6 +19,8 @@ struct ActivityCard: View {
   @EnvironmentObject private var appState: AppState
   @EnvironmentObject private var categoryStore: CategoryStore
   @EnvironmentObject private var retryCoordinator: RetryCoordinator
+  @ObservedObject private var providerProblems = ProviderProblemCenter.shared
+  @ObservedObject private var providerSignIn = ProviderSignIn.shared
   @AppStorage(TimelapsePreferences.saveAllTimelapsesToDiskKey) private var saveAllTimelapsesToDisk =
     false
 
@@ -332,7 +334,7 @@ struct ActivityCard: View {
     } else {
       HStack(alignment: .center, spacing: 6) {
         Text(TimelineSearch.highlighted(AttributedString(
-          isFailedCard(activity) ? String(localized: "Processing failed") : activity.title),
+          isFailedCard(activity) ? activity.waitingTitle ?? String(localized: "Processing failed") : activity.title),
           query: searchQuery))
           .font(
             Font.custom("Figtree", size: 16)
@@ -487,7 +489,13 @@ struct ActivityCard: View {
     let isProcessing = retryCoordinator.isActive(batchId: activity.batchId)
     let isDisabled = retryCoordinator.isRunning
 
-    if isProcessing {
+    if !isProcessing, let provider = providerProblems.problem?.signInProviderID,
+      activity.waitingTitle == "Waiting for \(ProviderSignIn.displayName(for: provider))"
+    {
+      // Waiting on a signed-out provider: signing in is the fix, and Dayflow retries after.
+      // Cards waiting for the internet or a retry after sleep keep their Retry button.
+      signInButton(for: provider)
+    } else if isProcessing {
       // Processing state - beige pill with spinner
       HStack(alignment: .center, spacing: 4) {
         ProgressView()
@@ -533,6 +541,37 @@ struct ActivityCard: View {
       .hoverScaleEffect(enabled: !isDisabled, scale: 1.02)
       .pointingHandCursorOnHover(enabled: !isDisabled, reassertOnPressEnd: true)
     }
+  }
+
+  private func signInButton(for provider: LLMProviderID) -> some View {
+    let isWaiting = providerSignIn.state == .waiting(provider)
+    let name = ProviderSignIn.displayName(for: provider)
+    return Button(action: {
+      providerSignIn.start(provider, source: "timeline_card")
+      // Nothing opened because the tool isn't on this Mac, so show the card that says so.
+      if providerSignIn.toolIsMissing { providerProblems.showCardAgain() }
+    }) {
+      Text(
+        isWaiting
+          ? String(localized: "Waiting for sign-in…") : String(localized: "Sign in to \(name)")
+      )
+      .font(.custom("Figtree", size: 13).weight(.medium))
+      .lineLimit(1)
+      .foregroundColor(theme.primaryButtonText)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      .background(
+        Capsule(style: .continuous)
+          .fill(theme.primaryButtonFill)
+          .overlay(
+            Capsule(style: .continuous).strokeBorder(theme.primaryButtonBorder, lineWidth: 1)
+          )
+      )
+    }
+    .buttonStyle(PlainButtonStyle())
+    .disabled(isWaiting)
+    .opacity(isWaiting ? 0.7 : 1)
+    .pointingHandCursorOnHover(enabled: !isWaiting, reassertOnPressEnd: true)
   }
 
   private func handleRetry(for activity: TimelineActivity) {

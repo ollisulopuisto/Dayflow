@@ -97,7 +97,7 @@ extension GeminiDirectProvider {
     var finalResponse = ""
     var finalObservations: [Observation] = []
 
-    var modelState = ModelRunState(models: modelPreference.orderedModels)
+    var modelState = ModelRunState(models: modelsToTry)
     let callGroupId = UUID().uuidString
 
     while attempt < maxRetries {
@@ -420,6 +420,7 @@ extension GeminiDirectProvider {
         logGeminiFailure(
           context: "transcribe.httpError", attempt: attempt, response: response, data: data,
           error: nil)
+        noteModelRefused(model, status: httpResponse.statusCode, body: data)
         throw NSError(
           domain: "GeminiError", code: httpResponse.statusCode,
           userInfo: [NSLocalizedDescriptionKey: errorMessage])
@@ -649,14 +650,22 @@ extension GeminiDirectProvider {
 
   // MARK: - Screenshot Transcription
 
-  /// Transcribe observations from screenshots by first compositing them into a video.
-  /// Gemini's API expects video files, so we composite screenshots → video → upload → transcribe.
-  ///
-  /// We use a compressed timeline: each screenshot = 1 second of video.
-  /// This reduces a 15-minute batch (90 screenshots) to a 90-second video.
-  /// Timestamps returned by Gemini are then expanded by the screenshot interval.
-  func transcribeScreenshots(_ screenshots: [Screenshot], batchStartTime: Date, batchId: Int64?)
-    async throws -> (observations: [Observation], log: LLMCall)
+  /// One batch's screenshots as a compressed video: each screenshot is one second.
+  struct CompressedBatchVideo {
+    let fileURL: URL
+    let frameCount: Int
+    /// Seconds between the first and last screenshot.
+    let realDuration: TimeInterval
+    /// Average real seconds per frame, used to turn video time back into clock time.
+    let compressionFactor: TimeInterval
+    let firstCapturedAt: Int
+    let lastCapturedAt: Int
+  }
+
+  /// Composites screenshots into the 1 fps video Gemini reads. Each screenshot becomes one
+  /// second of video, so a 15-minute batch (90 screenshots) becomes a 90-second video.
+  func makeCompressedBatchVideo(_ screenshots: [Screenshot], batchId: Int64?) async throws
+    -> CompressedBatchVideo
   {
     guard !screenshots.isEmpty else {
       throw NSError(
@@ -671,9 +680,6 @@ extension GeminiDirectProvider {
     let lastTs = sortedScreenshots.last!.capturedAt
     let realDuration = TimeInterval(lastTs - firstTs)
 
-    // Compressed video duration: 1 second per screenshot
-    let compressedVideoDuration = TimeInterval(sortedScreenshots.count)
-
     // Compression factor = average real seconds per frame (each frame is 1s of video)
     let compressionFactor =
       sortedScreenshots.count > 1 && realDuration > 0
@@ -681,16 +687,12 @@ extension GeminiDirectProvider {
       : ScreenshotConfig.interval
 
     print(
-      "[Gemini] 📊 Timeline compression: \(Int(realDuration))s real → \(Int(compressedVideoDuration))s video (\(Int(compressionFactor))x)"
+      "[Gemini] 📊 Timeline compression: \(Int(realDuration))s real → \(sortedScreenshots.count)s video (\(Int(compressionFactor))x)"
     )
 
     // Create temp video file
     let tempVideoURL = FileManager.default.temporaryDirectory
       .appendingPathComponent("gemini_batch_\(batchId ?? 0)_\(UUID().uuidString).mp4")
-
-    defer {
-      try? FileManager.default.removeItem(at: tempVideoURL)
-    }
 
     // Composite screenshots into compressed video (1fps)
     let videoService = VideoProcessingService()
@@ -709,6 +711,7 @@ extension GeminiDirectProvider {
         )
       )
     } catch {
+      try? FileManager.default.removeItem(at: tempVideoURL)
       print("[Gemini] ❌ Failed to composite screenshots into video: \(error.localizedDescription)")
       throw NSError(
         domain: "GeminiDirectProvider",
@@ -720,20 +723,33 @@ extension GeminiDirectProvider {
       )
     }
 
-    let attrs = try? FileManager.default.attributesOfItem(atPath: tempVideoURL.path)
-    let fileSizeKB = ((attrs?[.size] as? NSNumber)?.int64Value ?? 0) / 1024
-    print(
-      "[Gemini] 📹 Composited \(screenshots.count) screenshots into compressed video (\(fileSizeKB)KB)"
-    )
-
-    // Transcribe the composited video file directly from disk without loading into Data
-    return try await transcribeVideoFile(
-      tempVideoURL,
-      mimeType: "video/mp4",
-      batchStartTime: batchStartTime,
-      videoDuration: compressedVideoDuration,
+    return CompressedBatchVideo(
+      fileURL: tempVideoURL,
+      frameCount: sortedScreenshots.count,
       realDuration: realDuration,
       compressionFactor: compressionFactor,
+      firstCapturedAt: firstTs,
+      lastCapturedAt: lastTs
+    )
+  }
+
+  /// Transcribe observations from screenshots by first compositing them into a video.
+  /// Gemini's API expects video files, so we composite screenshots → video → upload → transcribe.
+  /// Timestamps returned by Gemini are then expanded by the screenshot interval.
+  func transcribeScreenshots(_ screenshots: [Screenshot], batchStartTime: Date, batchId: Int64?)
+    async throws -> (observations: [Observation], log: LLMCall)
+  {
+    let video = try await makeCompressedBatchVideo(screenshots, batchId: batchId)
+    defer { try? FileManager.default.removeItem(at: video.fileURL) }
+
+    // Transcribe the composited video with compression info
+    return try await transcribeVideoFile(
+      video.fileURL,
+      mimeType: "video/mp4",
+      batchStartTime: batchStartTime,
+      videoDuration: TimeInterval(video.frameCount),
+      realDuration: video.realDuration,
+      compressionFactor: video.compressionFactor,
       batchId: batchId
     )
   }
