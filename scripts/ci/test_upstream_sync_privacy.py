@@ -52,6 +52,13 @@ class UpstreamSyncPrivacyTests(unittest.TestCase):
         for path in ['System/StatusBarController.swift', 'Core/Notifications/NotificationService.swift']:
             self.assertNotIn('FlowSessionMirror', self.source(path), path)
 
+    def test_sign_in_keeps_lifecycle_and_command_helpers(self):
+        source = self.source('System/ProviderSignIn.swift')
+        for method in ['func cancel()', 'func watch(', 'func finish(', 'func stopProcess()',
+                       'func endProcess()', 'func clearFailure()', 'func loginCommand(',
+                       'func isSignedIn(']:
+            self.assertIn(method, source)
+
     def test_sign_in_requires_cli_consent(self):
         source = self.source('System/ProviderSignIn.swift')
         self.assertLess(source.index('try await ProviderConsentGate.requireCLI'),

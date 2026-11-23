@@ -197,3 +197,9 @@ actual runner behavior. No tag/build/merge; local synthetic tests pass.
   credential transport fixtures and Studio queue suite. Swift/Xcode and native UI
   verification are unavailable locally; await public macOS PR CI. UI acceptance
   of the new provider issue card/menu remains unverified.
+
+### PR #136 compile follow-up
+- Native CI exposed an accidentally truncated ProviderSignIn file in the consent
+  integration. Restored all lifecycle, cancellation, polling and command helpers.
+- Added regression coverage ensuring those consumers remain, and re-ran own
+  adversarial review. Native CI recheck still required.
