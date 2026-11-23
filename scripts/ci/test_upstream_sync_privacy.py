@@ -52,6 +52,10 @@ class UpstreamSyncPrivacyTests(unittest.TestCase):
         for path in ['System/StatusBarController.swift', 'Core/Notifications/NotificationService.swift']:
             self.assertNotIn('FlowSessionMirror', self.source(path), path)
 
+    def test_local_onboarding_accepts_absent_model_reply(self):
+        self.assertIn('message.content?.trimmingCharacters(',
+                      self.source('Views/Onboarding/LocalLLMTestView.swift'))
+
     def test_sign_in_keeps_lifecycle_and_command_helpers(self):
         source = self.source('System/ProviderSignIn.swift')
         for method in ['func cancel()', 'func watch(', 'func finish(', 'func stopProcess()',

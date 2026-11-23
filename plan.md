@@ -203,3 +203,9 @@ actual runner behavior. No tag/build/merge; local synthetic tests pass.
   integration. Restored all lifecycle, cancellation, polling and command helpers.
 - Added regression coverage ensuring those consumers remain, and re-ran own
   adversarial review. Native CI recheck still required.
+
+- Second native pass compiled the restored sign-in helper, then found a remaining
+  consumer of newly optional Ollama reply content in the retained onboarding UI.
+  Updated that consumer to keep empty-response rejection; added a contract and
+  traced all ChatResponse/message.content consumers again. Own review ran, fixed
+  this finding, no other static findings. Native check remains pending.
