@@ -509,9 +509,10 @@ extension OllamaProvider {
     defer { FrameStore.shared.clearReaders() }
     let concurrency = max(1, maxConcurrency)
     var cursor = 0
+    typealias FrameResult = (TimeInterval, Result<String, Error>)
     let results = await withTaskGroup(
-      of: (TimeInterval, Result<String, Error>).self,
-      returning: [(TimeInterval, Result<String, Error>)].self
+      of: FrameResult.self,
+      returning: [FrameResult].self
     ) { group in
       func enqueue(_ screenshot: Screenshot) {
         let frameData = loadScreenshotAsFrameData(screenshot, relativeTo: firstTs)
@@ -527,7 +528,7 @@ extension OllamaProvider {
         enqueue(sampledScreenshots[cursor])
         cursor += 1
       }
-      var collected: [(TimeInterval, Result<String, Error>)] = []
+      var collected: [FrameResult] = []
       while let result = await group.next() {
         collected.append(result)
         if cursor < sampledScreenshots.count {
