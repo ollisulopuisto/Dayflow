@@ -12,7 +12,20 @@ extension OllamaProvider {
     let timestamp: TimeInterval  // Seconds from batch start
   }
 
-  private func getSimpleFrameDescription(_ frame: FrameData, batchId: Int64?) async -> String? {
+  /// True when nothing answered at the local endpoint, which is the only case where
+  /// "Ollama or LM Studio isn't running" is the right thing to tell the user.
+  private static func isConnectionFailure(_ error: Error) -> Bool {
+    let nsError = error as NSError
+    guard nsError.domain == NSURLErrorDomain else { return false }
+    return [
+      NSURLErrorCannotConnectToHost, NSURLErrorCannotFindHost, NSURLErrorNetworkConnectionLost,
+      NSURLErrorNotConnectedToInternet,
+    ].contains(nsError.code)
+  }
+
+  private func getSimpleFrameDescription(_ frame: FrameData, batchId: Int64?) async throws
+    -> String
+  {
     // Simple prompt focused on just describing what's happening
     let prompt = """
       Describe what you see on this computer screen in 1-2 sentences.
@@ -52,30 +65,32 @@ extension OllamaProvider {
       })
     else {
       print("[OLLAMA] ⚠️ Failed to decode frame image — skipping frame")
-      return nil
+      throw NSError(
+        domain: "OllamaProvider", code: 14,
+        userInfo: [NSLocalizedDescriptionKey: "Failed to load a screenshot for the local model"])
     }
 
     do {
       let response = try await callChatAPI(
         request, operation: "describe_frame", batchId: batchId, maxRetries: 1)
       // Return the raw text response (no JSON parsing needed for simple descriptions)
-      return response.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        ?? ""
+      let description =
+        response.choices.first?.message.content?
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      guard !description.isEmpty else {
+        throw NSError(
+          domain: "OllamaProvider", code: 16,
+          userInfo: [
+            NSLocalizedDescriptionKey: "Failed to parse response: empty reply from the local model"
+          ])
+      }
+      return description
     } catch {
       print(
         "[OLLAMA] ⚠️ describe_frame failed at \(frame.timestamp)s — skipping frame: \(error.localizedDescription)"
       )
-      return nil
+      throw error
     }
-  }
-
-  private func describeFrameResult(_ frame: FrameData, batchId: Int64?) async -> (
-    TimeInterval, String
-  )? {
-    guard let description = await getSimpleFrameDescription(frame, batchId: batchId) else {
-      return nil
-    }
-    return (frame.timestamp, description)
   }
 
   private func parseVideoTimestamp(_ timestamp: String) -> Int {
@@ -490,48 +505,50 @@ extension OllamaProvider {
     let lastTs = sampledScreenshots.last!.capturedAt
     let durationSeconds = TimeInterval(lastTs - firstTs)
 
-    // Load and describe a bounded number of frames at a time. Loading stays
-    // sequential because FrameStore owns shared readers; requests can overlap.
+    // Keep bounded concurrent requests and propagate their real error when every frame fails.
     defer { FrameStore.shared.clearReaders() }
     let concurrency = max(1, maxConcurrency)
     var cursor = 0
-    var frameDescriptions = await withTaskGroup(
-      of: (TimeInterval, String)?.self,
-      returning: [(timestamp: TimeInterval, description: String)].self
+    let results = await withTaskGroup(
+      of: (TimeInterval, Result<String, Error>).self,
+      returning: [(TimeInterval, Result<String, Error>)].self
     ) { group in
-      while cursor < sampledScreenshots.count && cursor < concurrency {
-        let screenshot = sampledScreenshots[cursor]
+      func enqueue(_ screenshot: Screenshot) {
         let frameData = loadScreenshotAsFrameData(screenshot, relativeTo: firstTs)
-        group.addTask { await self.describeFrameResult(frameData, batchId: batchId) }
+        group.addTask {
+          do {
+            return (frameData.timestamp, .success(try await self.getSimpleFrameDescription(frameData, batchId: batchId)))
+          } catch {
+            return (frameData.timestamp, .failure(error))
+          }
+        }
+      }
+      while cursor < sampledScreenshots.count && cursor < concurrency {
+        enqueue(sampledScreenshots[cursor])
         cursor += 1
       }
-
-      var collected: [(timestamp: TimeInterval, description: String)] = []
+      var collected: [(TimeInterval, Result<String, Error>)] = []
       while let result = await group.next() {
-        if let (timestamp, description) = result {
-          collected.append((timestamp: timestamp, description: description))
-        }
+        collected.append(result)
         if cursor < sampledScreenshots.count {
-          let screenshot = sampledScreenshots[cursor]
-          let frameData = loadScreenshotAsFrameData(screenshot, relativeTo: firstTs)
-          group.addTask { await self.describeFrameResult(frameData, batchId: batchId) }
+          enqueue(sampledScreenshots[cursor])
           cursor += 1
         }
       }
       return collected
     }
-
-    frameDescriptions.sort { $0.timestamp < $1.timestamp }
-
+    var frameDescriptions: [(timestamp: TimeInterval, description: String)] = []
+    var lastFrameError: Error?
+    for (timestamp, result) in results.sorted(by: { $0.0 < $1.0 }) {
+      switch result {
+      case .success(let description): frameDescriptions.append((timestamp, description))
+      case .failure(let error): lastFrameError = error
+      }
+    }
     guard !frameDescriptions.isEmpty else {
-      throw NSError(
-        domain: "OllamaProvider",
-        code: 11,
-        userInfo: [
-          NSLocalizedDescriptionKey:
-            "Failed to describe any screenshots. Please check that Ollama/LMStudio is running."
-        ]
-      )
+      if let lastFrameError { throw lastFrameError }
+      throw NSError(domain: "OllamaProvider", code: 11,
+        userInfo: [NSLocalizedDescriptionKey: "Failed to describe any screenshots."])
     }
 
     // Merge frame descriptions into coherent observations

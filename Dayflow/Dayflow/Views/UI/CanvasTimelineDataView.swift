@@ -477,6 +477,7 @@ struct CanvasTimelineDataView: View {
             faviconSecondaryHost: item.faviconSecondaryHost,
             statusLine: retryCoordinator.statusLine(for: item.batchIds),
             failureCount: item.failureCount,
+            waitingTitle: item.activity.waitingTitle,
             fontSize: Self.cardFontSize(
               base: cardTextFontSize, showsShortCardText: !mergeSegments),
             fontWeight: cardTextFontWeight,
