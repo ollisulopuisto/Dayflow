@@ -30,7 +30,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   /// Standard Command-Q/menu quit, sharing the normal termination cleanup.
-  static func quitCompletely(terminate: () -> Void = { NSApp.terminate(nil) }) {
+  static func quitCompletely(
+    confirm: () -> Bool = confirmQuit,
+    terminate: () -> Void = { NSApp.terminate(nil) }
+  ) {
+    guard confirm() else { return }
     permitTermination(reason: "app_menu_quit")
     terminate()
   }
@@ -312,10 +316,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-    if !Self.allowTermination {
-      Self.permitTermination(reason: "app_quit")
+    Self.terminationReply(confirm: Self.confirmQuit)
+  }
+
+  static func terminationReply(confirm: () -> Bool) -> NSApplication.TerminateReply {
+    if !allowTermination {
+      guard confirm() else { return .terminateCancel }
+      permitTermination(reason: "app_quit")
     }
     return .terminateNow
+  }
+
+  static func confirmQuit() -> Bool {
+    let alert = NSAlert()
+    alert.messageText = "Quit Dayflow?"
+    alert.informativeText = "Quitting stops recording and exits Dayflow. To just close this window, press Command-W or click the red close button. Recording will continue."
+    alert.alertStyle = .warning
+    alert.addButton(withTitle: "Quit Dayflow")
+    alert.addButton(withTitle: "Cancel")
+    return alert.runModal() == .alertFirstButtonReturn
   }
 
   // MARK: - Foreground Tracking

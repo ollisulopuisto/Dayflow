@@ -7,7 +7,9 @@ class QuitShortcutContract(unittest.TestCase):
         source = (ROOT/'Dayflow/Dayflow/App/AppDelegate.swift').read_text()
         body = source.split('  func applicationShouldTerminate(')[1].split('// MARK:')[0]
         self.assertIn('return .terminateNow', body)
-        self.assertNotIn('.terminateCancel', body)
+        self.assertIn('guard confirm() else { return .terminateCancel }', body)
+        self.assertIn('Command-W or click the red close button', body)
+        self.assertIn('return alert.runModal() == .alertFirstButtonReturn', body)
         self.assertNotIn('NSApp.hide', body)
         self.assertNotIn('didSoftQuit', source)
     def test_menu_uses_registry_without_special_quit(self):
