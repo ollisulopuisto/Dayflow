@@ -53,6 +53,28 @@ final class StorageManagerWeeklyTrackedMinutesTests: XCTestCase {
     }
   }
 
+  func testRecordedDayThresholdClipsBothEndsAfterTimezoneChange() throws {
+    let day = "2001-09-09"
+    let formatter = ISO8601DateFormatter()
+    // A Tokyo recorded day runs Sep 8 19:00 UTC through Sep 9 19:00 UTC.
+    let lower = Int(formatter.date(from: "2001-09-08T19:00:00Z")!.timeIntervalSince1970)
+    let upper = lower + 86400
+    try store.db.write { db in
+      try db.execute(sql: "UPDATE analysis_batches SET time_zone = 'Asia/Tokyo' WHERE id = ?", arguments: [batchId])
+      for (start, end) in [(lower - 3600, lower + 600), (upper - 900, upper + 3600)] {
+        try db.execute(sql: """
+          INSERT INTO timeline_cards(batch_id,start,end,start_ts,end_ts,day,title,
+            summary,category,subcategory,detailed_summary,metadata,is_deleted,utc_offset)
+          VALUES (?, '3:00 AM', '4:10 AM', ?, ?, ?, 'weekly-total-test-zone', '',
+            'Engineering', '', '', '{}', 0, 32400)
+          """, arguments: [batchId, start, end, day])
+      }
+    }
+    // 10 minutes at the first boundary plus 15 at the last. Not the full 145 minutes.
+    XCTAssertTrue(store.hasMinimumTimelineActivity(forDay: day, minimumMinutes: 25))
+    XCTAssertFalse(store.hasMinimumTimelineActivity(forDay: day, minimumMinutes: 26))
+  }
+
   private func trackedMinutes() -> Double {
     store.fetchTotalMinutesTracked(
       from: Date(timeIntervalSince1970: TimeInterval(rangeStartTs)),

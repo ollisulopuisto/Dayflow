@@ -32,6 +32,16 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Idle: browser privacy AppleScript runs on a background queue (merged, CI green).
 - Scroll: one time-column reader instead of 24 label readers (merged, CI green).
 
+## In review: upstream v2.9.8 (2026-11-25)
+- Import upstream e835511b, preserve rules-only Vision privacy and fail-closed recorder.
+- Batch time_zone and card utc_offset startup migration, tested against isolated legacy
+  databases by RecordedTimeZoneMigrationTests; timezone/DST regressions promoted from
+  docs into the XCTest target. Native execution still requires macOS CI.
+- Keep pending-capture accounting, both-side day clipping and week macroblocks.
+- No workflow/credential/crypto edits, live DB access, install or release. DB merge held
+  for Olli's explicit word. Additive schema has no automatic downgrade: restore a
+  pre-upgrade backup to undo data changes, which discards subsequent writes.
+
 ## Open
 - Timeline search and ⌘←/⌘→ (merged, CI green, not yet tried in the app). Check: ⌘← in the
   search field and in Chat still moves the cursor; search dims the right cards in Day, Week and Month; in Day/Week

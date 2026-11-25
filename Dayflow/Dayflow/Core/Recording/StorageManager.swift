@@ -8,6 +8,41 @@ import GRDB
 import Sentry
 
 final class StorageManager: StorageManaging, @unchecked Sendable {
+  /// Additive, transactional startup migration. Exposed internally for isolated SQLite tests.
+  static func migrateRecordedTimeZones(_ db: Database) throws {
+    let batchColumns = try db.columns(in: "analysis_batches").map { $0.name }
+    if !batchColumns.contains("time_zone") {
+      try db.execute(sql: "ALTER TABLE analysis_batches ADD COLUMN time_zone TEXT;")
+      print("✅ Added time_zone column to analysis_batches")
+    }
+
+    // Migration: each card's UTC offset (seconds) in the zone it was recorded in. Older cards
+    // get theirs from the gap between their clock label and their start timestamp.
+    if !(try db.columns(in: "timeline_cards").map { $0.name }).contains("utc_offset") {
+      try db.execute(sql: "ALTER TABLE timeline_cards ADD COLUMN utc_offset INTEGER;")
+      // Deleted cards are never shown, so only live ones are filled.
+      let rows = try Row.fetchAll(
+        db,
+        sql: """
+              SELECT id, start, start_ts, day FROM timeline_cards
+              WHERE start_ts IS NOT NULL AND is_deleted = 0
+          """)
+      let update = try db.makeStatement(
+        sql: "UPDATE timeline_cards SET utc_offset = ? WHERE id = ?")
+      for row in rows {
+        let label: String = row["start"] ?? ""
+        let startTs: Int = row["start_ts"]
+        let day: String = row["day"] ?? ""
+        guard
+          let offset = ClockTime.inferredUTCOffset(label: label, startTs: startTs, day: day)
+        else { continue }
+        let id: Int64 = row["id"]
+        try update.execute(arguments: [offset, id])
+      }
+      print("✅ Added utc_offset column to timeline_cards and filled \(rows.count) cards")
+    }
+  }
+
   static let shared = StorageManager()
 
   enum DatabaseOperationKind: String {
@@ -731,6 +766,8 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
 
         print("✅ Added is_deleted column and composite indexes to timeline_cards")
       }
+
+      try Self.migrateRecordedTimeZones(db)
 
       let screenshotColumns = try db.columns(in: "screenshots").map { $0.name }
       if !screenshotColumns.contains("idle_seconds_at_capture") {
