@@ -31,11 +31,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   /// Standard Command-Q/menu quit, sharing the normal termination cleanup.
   static func quitCompletely(
+    reason: String = "app_menu_quit",
     confirm: () -> Bool = confirmQuit,
     terminate: () -> Void = { NSApp.terminate(nil) }
   ) {
     guard confirm() else { return }
-    permitTermination(reason: "app_menu_quit")
+    permitTermination(reason: reason)
     terminate()
   }
 

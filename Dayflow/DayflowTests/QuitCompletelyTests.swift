@@ -22,6 +22,25 @@ final class QuitCompletelyTests: XCTestCase {
     XCTAssertEqual(AppDelegate.terminationReason, "app_menu_quit")
     XCTAssertEqual(terminateCalls, 1)
   }
+  func testStatusBarQuitConfirmsBeforeFullTermination() {
+    var confirmations = 0
+    var terminateCalls = 0
+    StatusBarController.requestQuit(confirm: { confirmations += 1; return true }) { terminateCalls += 1 }
+    XCTAssertEqual(confirmations, 1)
+    XCTAssertEqual(terminateCalls, 1)
+    XCTAssertTrue(AppDelegate.allowTermination)
+    XCTAssertEqual(AppDelegate.terminationReason, "menu_bar_quit")
+    XCTAssertEqual(AppDelegate.terminationReply(confirm: { XCTFail("must not prompt twice"); return false }), .terminateNow)
+  }
+
+  func testStatusBarCancelDoesNotQuitOrPermitTermination() {
+    var terminateCalls = 0
+    StatusBarController.requestQuit(confirm: { false }) { terminateCalls += 1 }
+    XCTAssertEqual(terminateCalls, 0)
+    XCTAssertFalse(AppDelegate.allowTermination)
+    XCTAssertEqual(AppDelegate.terminationReason, "unknown")
+  }
+
   func testOrdinaryQuitTerminatesInsteadOfHiding() {
     AppDelegate.allowTermination = false
     XCTAssertEqual(AppDelegate.terminationReply(confirm: { true }), .terminateNow)

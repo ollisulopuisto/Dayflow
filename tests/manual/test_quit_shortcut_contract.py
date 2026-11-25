@@ -12,6 +12,12 @@ class QuitShortcutContract(unittest.TestCase):
         self.assertIn('return alert.runModal() == .alertFirstButtonReturn', body)
         self.assertNotIn('NSApp.hide', body)
         self.assertNotIn('didSoftQuit', source)
+    def test_status_bar_shares_confirmed_quit(self):
+        source = (ROOT/'Dayflow/Dayflow/System/StatusBarController.swift').read_text()
+        body = source.split('@objc private func quitDayflow()')[1].split('extension UserDefaults')[0]
+        self.assertIn('Self.requestQuit()', body)
+        self.assertIn('AppDelegate.quitCompletely(reason: "menu_bar_quit", confirm: confirm, terminate: terminate)', body)
+        self.assertNotIn('permitTermination', body)
     def test_menu_uses_registry_without_special_quit(self):
         source = (ROOT/'Dayflow/Dayflow/App/DayflowApp.swift').read_text()
         self.assertIn('CommandGroup(replacing: .appTermination)', source)

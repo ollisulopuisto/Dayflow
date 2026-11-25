@@ -5,7 +5,7 @@
 ## [2.9.4] - 2026-11-25
 
 ### Changed
-- Command-Q and ordinary Quit now ask for confirmation, then stop Dayflow instead of hiding while recording. Cancel keeps recording; the dialog explains Command-W/red close button only closes the window. Command-H hides with recording continuing; the special Option-Command-Q shortcut is removed. App-menu shortcuts share one registry.
+- Command-Q, ordinary Quit and status-bar Quit now ask for confirmation, then stop Dayflow instead of hiding while recording. Cancel keeps recording; the dialog explains Command-W/red close button only closes the window. Command-H hides with recording continuing; the special Option-Command-Q shortcut is removed. App-menu shortcuts share one registry.
 
 ## [2.9.2] - 2026-11-23
 
@@ -166,7 +166,7 @@
 ## [2.7.28] - 2026-11-04
 
 ### Added
-- Quit Dayflow Completely (⌥⌘Q) in the app menu. Cmd+Q still only closes to the background so recording continues.
+- Quit Dayflow Completely (⌥⌘Q) in the app menu. At that version, Cmd+Q only closed to the background so recording continued. Superseded in 2.9.4 by confirmed full quit.
 
 ### Fixed
 - Allow plain-HTTP Studio uploads to the Studio's Tailscale machine name, which App Transport Security blocked even though tailnet traffic is already encrypted.
@@ -326,7 +326,7 @@
 ### Fixed
 - Timeline: a background refresh that lands under the pointer no longer aborts the app (AttributeGraph crash). Refreshes wait until the pointer leaves the cards.
 - Updates: the Sparkle installer launcher service is off, which fixes "The application can't be opened" (-10810) after an update.
-- Intro video replays when the app is reopened after a soft quit.
+- Historical behavior: intro video replayed after a soft quit. Soft quit was removed in 2.9.4.
 - Launch hangs: the database integrity check runs off the main thread.
 - Flow: one malformed goal task no longer drops the other goal tasks.
 - Time parsing rejects out-of-range times such as "25:00 AM" and "9:60 AM".
