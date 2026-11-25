@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.9.3] - 2026-11-25
+
+### Changed
+- Command-Q and ordinary Quit now stop Dayflow instead of hiding while recording. Command-H hides with recording continuing; the special Option-Command-Q shortcut is removed. App-menu shortcuts share one registry.
+
 ## [2.9.2] - 2026-11-23
 
 ### Fixed

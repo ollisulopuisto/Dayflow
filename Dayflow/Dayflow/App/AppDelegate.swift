@@ -16,9 +16,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     case timeline
   }
 
-  // Controls whether the app is allowed to terminate.
-  // Default is false so Cmd+Q/Dock/App menu quit will be cancelled
-  // and the app will continue running in the background.
+  // Records explicit quit flows. Ordinary Cmd+Q/Dock quit also terminates;
+  // hiding remains the separate native Command-H action.
   static var allowTermination: Bool = false
 
   /// Why the app is about to quit, sent with `app_terminated`.
@@ -30,8 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     terminationReason = reason
   }
 
-  /// The real quit. Cmd+Q is a soft quit that keeps recording in the background, so
-  /// the app menu needs a way to stop Dayflow for good.
+  /// Standard Command-Q/menu quit, sharing the normal termination cleanup.
   static func quitCompletely(terminate: () -> Void = { NSApp.terminate(nil) }) {
     permitTermination(reason: "app_menu_quit")
     terminate()
@@ -42,9 +40,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private static let lastRunCleanExitKey = "lastRunCleanExit"
   private static let lastRunExitReasonKey = "lastRunExitReason"
   private static let lastRunSeenAtKey = "lastRunSeenAt"
-  // True after a soft-quit so the intro animation replays on reopen
-  static var didSoftQuit: Bool = false
-
   // Flag set when app is opened via notification tap - skips video intro
   static var pendingNotificationNavigationDestination: PendingNotificationNavigationDestination? =
     nil
@@ -85,7 +80,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidFinishLaunching(_ note: Notification) {
-    // Block termination by default; only specific flows enable it.
+    // Clear the previous explicit quit reason for this launch.
     AppDelegate.allowTermination = false
     URLCache.shared = URLCache(memoryCapacity: 0, diskCapacity: 0, directory: nil)
     if isHeadlessExplicit {
@@ -317,15 +312,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-    if Self.allowTermination {
-      return .terminateNow
+    if !Self.allowTermination {
+      Self.permitTermination(reason: "app_quit")
     }
-    // Soft-quit: release transient UI resources, hide windows, and keep background tasks.
-    Self.didSoftQuit = true
-    MainWindowController.shared.purgeUIMemory()
-    NSApp.hide(nil)
-    NSApp.setActivationPolicy(.accessory)
-    return .terminateCancel
+    return .terminateNow
   }
 
   // MARK: - Foreground Tracking

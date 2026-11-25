@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import XCTest
 
 @testable import Dayflow
@@ -20,4 +22,21 @@ final class QuitCompletelyTests: XCTestCase {
     XCTAssertEqual(AppDelegate.terminationReason, "app_menu_quit")
     XCTAssertEqual(terminateCalls, 1)
   }
+  func testOrdinaryQuitTerminatesInsteadOfHiding() {
+    AppDelegate.allowTermination = false
+    XCTAssertEqual(AppDelegate().applicationShouldTerminate(NSApplication.shared), .terminateNow)
+  }
+
+  func testHideDoesNotEnableTermination() {
+    AppDelegate.allowTermination = false
+    var hidden = false
+    AppShortcutRegistry.hideApplication { hidden = true }
+    XCTAssertTrue(hidden)
+    XCTAssertFalse(AppDelegate.allowTermination)
+    XCTAssertEqual(AppShortcutRegistry.quit.key, KeyEquivalent("q"))
+    XCTAssertEqual(AppShortcutRegistry.quit.modifiers, .command)
+    XCTAssertEqual(AppShortcutRegistry.hide.key, KeyEquivalent("h"))
+    XCTAssertEqual(AppShortcutRegistry.hide.modifiers, .command)
+  }
+
 }

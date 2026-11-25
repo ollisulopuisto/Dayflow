@@ -295,19 +295,6 @@ struct DayflowApp: App {
       .animation(
         .spring(response: 0.34, dampingFraction: 0.88), value: surveyCenter.activeSurvey?.id
       )
-      // Replay intro animation when app is reopened after a soft-quit
-      .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-        guard AppDelegate.didSoftQuit else { return }
-        AppDelegate.didSoftQuit = false
-
-        // Skip replay if reopened via notification tap
-        guard !hasPendingNotificationNavigation else { return }
-
-        // Reset video launch state so the intro plays again
-        showVideoLaunch = true
-        contentOpacity = 0.0
-        contentScale = 0.98
-      }
       // Inline background behind the main app UI only
       .background {
         MainWindowRegistrationView()
@@ -345,16 +332,23 @@ struct DayflowApp: App {
       // Remove the "New Window" command if you want a single window app
       CommandGroup(replacing: .newItem) {}
 
-      // Add custom menu items after the app info section
-      CommandGroup(after: .appInfo) {
-        Divider()
-        // Cmd+Q only closes to the background so recording continues. This is the real quit.
-        Button("Quit Dayflow Completely") {
-          Task { @MainActor in
-            AppDelegate.quitCompletely()
-          }
+      CommandGroup(replacing: .appTermination) {
+        Button("Quit Dayflow") {
+          Task { @MainActor in AppDelegate.quitCompletely() }
         }
-        .keyboardShortcut("Q", modifiers: [.command, .option])
+        .keyboardShortcut(AppShortcutRegistry.quit.key, modifiers: AppShortcutRegistry.quit.modifiers)
+      }
+
+      // Native Command-H hides without stopping capture or changing quit policy.
+      CommandGroup(replacing: .appVisibility) {
+        Button("Hide Dayflow") { AppShortcutRegistry.hideApplication() }
+          .keyboardShortcut(AppShortcutRegistry.hide.key, modifiers: AppShortcutRegistry.hide.modifiers)
+        Button("Hide Others") { NSApp.hideOtherApplications(nil) }
+          .keyboardShortcut(AppShortcutRegistry.hideOthers.key, modifiers: AppShortcutRegistry.hideOthers.modifiers)
+        Button("Show All") { NSApp.unhideAllApplications(nil) }
+      }
+
+      CommandGroup(after: .appInfo) {
         Divider()
         Button("Reset Onboarding") {
           // Reset the onboarding flag
@@ -374,7 +368,7 @@ struct DayflowApp: App {
             NSApp.terminate(nil)
           }
         }
-        .keyboardShortcut("R", modifiers: [.command, .shift])
+        .keyboardShortcut(AppShortcutRegistry.resetOnboarding.key, modifiers: AppShortcutRegistry.resetOnboarding.modifiers)
       }
 
       // Standard Mac shortcuts: Cmd+, opens Settings, Cmd+1...6 switch sidebar sections.
@@ -383,7 +377,7 @@ struct DayflowApp: App {
           NSApp.activate(ignoringOtherApps: true)
           NotificationCenter.default.post(name: .navigateToSettings, object: nil)
         }
-        .keyboardShortcut(",", modifiers: .command)
+        .keyboardShortcut(AppShortcutRegistry.settings.key, modifiers: AppShortcutRegistry.settings.modifiers)
       }
 
       CommandGroup(after: .sidebar) {
@@ -392,14 +386,14 @@ struct DayflowApp: App {
           NotificationCenter.default.post(
             name: .timelineZoomStep, object: nil, userInfo: ["delta": 1])
         }
-        .keyboardShortcut("+", modifiers: .command)
+        .keyboardShortcut(AppShortcutRegistry.zoomIn.key, modifiers: AppShortcutRegistry.zoomIn.modifiers)
 
         Button("Zoom Out Timeline") {
           NSApp.activate(ignoringOtherApps: true)
           NotificationCenter.default.post(
             name: .timelineZoomStep, object: nil, userInfo: ["delta": -1])
         }
-        .keyboardShortcut("-", modifiers: .command)
+        .keyboardShortcut(AppShortcutRegistry.zoomOut.key, modifiers: AppShortcutRegistry.zoomOut.modifiers)
 
         Divider()
 
@@ -407,18 +401,18 @@ struct DayflowApp: App {
           NotificationCenter.default.post(
             name: .timelineNavigateStep, object: nil, userInfo: ["delta": -1])
         }
-        .keyboardShortcut(.leftArrow, modifiers: .command)
+        .keyboardShortcut(AppShortcutRegistry.previousPeriod.key, modifiers: AppShortcutRegistry.previousPeriod.modifiers)
 
         Button("Next Day, Week or Month") {
           NotificationCenter.default.post(
             name: .timelineNavigateStep, object: nil, userInfo: ["delta": 1])
         }
-        .keyboardShortcut(.rightArrow, modifiers: .command)
+        .keyboardShortcut(AppShortcutRegistry.nextPeriod.key, modifiers: AppShortcutRegistry.nextPeriod.modifiers)
 
         Button("Go to Today") {
           NotificationCenter.default.post(name: .timelineNavigateToday, object: nil)
         }
-        .keyboardShortcut("t", modifiers: .command)
+        .keyboardShortcut(AppShortcutRegistry.today.key, modifiers: AppShortcutRegistry.today.modifiers)
 
         Divider()
       }
@@ -427,7 +421,7 @@ struct DayflowApp: App {
         Button("Search Timeline") {
           NotificationCenter.default.post(name: .timelineFocusSearch, object: nil)
         }
-        .keyboardShortcut("f", modifiers: .command)
+        .keyboardShortcut(AppShortcutRegistry.search.key, modifiers: AppShortcutRegistry.search.modifiers)
       }
 
       CommandGroup(after: .sidebar) {
@@ -438,7 +432,7 @@ struct DayflowApp: App {
               NotificationCenter.default.post(
                 name: .navigateToSection, object: nil, userInfo: ["number": number])
             }
-            .keyboardShortcut(KeyEquivalent(Character(String(number))), modifiers: .command)
+            .keyboardShortcut(AppShortcutRegistry.section(number).key, modifiers: AppShortcutRegistry.section(number).modifiers)
           }
         }
       }
@@ -463,7 +457,7 @@ struct DayflowApp: App {
           // Post notification to show What's New modal
           NotificationCenter.default.post(name: .showWhatsNew, object: nil)
         }
-        .keyboardShortcut("N", modifiers: [.command, .shift])
+        .keyboardShortcut(AppShortcutRegistry.releaseNotes.key, modifiers: AppShortcutRegistry.releaseNotes.modifiers)
       }
 
     }
