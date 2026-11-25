@@ -8,7 +8,7 @@ same prompt; accepted menu action permits termination so no duplicate prompt.
 Cancel does not change termination state or release recording resources. Existing
 explicit reset, permission and restart reasons bypass the ordinary quit prompt.
 Command-H remains separate native hide. Native NSAlert uses Quit Dayflow and
-Cancel. No auth/DB/crypto/workflow changes. Version 2.9.4/build182.
+Cancel. No auth/DB/crypto/workflow changes. Version 2.9.9/build182 after merging upstream v2.9.8.
 
 Portable source checks pass. XCTest added for confirm/cancel and restart bypass;
 macOS compile/runtime, actual NSAlert pixels and capture-stop acceptance await

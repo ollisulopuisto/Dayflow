@@ -2,10 +2,18 @@
 
 ## [Unreleased]
 
-## [2.9.4] - 2026-11-25
+## [2.9.9] - 2026-11-25
 
 ### Changed
 - Command-Q, ordinary Quit and status-bar Quit now ask for confirmation, then stop Dayflow instead of hiding while recording. Cancel keeps recording; the dialog explains Command-W/red close button only closes the window. Command-H hides with recording continuing; the special Option-Command-Q shortcut is removed. App-menu shortcuts share one registry.
+
+## [2.9.8] - 2026-11-25
+
+### Changed
+- Import upstream v2.9.8 provider retry fixes and recorded-timezone/DST handling.
+- Add batch timezone and card offset columns with legacy offset backfill.
+- Preserve fork rules-only local privacy masking, fail-closed capture, pending-capture accounting, timeline day clipping and week macroblocks.
+- Keep upstream model downloads, helper process and upstream binary update feed disabled.
 
 ## [2.9.2] - 2026-11-23
 

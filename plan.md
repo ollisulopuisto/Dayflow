@@ -32,6 +32,16 @@ and is the only compiler and test runner. Last green run on this tree: 319 unit 
 - Idle: browser privacy AppleScript runs on a background queue (merged, CI green).
 - Scroll: one time-column reader instead of 24 label readers (merged, CI green).
 
+## In review: upstream v2.9.8 (2026-11-25)
+- Import upstream e835511b, preserve rules-only Vision privacy and fail-closed recorder.
+- Batch time_zone and card utc_offset startup migration, tested against isolated legacy
+  databases by RecordedTimeZoneMigrationTests; timezone/DST regressions promoted from
+  docs into the XCTest target. Native execution still requires macOS CI.
+- Keep pending-capture accounting, both-side day clipping and week macroblocks.
+- No workflow/credential/crypto edits, live DB access, install or release. DB merge held
+  for Olli's explicit word. Additive schema has no automatic downgrade: restore a
+  pre-upgrade backup to undo data changes, which discards subsequent writes.
+
 ## Open
 - Timeline search and ⌘←/⌘→ (merged, CI green, not yet tried in the app). Check: ⌘← in the
   search field and in Chat still moves the cursor; search dims the right cards in Day, Week and Month; in Day/Week
@@ -213,3 +223,8 @@ actual runner behavior. No tag/build/merge; local synthetic tests pass.
 ## 2026-11-25 A9 quit/hide shortcut ownership
 
 Branch fix/mac-quit-hide-shortcut-registry from maind20a865. Version2.9.3/build181. Command-Q and ordinary Dock/App quit now reach normal termination cleanup; Command-H is a separate hide-only action. Removed Option-Command-Q and obsolete soft-quit intro replay state; menu keyboard bindings share AppShortcutRegistry. Existing privacy/provider fork code untouched. XCTest regressions cover ordinary termination and hide not permitting termination, plus registry key/modifier values. Local source-contract test fails on old soft-quit code; after fix2portablequitguards and30existingfork/entitlementguards pass; native XCTest, keyboard dispatch, real recording stop and pixels require macOS CI/device and are not claimed here. Own adversarial review traced every allowTermination/didSoftQuit consumer, standard menu replacement, restart/permission/reset quit reasons and willTerminate segment/checkpoint cleanup. PR only.
+
+## PR137 conflict repair (2026-11-25)
+Merged main7c7fccfa, preserving upstream timezone migrations/privacy and shortcut behavior.
+Resolved release metadata/changelog-only conflicts to2.9.9/build182. Fresh nativeCI
+and independent review required; owner explicitly requested merge after those gates.
