@@ -254,8 +254,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
   }
 
   @objc private func quitDayflow() {
-    AppDelegate.permitTermination(reason: "menu_bar_quit")
-    NSApp.terminate(nil)
+    Self.requestQuit()
+  }
+
+  static func requestQuit(
+    confirm: () -> Bool = AppDelegate.confirmQuit,
+    terminate: () -> Void = { NSApp.terminate(nil) }
+  ) {
+    AppDelegate.quitCompletely(reason: "menu_bar_quit", confirm: confirm, terminate: terminate)
   }
 }
 

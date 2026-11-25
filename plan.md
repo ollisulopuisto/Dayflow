@@ -219,3 +219,12 @@ actual runner behavior. No tag/build/merge; local synthetic tests pass.
   Updated that consumer to keep empty-response rejection; added a contract and
   traced all ChatResponse/message.content consumers again. Own review ran, fixed
   this finding, no other static findings. Native check remains pending.
+
+## 2026-11-25 A9 quit/hide shortcut ownership
+
+Branch fix/mac-quit-hide-shortcut-registry from maind20a865. Version2.9.3/build181. Command-Q and ordinary Dock/App quit now reach normal termination cleanup; Command-H is a separate hide-only action. Removed Option-Command-Q and obsolete soft-quit intro replay state; menu keyboard bindings share AppShortcutRegistry. Existing privacy/provider fork code untouched. XCTest regressions cover ordinary termination and hide not permitting termination, plus registry key/modifier values. Local source-contract test fails on old soft-quit code; after fix2portablequitguards and30existingfork/entitlementguards pass; native XCTest, keyboard dispatch, real recording stop and pixels require macOS CI/device and are not claimed here. Own adversarial review traced every allowTermination/didSoftQuit consumer, standard menu replacement, restart/permission/reset quit reasons and willTerminate segment/checkpoint cleanup. PR only.
+
+## PR137 conflict repair (2026-11-25)
+Merged main7c7fccfa, preserving upstream timezone migrations/privacy and shortcut behavior.
+Resolved release metadata/changelog-only conflicts to2.9.9/build182. Fresh nativeCI
+and independent review required; owner explicitly requested merge after those gates.

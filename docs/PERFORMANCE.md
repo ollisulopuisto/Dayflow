@@ -32,7 +32,8 @@ Background: vImage resample, JPEG encode, `_convertJSONString`.
 2. Fixed (ff783850 and this change): the AppleScript privacy check compiled the script at every capture and ran
    it synchronously on main. Scripts are compiled once, skipped when no setting needs them, and run on a serial
    background queue (`AppleScriptQueue`).
-3. C: 60 s timeline refresh timers keep running when the window is hidden (soft quit = `NSApp.hide`).
+3. C: 60 s timeline refresh timers keep running when the window is hidden (Command-H) or closed (Command-W/red close button).
+   Command-Q, app/Dock Quit and status-bar Quit instead show the same confirmation; confirming fully quits and stops recording, while Cancel leaves recording running.
    They replace the whole non-Equatable `positionedActivities`, so every card re-renders
    (CanvasTimelineDataView.swift:807, Week :701, Month :118). Likely source of the AG time.
 4. C: Every DB op adds a Sentry breadcrumb (`debugSlowQueries = true`, "TEMPORARY", StorageManager.swift:187).
