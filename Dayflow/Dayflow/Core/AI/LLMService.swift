@@ -1167,12 +1167,21 @@ final class LLMService: LLMServicing {
             from: windowStartTime,
             to: currentTime
           )
+        // Convert TimelineCards to ActivityCardData for context. Their clock times are written
+        // in the Mac's current zone, the same zone the model's frames are labelled in and its
+        // answer is read in. Stored labels can be in another zone after the Mac moved.
+        let promptZone = Calendar.current.timeZone
+        func promptLabel(_ timestamp: Int?, stored: String) -> String {
+          guard let timestamp else { return stored }
+          return ClockTime.label(
+            for: Date(timeIntervalSince1970: TimeInterval(timestamp)), in: promptZone)
+        }
         let existingActivityCards: [ActivityCardData] = isReprocess
           ? reprocessMergeAnchor.map { anchor in
             [
               ActivityCardData(
-                startTime: anchor.startTimestamp,
-                endTime: anchor.endTimestamp,
+                startTime: promptLabel(anchor.startTs, stored: anchor.startTimestamp),
+                endTime: promptLabel(anchor.endTs, stored: anchor.endTimestamp),
                 category: anchor.category,
                 subcategory: anchor.subcategory,
                 title: anchor.title,
@@ -1185,8 +1194,8 @@ final class LLMService: LLMServicing {
           } ?? []
           : existingTimelineCards.filter { $0.category != "System" }.map { card in
             ActivityCardData(
-              startTime: card.startTimestamp,
-              endTime: card.endTimestamp,
+              startTime: promptLabel(card.startTs, stored: card.startTimestamp),
+              endTime: promptLabel(card.endTs, stored: card.endTimestamp),
               category: card.category,
               subcategory: card.subcategory,
               title: card.title,

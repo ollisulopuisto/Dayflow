@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.9.8] - 2026-11-25
+
+### Changed
+- Import upstream v2.9.8 provider retry fixes and recorded-timezone/DST handling.
+- Add batch timezone and card offset columns with legacy offset backfill.
+- Preserve fork rules-only local privacy masking, fail-closed capture, pending-capture accounting, timeline day clipping and week macroblocks.
+- Keep upstream model downloads, helper process and upstream binary update feed disabled.
+
 ## [2.9.2] - 2026-11-23
 
 ### Fixed
